@@ -156,3 +156,25 @@ export type ProtocolMessage =
 // ============================================================================
 
 export type MessageHandler<T extends BaseMessage = BaseMessage> = (message: T) => void | Promise<void>;
+
+// ============================================================================
+// MESSAGE INTERCEPTION & FILTERING
+// ============================================================================
+
+export type MessagePriority = 'LOW' | 'NORMAL' | 'HIGH' | 'CRITICAL';
+
+export interface MessageInterceptor {
+    id: string;
+    name: string;
+    filter?: (message: BaseMessage) => boolean;  // Return false to block message
+    transform?: (message: BaseMessage) => BaseMessage;  // Transform message before delivery
+    priority?: MessagePriority;
+}
+
+export interface TelemetryData {
+    messageType: string;
+    count: number;
+    lastTimestamp: Timestamp;
+    averageProcessingTime: number;
+    errorCount: number;
+}
