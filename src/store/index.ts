@@ -51,6 +51,15 @@ interface GameStore {
     setSenses: (senses: Sense[]) => void;
     addSense: (sense: Sense) => void;
 
+    // Deck Drawer State
+    deckState: {
+        isOpen: boolean;
+        activeTab: 'archive' | 'items';
+    };
+    openDeck: (tab: 'archive' | 'items') => void;
+    closeDeck: () => void;
+    setDeckTab: (tab: 'archive' | 'items') => void;
+
     // Module Status
     modulesReady: boolean;
     setModulesReady: (ready: boolean) => void;
@@ -174,6 +183,21 @@ export const useGameStore = create<GameStore>((set, get) => ({
     setSenses: (senses) => set({ senses }),
     addSense: (sense) => set((state) => ({
         senses: [...state.senses, sense]
+    })),
+
+    // Deck Drawer State
+    deckState: {
+        isOpen: false,
+        activeTab: 'archive',
+    },
+    openDeck: (tab) => set({
+        deckState: { isOpen: true, activeTab: tab }
+    }),
+    closeDeck: () => set((state) => ({
+        deckState: { ...state.deckState, isOpen: false }
+    })),
+    setDeckTab: (tab) => set((state) => ({
+        deckState: { ...state.deckState, activeTab: tab }
     })),
 
     // Module Status
