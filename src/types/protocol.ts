@@ -152,6 +152,172 @@ export type ProtocolMessage =
     | ModuleErrorMessage;
 
 // ============================================================================
+// CONSTRUCTION MODULE MESSAGES
+// ============================================================================
+
+export interface ConstructionCreatedMessage extends BaseMessage<any> {
+    type: 'CONSTRUCTION_CREATED';
+}
+
+export interface ConstructionUpdatedMessage extends BaseMessage<any> {
+    type: 'CONSTRUCTION_UPDATED';
+}
+
+export interface ConstructionDeletedMessage extends BaseMessage<{ id: UUID }> {
+    type: 'CONSTRUCTION_DELETED';
+}
+
+// ============================================================================
+// PERSONA MODULE MESSAGES
+// ============================================================================
+
+export interface PersonaActivatedMessage extends BaseMessage<{ personaId: string }> {
+    type: 'PERSONA_ACTIVATED';
+}
+
+export interface ResonanceUpdatedMessage extends BaseMessage<{ personaId: string; resonance: number; change: number }> {
+    type: 'RESONANCE_UPDATED';
+}
+
+export interface TaskCreatedMessage extends BaseMessage<any> {
+    type: 'TASK_CREATED';
+}
+
+export interface TaskCompletedMessage extends BaseMessage<any> {
+    type: 'TASK_COMPLETED';
+}
+
+export interface TaskProgressUpdatedMessage extends BaseMessage<any> {
+    type: 'TASK_PROGRESS_UPDATED';
+}
+
+// ============================================================================
+// ITEM MODULE MESSAGES
+// ============================================================================
+
+export interface ItemAddedMessage extends BaseMessage<any> {
+    type: 'ITEM_ADDED';
+}
+
+export interface ItemRemovedMessage extends BaseMessage<{ instanceId: UUID; itemId: string }> {
+    type: 'ITEM_REMOVED';
+}
+
+export interface ItemUsedMessage extends BaseMessage<{ itemId: string; targetId?: UUID; effects: any }> {
+    type: 'ITEM_USED';
+}
+
+export interface ItemQuantityChangedMessage extends BaseMessage<any> {
+    type: 'ITEM_QUANTITY_CHANGED';
+}
+
+// ============================================================================
+// REVIEW MODULE MESSAGES
+// ============================================================================
+
+export interface ReviewSessionStartedMessage extends BaseMessage<any> {
+    type: 'REVIEW_SESSION_STARTED';
+}
+
+export interface ReviewSessionCompletedMessage extends BaseMessage<any> {
+    type: 'REVIEW_SESSION_COMPLETED';
+}
+
+export interface MiniGameCompletedMessage extends BaseMessage<any> {
+    type: 'MINI_GAME_COMPLETED';
+}
+
+export interface MasteryUpdatedMessage extends BaseMessage<any> {
+    type: 'MASTERY_UPDATED';
+}
+
+// ============================================================================
+// LIBRARY MODULE MESSAGES
+// ============================================================================
+
+export interface LibraryEntryAddedMessage extends BaseMessage<any> {
+    type: 'LIBRARY_ENTRY_ADDED';
+}
+
+export interface LibraryEntryDiscoveredMessage extends BaseMessage<any> {
+    type: 'LIBRARY_ENTRY_DISCOVERED';
+}
+
+export interface LibraryStabilityUpdatedMessage extends BaseMessage<{ id: UUID; stability: number }> {
+    type: 'LIBRARY_STABILITY_UPDATED';
+}
+
+export interface FavoriteAddedMessage extends BaseMessage<{ id: UUID }> {
+    type: 'FAVORITE_ADDED';
+}
+
+export interface FavoriteRemovedMessage extends BaseMessage<{ id: UUID }> {
+    type: 'FAVORITE_REMOVED';
+}
+
+export interface AchievementUnlockedMessage extends BaseMessage<{ achievementId: string }> {
+    type: 'ACHIEVEMENT_UNLOCKED';
+}
+
+// ============================================================================
+// SEDIMENTATION MODULE MESSAGES
+// ============================================================================
+
+export interface FeedbackSubmittedMessage extends BaseMessage<any> {
+    type: 'FEEDBACK_SUBMITTED';
+}
+
+export interface MetaDataUpdatedMessage extends BaseMessage<any> {
+    type: 'META_DATA_UPDATED';
+}
+
+export interface ErrorReportedMessage extends BaseMessage<any> {
+    type: 'ERROR_REPORTED';
+}
+
+export interface FirstDiscovererSetMessage extends BaseMessage<{ targetId: UUID; discoverer: string }> {
+    type: 'FIRST_DISCOVERER_SET';
+}
+
+export interface ReportStatusUpdatedMessage extends BaseMessage<any> {
+    type: 'REPORT_STATUS_UPDATED';
+}
+
+// ============================================================================
+// EXTENDED MESSAGE UNION TYPE
+// ============================================================================
+
+export type ExtendedProtocolMessage =
+    | ProtocolMessage
+    | ConstructionCreatedMessage
+    | ConstructionUpdatedMessage
+    | ConstructionDeletedMessage
+    | PersonaActivatedMessage
+    | ResonanceUpdatedMessage
+    | TaskCreatedMessage
+    | TaskCompletedMessage
+    | TaskProgressUpdatedMessage
+    | ItemAddedMessage
+    | ItemRemovedMessage
+    | ItemUsedMessage
+    | ItemQuantityChangedMessage
+    | ReviewSessionStartedMessage
+    | ReviewSessionCompletedMessage
+    | MiniGameCompletedMessage
+    | MasteryUpdatedMessage
+    | LibraryEntryAddedMessage
+    | LibraryEntryDiscoveredMessage
+    | LibraryStabilityUpdatedMessage
+    | FavoriteAddedMessage
+    | FavoriteRemovedMessage
+    | AchievementUnlockedMessage
+    | FeedbackSubmittedMessage
+    | MetaDataUpdatedMessage
+    | ErrorReportedMessage
+    | FirstDiscovererSetMessage
+    | ReportStatusUpdatedMessage;
+
+// ============================================================================
 // MESSAGE HANDLER TYPE
 // ============================================================================
 

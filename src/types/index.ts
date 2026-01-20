@@ -252,3 +252,30 @@ export interface ModuleState {
     error?: string;
     initializedAt?: Timestamp;
 }
+
+// ============================================================================
+// RE-EXPORTS FROM MODULE-SPECIFIC TYPES
+// ============================================================================
+
+// Persona Module
+export type { PersonaType, Persona, PersonaTask, NarrativeState } from '../modules/persona/PersonaModule';
+
+// Item Module
+export type { ItemType, ItemRarity, Item, InventoryItem, ItemUsageResult } from '../modules/item/ItemModule';
+
+// Review Module
+export type { MiniGameType, ReviewSession, MiniGame, MasteryData } from '../modules/review/ReviewModule';
+
+// Library Module
+export type { LibraryEntry, SearchFilters, PersonalShowcase } from '../modules/library/LibraryModule';
+
+// Sedimentation Module
+export type { FeedbackType, Feedback, MetaData, ErrorReport } from '../modules/sedimentation/SedimentationModule';
+
+// Level Module
+export type { LevelConfig, UnlockableFeature, DifficultyMetrics } from '../modules/level/LevelModule';
+
+// Platform Adapter
+export type { Platform, ViewportInfo, InputCapabilities } from '../core/platform/PlatformAdapter';
+
+

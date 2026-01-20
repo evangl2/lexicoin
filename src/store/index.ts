@@ -15,8 +15,11 @@ import type {
     Language,
     ModelId,
     Sense,
-    UUID
-} from '@types/index';
+    UUID,
+    PersonaType,
+    InventoryItem,
+    Construction,
+} from '../types/index';
 import { generateId } from '@utils/helpers';
 
 // ============================================================================
@@ -63,6 +66,38 @@ interface GameStore {
     // Module Status
     modulesReady: boolean;
     setModulesReady: (ready: boolean) => void;
+
+    // Persona State
+    activePersona?: PersonaType;
+    setActivePersona: (personaId: PersonaType) => void;
+    personaResonance: Record<PersonaType, number>;
+    updateResonance: (personaId: PersonaType, amount: number) => void;
+
+    // Construction State (cached from ConstructionModule)
+    constructions: Construction[];
+    setConstructions: (constructions: Construction[]) => void;
+    addConstruction: (construction: Construction) => void;
+
+    // Inventory State (cached from ItemModule)
+    inventory: InventoryItem[];
+    setInventory: (items: InventoryItem[]) => void;
+    addInventoryItem: (item: InventoryItem) => void;
+    removeInventoryItem: (instanceId: UUID) => void;
+
+    // Review State
+    activeReviewSession?: UUID;
+    setActiveReviewSession: (sessionId?: UUID) => void;
+    reviewDueSenses: UUID[];
+    setReviewDueSenses: (senseIds: UUID[]) => void;
+
+    // Library State
+    libraryFilter: {
+        query?: string;
+        type?: 'SENSE' | 'CONSTRUCTION';
+        discovered?: boolean;
+    };
+    setLibraryFilter: (filter: Partial<typeof initialLibraryFilter>) => void;
+    clearLibraryFilter: () => void;
 }
 
 // ============================================================================
@@ -111,6 +146,12 @@ const initialDragState: DragState = {
     currentPos: { x: 0, y: 0 },
     offset: { x: 0, y: 0 },
     source: 'CANVAS',
+};
+
+const initialLibraryFilter = {
+    query: undefined,
+    type: undefined,
+    discovered: undefined,
 };
 
 // ============================================================================
@@ -203,4 +244,50 @@ export const useGameStore = create<GameStore>((set, get) => ({
     // Module Status
     modulesReady: false,
     setModulesReady: (ready) => set({ modulesReady: ready }),
+
+    // Persona State
+    activePersona: undefined,
+    setActivePersona: (personaId) => set({ activePersona: personaId }),
+    personaResonance: {
+        LOGICIAN: 0,
+        POET: 0,
+        ALCHEMIST: 0,
+        MYSTIC: 0,
+    },
+    updateResonance: (personaId, amount) => set((state) => ({
+        personaResonance: {
+            ...state.personaResonance,
+            [personaId]: Math.max(0, Math.min(100, state.personaResonance[personaId] + amount)),
+        }
+    })),
+
+    // Construction State
+    constructions: [],
+    setConstructions: (constructions) => set({ constructions }),
+    addConstruction: (construction) => set((state) => ({
+        constructions: [...state.constructions, construction]
+    })),
+
+    // Inventory State
+    inventory: [],
+    setInventory: (items) => set({ inventory: items }),
+    addInventoryItem: (item) => set((state) => ({
+        inventory: [...state.inventory, item]
+    })),
+    removeInventoryItem: (instanceId) => set((state) => ({
+        inventory: state.inventory.filter(item => item.instanceId !== instanceId)
+    })),
+
+    // Review State
+    activeReviewSession: undefined,
+    setActiveReviewSession: (sessionId) => set({ activeReviewSession: sessionId }),
+    reviewDueSenses: [],
+    setReviewDueSenses: (senseIds) => set({ reviewDueSenses: senseIds }),
+
+    // Library State
+    libraryFilter: initialLibraryFilter,
+    setLibraryFilter: (filter) => set((state) => ({
+        libraryFilter: { ...state.libraryFilter, ...filter }
+    })),
+    clearLibraryFilter: () => set({ libraryFilter: initialLibraryFilter }),
 }));

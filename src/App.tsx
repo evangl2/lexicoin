@@ -11,42 +11,24 @@ import { DevConsole } from '@ui/components/system/DevConsole';
 import { NotificationSystem } from '@ui/components/system/NotificationSystem';
 import { logger } from '@utils/logger';
 
-// Import modules for initialization
-import { messageBus } from '@core/protocol/MessageBus';
-import { storageManager } from '@core/storage/StorageManager';
-import { senseModule } from '@modules/sense/SenseModule';
+// Import centralized module initialization
+import { initializeModules } from '@core/init/moduleInit';
 
 function App() {
     const viewMode = useGameStore(state => state.viewMode);
-    const setModulesReady = useGameStore(state => state.setModulesReady);
-    const setSenses = useGameStore(state => state.setSenses);
+    const modulesReady = useGameStore(state => state.modulesReady);
 
-    // Initialize modules on mount
+    // Initialize all modules on mount
     useEffect(() => {
         const initializeApp = async () => {
             logger.info('Initializing Lexicoin...', undefined, 'App');
 
             try {
-                // Load persisted data
-                const savedSenses = await storageManager.loadSenses();
-                if (savedSenses.length > 0) {
-                    senseModule.loadSenses(savedSenses);
-                    setSenses(savedSenses);
-                    logger.info(`Loaded ${savedSenses.length} senses from storage`, undefined, 'App');
-                }
-
-                // Subscribe to sense changes
-                messageBus.subscribe('SENSE_CREATED', (message) => {
-                    const sense = message.payload;
-                    setSenses(senseModule.getAllSenses());
-                    logger.debug('Sense created, updating store', { id: sense.id }, 'App');
-                });
-
-                // Mark modules as ready
-                setModulesReady(true);
-                logger.info('All modules initialized successfully', undefined, 'App');
+                // Use centralized module initialization
+                await initializeModules();
+                logger.info('✅ All modules initialized successfully', undefined, 'App');
             } catch (error) {
-                logger.error('Failed to initialize app', error, 'App');
+                logger.error('❌ Failed to initialize app', error, 'App');
             }
         };
 
