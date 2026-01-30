@@ -1,12 +1,10 @@
 /**
  * App Component - Main Application Entry
  * 
- * Root component that initializes all modules and renders the UI
+ * Root component that initializes all modules and renders the new Canvas-based UI
  */
 
-import React, { useEffect } from 'react';
-import { useGameStore } from '@store/index';
-import { WorldView } from '@ui/views/WorldView';
+import { useEffect } from 'react';
 import { DevConsole } from '@ui/components/system/DevConsole';
 import { NotificationSystem } from '@ui/components/system/NotificationSystem';
 import { logger } from '@utils/logger';
@@ -14,9 +12,10 @@ import { logger } from '@utils/logger';
 // Import centralized module initialization
 import { initializeModules } from '@core/init/moduleInit';
 
+// Import the new Canvas UI
+import CanvasApp from './app/App';
+
 function App() {
-    const viewMode = useGameStore(state => state.viewMode);
-    const modulesReady = useGameStore(state => state.modulesReady);
 
     // Initialize all modules on mount
     useEffect(() => {
@@ -37,8 +36,8 @@ function App() {
 
     return (
         <div className="app-container">
-            {/* Main View */}
-            {viewMode === 'WORLD' && <WorldView />}
+            {/* Main Canvas UI from reference frontend */}
+            <CanvasApp />
 
             {/* System Components */}
             <NotificationSystem />

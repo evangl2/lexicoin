@@ -25,6 +25,12 @@
         /* Path Aliases */
         "baseUrl": ".",
         "paths": {
+            "@/*": [
+                "./src/*"
+            ],
+            "@/app/*": [
+                "./src/app/*"
+            ],
             "@core/*": [
                 "./src/core/*"
             ],
