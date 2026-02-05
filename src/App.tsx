@@ -5,8 +5,8 @@
  */
 
 import { useEffect } from 'react';
-import { DevConsole } from '@ui/components/system/DevConsole';
-import { NotificationSystem } from '@ui/components/system/NotificationSystem';
+import { DevConsole } from '@/app/components/system/DevConsole';
+import { NotificationSystem } from '@/app/components/system/NotificationSystem';
 import { logger } from '@utils/logger';
 
 // Import centralized module initialization

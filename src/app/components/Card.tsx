@@ -1,59 +1,73 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useDrop } from 'react-dnd';
-import { motion, useVelocity, useTransform, useSpring, useMotionTemplate, useMotionValue, MotionValue } from 'motion/react';
+import { motion, useVelocity, useTransform, useSpring, useMotionValue, MotionValue } from 'motion/react';
 import { useDrag } from '@use-gesture/react';
 import { DefaultCardPersona as CardPersona } from '@/app/components/persona/default/Card.persona.default';
-import { CardVisual, getElementLabel } from '@/app/components/CardVisual';
+import { CardVisual } from '@/app/components/CardVisual';
+import type { CardEntity } from '@/types/CardEntity';
+import type { Language } from 'a:/lexicoin/lexicoin/schemas/schemas/SenseEntity.schema';
 
 // --- Types & Data ---
-// (Moved to CardVisual.tsx)
 
 interface CardProps {
-  id: string;
-  title: string;
-  image: string;
+  /**
+   * Complete card data (extracted from SenseEntity)
+   * Contains all displayData, senseInfo, visual, and rawSense
+   */
+  cardData: CardEntity;
+
+  /**
+   * Current display language for the card
+   * Used to select displayData[currentLanguage] for rendering
+   */
+  currentLanguage: Language;
+
+  /**
+   * System language for UI elements (fallback language)
+   */
+  systemLanguage: Language;
+
+  // ========== Canvas Transform ==========
   x: MotionValue<number>;
   y: MotionValue<number>;
   width: number;
   height: number;
   canvasScale: number;
 
-  // Alchemy Props
-  difficultyLevel?: string;
-  partOfSpeech?: string;
-  durability?: number;
-  systemLanguage?: string;
-  learningLanguage?: string;
-
+  // ========== Callbacks ==========
   onDragStart?: () => void;
   onDragEnd?: () => void;
   updatePosition: (id: string, x: number, y: number) => void;
   onDelete?: () => void;
-  onChangeImage?: (url: string) => void;
   onDropItem?: (item: any) => void;
   isHidden?: boolean;
 }
 
 export const Card: React.FC<CardProps> = ({
-  id,
-  title,
-  image,
+  cardData,
+  currentLanguage,
+  systemLanguage,
   x,
   y,
   width,
   height,
   canvasScale,
-  difficultyLevel = "A1",
-  partOfSpeech = "n.",
-  durability = 100,
-  systemLanguage = "EN",
-  learningLanguage = "ENGLISH",
   onDragStart,
   onDragEnd,
   updatePosition,
   isHidden = false,
   onDropItem,
 }) => {
+  // ========== Extract Display Data from CardEntity ==========
+  // Select display data for current language
+  const displayData = cardData.displayData[currentLanguage];
+
+  // Extract commonly used fields for convenience
+  const id = cardData.uid;
+  const title = displayData.word;
+  const difficultyLevel = displayData.level;
+  const partOfSpeech = displayData.pos;
+  const durability = cardData.senseInfo.durability;
   const [isHovered, setIsHovered] = useState(false);
 
   // --- Drop Target (Items) ---
@@ -95,14 +109,22 @@ export const Card: React.FC<CardProps> = ({
   }, [centerX, centerY]);
 
   useEffect(() => {
-    if (!isExpanded) return;
+    // Only track mouse on front face (when expanded but not flipped)
+    if (!isExpanded || isFlipped) return;
     const handleMouseMove = (e: MouseEvent) => {
       mouseX.set(e.clientX);
       mouseY.set(e.clientY);
     };
     window.addEventListener('mousemove', handleMouseMove);
     return () => window.removeEventListener('mousemove', handleMouseMove);
-  }, [isExpanded, mouseX, mouseY]);
+  }, [isExpanded, isFlipped, mouseX, mouseY]);
+
+  // Auto-expand when flipped to back face
+  useEffect(() => {
+    if (isFlipped) {
+      setIsExpanded(true);
+    }
+  }, [isFlipped]);
 
   useEffect(() => {
     const handleGlobalClick = (e: PointerEvent) => {
@@ -141,30 +163,11 @@ export const Card: React.FC<CardProps> = ({
     return ((val - center) / center) * CardPersona.physics.inspection.tiltFactor;
   });
 
-  const displayRotateX = isExpanded ? mouseRotateX : velocityRotateX;
-  const displayRotateY = isExpanded ? mouseRotateY : velocityRotateY;
-  const displayRotateZ = isExpanded ? 0 : velocityRotateZ;
-
-  // --- Glare & Sheen ---
-  const glarePos = useTransform(displayRotateY, [-20, 20], ["0%", "100%"]);
-  const movementIntensity = useTransform(
-    [smoothXVelocity, smoothYVelocity],
-    ([vx, vy]) => {
-      const speed = Math.sqrt(vx * vx + vy * vy);
-      return Math.min(speed / 1000, CardPersona.physics.glare.opacityCap);
-    }
-  );
-  const targetGlareOpacity = isExpanded ? 0 : movementIntensity;
-  const glareBackground = useMotionTemplate`
-    linear-gradient(
-      115deg, 
-      transparent 0%, 
-      rgba(192, 160, 98, 0.0) ${glarePos}, 
-      ${CardPersona.physics.glare.color} calc(${glarePos} + 10%), 
-      rgba(192, 160, 98, 0.0) calc(${glarePos} + 25%), 
-      transparent 100%
-    )
-  `;
+  // Back face: no rotation at all. Front face: normal behavior
+  const zeroRotation = useMotionValue(0);
+  const displayRotateX = isFlipped ? zeroRotation : (isExpanded ? mouseRotateX : velocityRotateX);
+  const displayRotateY = isFlipped ? zeroRotation : (isExpanded ? mouseRotateY : velocityRotateY);
+  const displayRotateZ = isFlipped ? zeroRotation : (isExpanded ? zeroRotation : velocityRotateZ);
 
   // --- Scale ---
   const getExpandedScale = () => {
@@ -176,7 +179,8 @@ export const Card: React.FC<CardProps> = ({
     return targetSize / (cardMaxDim * safeScale);
   };
   const expandedScale = getExpandedScale();
-  const targetScale = isExpanded ? expandedScale : isDragging ? 1.15 : isHovered ? 1.05 : 1;
+  // Back face: always expanded scale, no hover effect. Front face: normal behavior
+  const targetScale = isFlipped ? expandedScale : (isExpanded ? expandedScale : isDragging ? 1.15 : isHovered ? 1.05 : 1);
 
   // --- Parallax & Depth ---
   const bgParallaxX = useTransform(displayRotateY, [-20, 20], [15, -15]);
@@ -203,6 +207,9 @@ export const Card: React.FC<CardProps> = ({
 
   // --- Gesture ---
   const bind = useDrag(({ active, xy: [px, py], movement: [mx, my], delta: [dx, dy], first, last }) => {
+    // Disable dragging when card is flipped to back face
+    if (isFlipped) return;
+
     if (first) {
       setIsDragging(true);
       if (isExpanded) {
@@ -261,7 +268,7 @@ export const Card: React.FC<CardProps> = ({
       x.set(finalX);
       y.set(finalY);
 
-      updatePosition(id, finalX, finalY);
+      updatePosition(cardData.uid, finalX, finalY);
     }
     if (last) {
       setIsDragging(false);
@@ -280,27 +287,27 @@ export const Card: React.FC<CardProps> = ({
         cardRef.current = node;
         drop(node);
       }}
-      {...handlers}
+      {...(isFlipped ? {} : handlers)} // CRITICAL FIX: Only apply drag handlers on front face
       onClick={(e) => {
         if (isDragging) return;
         // Ensure only left click triggers this logic to prevent conflict with context menu
         if (e.button !== 0) return;
 
-        // When back face is visible, ignore clicks on interactive back face content
+        // Back face: always expanded, clicks handled by selection boxes
+        // No zoom toggle on back face - use right-click to flip back to front
         if (isFlipped) {
           const target = e.target as HTMLElement;
-          // Check if the click is within the back face content area
+          // Back face content clicks are handled by selection boxes
           if (target.closest('.back-face-content')) {
-            // This is within the back face, don't handle zoom here
             return;
           }
+          // Clicking background area on back face does nothing
+          // User should right-click to flip back to front
+          return;
         }
 
-        if (!isFlipped) {
-          setIsExpanded(!isExpanded);
-        } else {
-          setIsExpanded(true);
-        }
+        // Front face: toggle expansion
+        setIsExpanded(!isExpanded);
       }}
       onContextMenu={(e) => {
         e.preventDefault();
@@ -317,30 +324,34 @@ export const Card: React.FC<CardProps> = ({
         rotateX: displayRotateX, rotateY: displayRotateY, rotateZ: displayRotateZ,
         zIndex,
         opacity: isHidden ? 0 : 1, // Hide when proxy is active
+        // GPU Acceleration: Force hardware acceleration with translate3d
+        transform: 'translate3d(0, 0, 0)',
         // Dynamic performance optimization: 
-        // Only hint will-change during active high-framerate dragging to prevent blurring during static reads
-        willChange: isDragging ? 'transform' : 'auto',
+        // Only hint will-change during active high-framerate operations to prevent blurring
+        willChange: (isDragging || isExpanded) ? 'transform' : 'auto',
         transformStyle: 'preserve-3d', // Enable 3D context for sharper scaling
-        cursor: isDragging ? "grabbing" : (isExpanded ? "zoom-out" : "grab"),
+        cursor: isFlipped ? 'default' : (isDragging ? "grabbing" : (isExpanded ? "zoom-out" : "grab")),
         position: 'absolute', left: '50%', top: '50%',
         marginLeft: -width / 2, marginTop: -height / 2,
         touchAction: 'none',
       }}
-      onPointerDown={(e) => { e.stopPropagation(); handlers.onPointerDown(e); }}
-      onHoverStart={() => setIsHovered(true)}
-      onHoverEnd={() => setIsHovered(false)}
+      onPointerDown={(e) => {
+        e.stopPropagation();
+        if (!isFlipped) handlers.onPointerDown(e);
+      }}
+      onHoverStart={() => !isFlipped && setIsHovered(true)}
+      onHoverEnd={() => !isFlipped && setIsHovered(false)}
       onDoubleClick={(e) => e.stopPropagation()}
       animate={{ scale: targetScale, boxShadow: targetShadow }}
       transition={CardPersona.physics.springs.scale}
       className="canvas-card select-none group relative transition-colors duration-300"
     >
       <CardVisual
-        title={title}
-        difficultyLevel={difficultyLevel}
-        partOfSpeech={partOfSpeech}
-        durability={durability}
+        displayData={displayData}
+        senseInfo={cardData.senseInfo}
+        visual={cardData.visual}
         systemLanguage={systemLanguage}
-        learningLanguage={learningLanguage}
+        currentLanguage={currentLanguage}
         isActive={isActive}
         isOver={isOver}
 
@@ -353,8 +364,10 @@ export const Card: React.FC<CardProps> = ({
         fgParallaxX={fgParallaxX}
         fgParallaxY={fgParallaxY}
 
-        glareBackground={glareBackground}
-        targetGlareOpacity={targetGlareOpacity}
+        displayRotateY={displayRotateY}
+        smoothXVelocity={smoothXVelocity}
+        smoothYVelocity={smoothYVelocity}
+        isExpanded={isExpanded}
       />
     </motion.div>
   );

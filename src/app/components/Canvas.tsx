@@ -25,6 +25,12 @@ export const Canvas: React.FC<CanvasProps> = ({ children, scale, x, y, onDoubleC
   const HALF_W = WORLD_W / 2;
   const HALF_H = WORLD_H / 2;
 
+  // ============================================================
+  // RAF THROTTLE UTILITY (Performance Optimization)
+  // ============================================================
+  const rafThrottle = useRef<number | null>(null);
+  const pendingWheelEvent = useRef<{ delta: number; event: WheelEvent } | null>(null);
+
   const clampCamera = (currentX: number, currentY: number, currentScale: number) => {
     if (typeof window === 'undefined') return { x: currentX, y: currentY };
     const screenW = window.innerWidth;
@@ -78,31 +84,50 @@ export const Canvas: React.FC<CanvasProps> = ({ children, scale, x, y, onDoubleC
       },
       onWheel: ({ delta: [, dy], event }) => {
         event.preventDefault();
-        const currentScale = scale.get();
-        const currentX = x.get();
-        const currentY = y.get();
-        const screenW = window.innerWidth;
-        const screenH = window.innerHeight;
-        const minScaleW = screenW / WORLD_W;
-        const minScaleH = screenH / WORLD_H;
-        const dynamicMinScale = Math.max(minScaleW, minScaleH);
-        const limitMinScale = Math.max(0.08, dynamicMinScale);
 
-        const zoomFactor = -dy * 0.001;
-        const newScale = Math.min(Math.max(limitMinScale, currentScale + zoomFactor), 2.0);
+        // Store the latest wheel event data
+        pendingWheelEvent.current = { delta: dy, event: event as WheelEvent };
 
-        if (newScale === currentScale) return;
+        // If a RAF is already scheduled, skip this frame
+        if (rafThrottle.current !== null) return;
 
-        const mouseX = event.clientX;
-        const mouseY = event.clientY;
-        const scaleRatio = newScale / currentScale;
-        const nextX = mouseX - (mouseX - currentX) * scaleRatio;
-        const nextY = mouseY - (mouseY - currentY) * scaleRatio;
-        const clamped = clampCamera(nextX, nextY, newScale);
+        // Schedule processing on next animation frame
+        rafThrottle.current = requestAnimationFrame(() => {
+          if (!pendingWheelEvent.current) {
+            rafThrottle.current = null;
+            return;
+          }
 
-        scale.set(newScale);
-        x.set(clamped.x);
-        y.set(clamped.y);
+          const { delta: latestDy, event: latestEvent } = pendingWheelEvent.current;
+          pendingWheelEvent.current = null;
+          rafThrottle.current = null;
+
+          const currentScale = scale.get();
+          const currentX = x.get();
+          const currentY = y.get();
+          const screenW = window.innerWidth;
+          const screenH = window.innerHeight;
+          const minScaleW = screenW / WORLD_W;
+          const minScaleH = screenH / WORLD_H;
+          const dynamicMinScale = Math.max(minScaleW, minScaleH);
+          const limitMinScale = Math.max(0.08, dynamicMinScale);
+
+          const zoomFactor = -latestDy * 0.001;
+          const newScale = Math.min(Math.max(limitMinScale, currentScale + zoomFactor), 2.0);
+
+          if (newScale === currentScale) return;
+
+          const mouseX = latestEvent.clientX;
+          const mouseY = latestEvent.clientY;
+          const scaleRatio = newScale / currentScale;
+          const nextX = mouseX - (mouseX - currentX) * scaleRatio;
+          const nextY = mouseY - (mouseY - currentY) * scaleRatio;
+          const clamped = clampCamera(nextX, nextY, newScale);
+
+          scale.set(newScale);
+          x.set(clamped.x);
+          y.set(clamped.y);
+        });
       }
     },
     {

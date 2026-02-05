@@ -1,12 +1,11 @@
-import React, {
+import {
   useState,
   useEffect,
   useCallback,
-  useMemo,
 } from "react";
-import { useMotionValue, MotionValue, useTransform, motion } from "motion/react";
+import { useMotionValue, MotionValue } from "motion/react";
 import { motionValue } from "motion";
-import { DndProvider, useDrop, useDragLayer, XYCoord } from "react-dnd";
+import { DndProvider, useDrop, useDragLayer } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
 import { Canvas } from "@/app/components/Canvas";
 import { Card } from "@/app/components/Card";
@@ -16,8 +15,12 @@ import { Dock } from "@/app/components/Dock";
 import { usePhysics } from "@/app/hooks/usePhysics";
 import { DefaultCanvasPersona } from "@/app/components/persona/default/Canvas.persona.default";
 import { PersonaProvider } from "@/app/context/PersonaContext";
-import { LayoutGrid, Focus } from "lucide-react";
-import { nanoid } from "nanoid";
+import { Focus } from "lucide-react";
+
+import type { CardEntity } from "@/types/CardEntity";
+import { sensesToCards } from "@/pipelines/senseToCard";
+import { INITIAL_SENSES } from "../../schemas/data/initialSenses";
+import type { Language } from 'a:/lexicoin/lexicoin/schemas/schemas/SenseEntity.schema';
 
 // Simple types for storage
 export interface SavedItem {
@@ -35,35 +38,22 @@ export interface SavedItem {
 }
 
 // Runtime types with MotionValues
-interface Item extends SavedItem {
+interface CardItem {
+  cardData: CardEntity; // Actual card data
   mx: MotionValue<number>;
   my: MotionValue<number>;
   width: number;
   height: number;
 }
 
-// Initial Mock Data for Canvas
-const INITIAL_ITEMS: SavedItem[] = [
-  {
-    id: "wind",
-    title: "Wind",
-    image:
-      "https://images.unsplash.com/photo-1599071629350-7b79b9198c72?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxuYXR1cmUlMjB3aW5kJTIwYWJzdHJhY3R8ZW58MXx8fHwxNzY4OTA5NTQ2fDA&ixlib=rb-4.1.0&q=80&w=1080",
-    x: -250,
-    y: -250,
-    type: 'CARD',
-    pos: 'Element', difficulty: 1, durability: 100
-  },
-  {
-    id: "fire",
-    title: "Fire",
-    image:
-      "https://images.unsplash.com/photo-1727593458591-aed56a590222?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxmaXJlJTIwZmxhbWUlMjBhYnN0cmFjdHxlbnwxfHx8fDE3Njg5MDk1NDZ8MA&ixlib=rb-4.1.0&q=80&w=1080",
-    x: 250,
-    y: -250,
-    type: 'CARD',
-    pos: 'Element', difficulty: 2, durability: 80
-  },
+// ========== Initial Card Data ==========
+// Transform INITIAL_SENSES to CardEntity using senseToCard pipeline
+const INITIAL_CARD_ENTITIES: CardEntity[] = sensesToCards(INITIAL_SENSES);
+
+// Initial positions for first 2 cards
+const INITIAL_POSITIONS = [
+  { x: -250, y: -250 },
+  { x: 250, y: -250 },
 ];
 
 // Initial Mock Data for Deck (Cards)
@@ -98,48 +88,13 @@ const getLoc = (key: string, lang: string = 'ENGLISH') => {
   return isZh ? (dict[key]?.zh || key) : (dict[key]?.en || key);
 };
 
-// --- Drag Proxy Component ---
-const DragProxy = ({ item, canvasX, canvasY, canvasScale, scaleState, systemLang, learningLang }: { item: Item, canvasX: MotionValue<number>, canvasY: MotionValue<number>, canvasScale: MotionValue<number>, scaleState: number, systemLang: string, learningLang: string }) => {
-  // Convert Canvas Coordinates to Screen Coordinates for the Proxy
-  // Formula: ScreenPos = CanvasTranslation + (ItemPos * Scale) - (Size * Scale / 2)
-  const x = useTransform([canvasX, item.mx, canvasScale], ([cx, mx, s]) => cx + mx * s - (item.width * s) / 2);
-  const y = useTransform([canvasY, item.my, canvasScale], ([cy, my, s]) => cy + my * s - (item.height * s) / 2);
-
-  return (
-    <motion.div
-      style={{
-        x, y,
-        position: 'absolute',
-        top: 0, left: 0,
-        // Ensure it ignores pointer events so it doesn't block the mouse
-        pointerEvents: 'none',
-        width: item.width * scaleState,
-        height: item.height * scaleState
-      }}
-    >
-      <DragPreviewCard
-        title={item.title}
-        image={item.image}
-        width={250}
-        height={350}
-        scale={scaleState}
-        systemLanguage={systemLang}
-        learningLanguage={learningLang}
-        difficultyLevel={item.difficulty?.toString() || "A1"}
-        partOfSpeech={item.pos || "n."}
-        durability={item.durability || 100}
-        layoutMode={scaleState < 0.6 ? 'compact' : 'default'}
-      />
-    </motion.div>
-  )
-}
 
 function InnerApp() {
   const canvasX = useMotionValue(0);
   const canvasY = useMotionValue(0);
   const canvasScale = useMotionValue(1);
   const [scaleState, setScaleState] = useState(1);
-  const [items, setItems] = useState<Item[]>([]);
+  const [items, setItems] = useState<CardItem[]>([]);
   const [storedItems, setStoredItems] = useState<SavedItem[]>(INITIAL_DECK_ITEMS);
   const [propItems, setPropItems] = useState<SavedItem[]>(INITIAL_PROP_ITEMS);
   const [draggingId, setDraggingId] = useState<string | null>(null);
@@ -150,6 +105,21 @@ function InnerApp() {
   // Settings State
   const [learningLang, setLearningLang] = useState('ENGLISH');
   const [systemLang, setSystemLang] = useState('ENGLISH'); // Default English to start
+
+  // Map UI language names to CardEntity Language codes
+  const mapLanguageCode = (uiLang: string): Language => {
+    const langMap: Record<string, Language> = {
+      'ENGLISH': 'en',
+      '简体中文': 'zh-CN',
+      'FRANÇAIS': 'fr',
+      'DEUTSCH': 'de',
+      '日本語': 'ja',
+      'ESPAÑOL': 'es',
+      'ITALIANO': 'it',
+      'PORTUGUÊS': 'pt',
+    };
+    return langMap[uiLang] || 'en'; // Default to 'en'
+  };
 
   // Helper to close all menus
   const closeMenus = useCallback(() => {
@@ -162,40 +132,47 @@ function InnerApp() {
     return canvasScale.on("change", setScaleState);
   }, [canvasScale]);
 
-  // Load from local storage
+  // Load from local storage (positions only - data comes from INITIAL_CARD_ENTITIES)
   useEffect(() => {
     const saved = localStorage.getItem("canvas-items");
-    let initialData = INITIAL_ITEMS;
+    let positions = INITIAL_POSITIONS;
+
     if (saved) {
       try {
-        initialData = JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        // Extract positions from saved data
+        positions = parsed.map((p: any) => ({ x: p.x, y: p.y }));
       } catch (e) {
-        console.error("Failed to parse saved items", e);
+        console.error("Failed to parse saved positions", e);
       }
     }
 
-    setItems(
-      initialData.map((item) => ({
-        ...item,
+    // Combine CardEntity data with positions
+    const initialCards = INITIAL_CARD_ENTITIES.slice(0, 2).map((cardData, idx) => {
+      const pos = positions[idx] || { x: 0, y: 0 };
+      return {
+        cardData: {
+          ...cardData,
+          position: pos // Update position in CardEntity
+        },
         width: 250,
         height: 350,
-        mx: motionValue(item.x),
-        my: motionValue(item.y),
-      })),
-    );
+        mx: motionValue(pos.x),
+        my: motionValue(pos.y),
+      };
+    });
+
+    setItems(initialCards);
     setIsLoaded(true);
   }, []);
 
-  // Save to local storage
+  // Save positions to local storage (CardEntity data is static)
   const saveItems = useCallback(() => {
     if (!isLoaded) return;
-    const dataToSave: SavedItem[] = items.map((item) => ({
-      id: item.id,
-      title: item.title,
-      image: item.image,
+    const dataToSave = items.map((item) => ({
+      uid: item.cardData.rawSense.uid,
       x: item.mx.get(),
       y: item.my.get(),
-      type: item.type || 'CARD',
     }));
     localStorage.setItem("canvas-items", JSON.stringify(dataToSave));
   }, [items, isLoaded]);
@@ -203,7 +180,7 @@ function InnerApp() {
   // Physics Hook
   usePhysics(
     items.map((item) => ({
-      id: item.id,
+      id: item.cardData.rawSense.uid,
       x: item.mx,
       y: item.my,
       width: item.width,
@@ -224,7 +201,7 @@ function InnerApp() {
   // --- Deck Interaction Logic ---
 
   // 1. Drop from Deck to Canvas
-  const [{ isOver }, drop] = useDrop(() => ({
+  const [, drop] = useDrop(() => ({
     accept: ['CARD'], // ONLY Accept CARDS on Canvas background
     drop: (item: SavedItem, monitor) => {
       const clientOffset = monitor.getClientOffset();
@@ -238,32 +215,10 @@ function InnerApp() {
       const x = (clientOffset.x - cx) / s;
       const y = (clientOffset.y - cy) / s;
 
-      // Create new card on canvas
-      const newItem: Item = {
-        id: nanoid(), // New ID
-        title: item.title,
-        image: item.image,
-        x,
-        y,
-        width: 250,
-        height: 350,
-        mx: motionValue(x),
-        my: motionValue(y),
-        type: item.type,
-      };
-
-      setItems(prev => [...prev, newItem]);
-
-      // Remove from Deck if it was a move (Handle both lists)
-      if (item.type === 'ITEM') {
-        setPropItems(prev => prev.filter(i => i.id !== item.id));
-      } else {
-        setStoredItems(prev => prev.filter(i => i.id !== item.id));
-      }
+      // TODO: Later implement dragging from Deck -> Canvas with CardEntity
+      // For now, we only support cards already on canvas
+      console.warn('Deck -> Canvas drag not yet implemented for CardEntity');
     },
-    collect: (monitor) => ({
-      isOver: monitor.isOver(),
-    }),
   }));
 
   // 2. Drag from Canvas to Deck (Manual Check)
@@ -292,21 +247,10 @@ function InnerApp() {
     const deckXEnd = deckXStart + deckWidth;
 
     if (screenY > topEdgeY && screenY < bottomEdgeY && screenX > deckXStart && screenX < deckXEnd) {
-      // Collision detected! Move to Deck.
-      const newItem: SavedItem = {
-        id: nanoid(),
-        title: item.title,
-        image: item.image,
-        x: 0, y: 0,
-        type: item.type
-      };
-
-      if (item.type === 'ITEM') {
-        setPropItems(prev => [...prev, newItem]);
-      } else {
-        setStoredItems(prev => [...prev, newItem]);
-      }
-      setItems(prev => prev.filter(i => i.id !== id));
+      // TODO: Later implement Canvas -> Deck with CardEntity
+      console.warn('Canvas -> Deck drag not yet implemented for CardEntity');
+      // For now, just remove from canvas
+      setItems(prev => prev.filter(i => i.cardData.rawSense.uid !== id));
     }
   };
 
@@ -319,10 +263,13 @@ function InnerApp() {
   // Save when items list changes
   useEffect(() => { if (isLoaded) saveItems(); }, [items.length, isLoaded, saveItems]);
 
-  const handleDelete = (id: string) => { setItems(prev => prev.filter(i => i.id !== id)); };
+  const handleDelete = (id: string) => {
+    setItems(prev => prev.filter(i => i.cardData.rawSense.uid !== id));
+  };
+
   const handleUpdateImage = (id: string, url: string) => {
-    setItems(prev => prev.map(item => item.id === id ? { ...item, image: url } : item));
-    setTimeout(saveItems, 0);
+    // TODO: Implement image update for CardEntity visual field
+    console.warn('Image update not yet implemented for CardEntity');
   };
 
   // --- CUSTOM DRAG LAYER (Deck -> Canvas) ---
@@ -406,26 +353,23 @@ function InnerApp() {
       >
         {items.map((item) => (
           <Card
-            key={item.id}
-            id={item.id}
-            title={item.title}
-            image={item.image}
+            key={item.cardData.rawSense.uid}
+            cardData={item.cardData}
+            currentLanguage={mapLanguageCode(learningLang)}
+            systemLanguage={mapLanguageCode(systemLang)}
             x={item.mx}
             y={item.my}
             width={item.width}
             height={item.height}
             canvasScale={scaleState}
-            systemLanguage={systemLang}
-            learningLanguage={learningLang}
-            onDragStart={() => setDraggingId(item.id)}
+            onDragStart={() => setDraggingId(item.cardData.rawSense.uid)}
             onDragEnd={() => {
               setDraggingId(null);
-              checkDeckCollision(item.id);
+              checkDeckCollision(item.cardData.rawSense.uid);
               saveItems();
             }}
             updatePosition={() => { }}
-            onDelete={() => handleDelete(item.id)}
-            onChangeImage={(url) => handleUpdateImage(item.id, url)}
+            onDelete={() => handleDelete(item.cardData.rawSense.uid)}
             onDropItem={handleItemDropOnCard}
           />
         ))}

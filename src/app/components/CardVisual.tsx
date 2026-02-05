@@ -1,142 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { useTransform, useMotionTemplate, useMotionValue } from 'motion/react';
+import { motion } from 'motion/react';
 import { DefaultCardPersona as DefaultPersona } from '@/app/components/persona/default/Card.persona.default';
 import { AlchemyVisual } from '@/app/components/AlchemyVisual';
+import { useWheelStopPropagation } from '@/app/hooks/useWheelStopPropagation';
+import type { LanguageDisplayData, SenseInfo, VisualData } from '@/types/CardEntity';
+import type { Language } from 'a:/lexicoin/lexicoin/schemas/schemas/SenseEntity.schema';
 
-// --- Types & Data ---
+// ============================================================================
+// HELPER FUNCTIONS (Typography)
+// ============================================================================
 
-export type ContentItem = { id: string; en: string; zh: string; pos?: string };
-export type ElementData = {
-  definitions: ContentItem[];
-  flavors: ContentItem[];
-};
-
-export const ELEMENT_DATA: Record<string, ElementData> = {
-  fire: {
-    definitions: [
-      { id: 'd1', en: "The state of burning that produces flames that send out heat and light, and might produce smoke.", zh: "燃烧产生火焰、发出热和光，并可能产生烟雾的状态。", pos: "n." },
-      { id: 'd2', en: "Strong emotion, especially anger or enthusiasm.", zh: "强烈的情感，尤指愤怒或热情。", pos: "n." },
-      { id: 'd3', en: "Shots from guns or other weapons.", zh: "来自枪支或其他武器的射击。", pos: "n." },
-    ],
-    flavors: [
-      { id: 'f1', en: "It warms the soul and burns the flesh.", zh: "它温暖灵魂，亦焚烧肉体。" },
-      { id: 'f2', en: "A spark is all it takes to start a catastrophe.", zh: "星星之火，足以燎原。" },
-      { id: 'f3', en: "Dance with the flames, but do not touch them.", zh: "与烈焰共舞，但勿触及其锋芒。" },
-    ]
-  },
-  water: {
-    definitions: [
-      { id: 'd1', en: "A clear liquid, without colour or taste, that falls from the sky as rain and is necessary for animal and plant life.", zh: "一种无色无味的透明液体，作为雨水从天而降，是动植物生命所必需的。", pos: "n." },
-      { id: 'd2', en: "An area of water, such as a sea, lake, or swimming pool.", zh: "一片水域，如海洋、湖泊或游泳池。", pos: "n." },
-      { id: 'd3', en: "To pour water on to plants or the soil that they are growing in.", zh: "给植物或其生长的土壤浇水。", pos: "v." },
-    ],
-    flavors: [
-      { id: 'f1', en: "Be formless, shapeless, like water.", zh: "像水一样，无形无状。" },
-      { id: 'f2', en: "The gentle drop hollows the stone not by force but by persistence.", zh: "水滴石穿，非力使然，乃恒心也。" },
-      { id: 'f3', en: "Beneath the calm surface lies the deep abyss.", zh: "平静的水面下隐藏着深渊。" },
-    ]
-  },
-  earth: {
-    definitions: [
-      { id: 'd1', en: "The planet third in order of distance from the Sun, between Venus and Mars; the world on which we live.", zh: "距离太阳第三远的行星，位于金星和火星之间；我们要生活的世界。", pos: "n." },
-      { id: 'd2', en: "The usually brown, heavy and loose substance of which the ground is made.", zh: "构成地面的通常为棕色、沉重且松散的物质（土壤）。", pos: "n." },
-      { id: 'd3', en: "The wire that connects an electrical device to the ground to make it safe.", zh: "将电气设备连接到地面的导线，以确保安全（接地线）。", pos: "n." },
-    ],
-    flavors: [
-      { id: 'f1', en: "From dust we come, and to dust we shall return.", zh: "尘归尘，土归土。" },
-      { id: 'f2', en: "Stable as the mountain, nurturing as the soil.", zh: "稳如泰山，厚德载物。" },
-      { id: 'f3', en: "The roots go deep where the gold is buried.", zh: "根深之处，必有黄金。" },
-    ]
-  },
-  air: {
-    definitions: [
-      { id: 'd1', en: "The mixture of gases that surrounds the earth and that we breathe.", zh: "环绕地球并供我们呼吸的混合气体。", pos: "n." },
-      { id: 'd2', en: "Space or area above the ground.", zh: "地面以上的空间或区域。", pos: "n." },
-      { id: 'd3', en: "To express your opinions or complaints publicly.", zh: "公开表达你的观点或不满。", pos: "v." },
-    ],
-    flavors: [
-      { id: 'f1', en: "The wind does not break a tree that bends.", zh: "懂得弯腰的树不会被风折断。" },
-      { id: 'f2', en: "Invisible, yet it moves the world.", zh: "无形无影，却推动着世界。" },
-      { id: 'f3', en: "Whispers of the ancients carry on the breeze.", zh: "古人的低语随微风飘扬。" },
-    ]
-  },
-  wind: {
-    definitions: [
-      { id: 'd1', en: "A natural current of air that moves fast enough for you to feel it.", zh: "一股移动速度快到你能感觉到的自然气流。", pos: "n." },
-      { id: 'd2', en: "Breath or the ability to breathe.", zh: "呼吸或呼吸的能力。", pos: "n." },
-      { id: 'd3', en: "Gas in the stomach or intestines that causes you discomfort.", zh: "胃或肠道中引起不适的气体。", pos: "n." },
-    ],
-    flavors: [
-      { id: 'f1', en: "The wind of change blows straight into the face of time.", zh: "变革之风直面时间吹拂。" },
-      { id: 'f2', en: "It goes where it lists, and no one knows whence it comes.", zh: "风随意思吹，无人知晓其从何而来。" },
-      { id: 'f3', en: "Swift as a shadow, sharp as a blade.", zh: "疾如魅影，利如锋刃。" },
-    ]
-  },
-  ether: {
-    definitions: [
-      { id: 'd1', en: "The clear sky; the upper regions of air beyond the clouds.", zh: "晴空；云层之上的高空。", pos: "n." },
-      { id: 'd2', en: "A hypothetical substance supposed to occupy all space.", zh: "假想的充满所有空间的物质（以太）。", pos: "n." },
-    ],
-    flavors: [
-      { id: 'f1', en: "The fifth element, the quintessence.", zh: "第五元素，精髓所在。" },
-      { id: 'f2', en: "Beyond the material world lies the ether.", zh: "物质世界之外，即是以太。" },
-    ]
-  },
-  void: {
-    definitions: [
-      { id: 'd1', en: "A completely empty space.", zh: "完全空虚的空间。", pos: "n." },
-      { id: 'd2', en: "An emptying; a vacuum.", zh: "排空；真空。", pos: "n." },
-    ],
-    flavors: [
-      { id: 'f1', en: "When you gaze long into the abyss, the abyss gazes also into you.", zh: "当你凝视深渊时，深渊也在凝视你。" },
-      { id: 'f2', en: "Silence is the language of the void.", zh: "沉默是虚空的语言。" },
-    ]
-  }
-};
-
-export const getElementLabel = (title: string, lang: string = "ENGLISH") => {
-  const t = title.toLowerCase();
-
-  if (lang === '简体中文') {
-    if (t === 'fire') return '火';
-    if (t === 'water') return '水';
-    if (t === 'earth') return '土';
-    if (t === 'air' || t === 'wind') return '风';
-    if (t === 'ether') return '以太';
-    if (t === 'void') return '虚空';
-  }
-
-  // Default to Capitalized English
-  return title.charAt(0).toUpperCase() + title.slice(1);
-};
-
-export const getPhonetic = (title: string, lang: string = "ENGLISH") => {
-  const t = title.toLowerCase();
-
-  if (lang === '简体中文') {
-    if (t === 'fire') return 'huǒ';
-    if (t === 'water') return 'shuǐ';
-    if (t === 'earth') return 'tǔ';
-    if (t === 'air') return 'fēng';
-    if (t === 'wind') return 'fēng';
-    if (t === 'ether') return 'yǐ tài';
-    if (t === 'void') return 'xū kōng';
-  }
-
-  // English IPA
-  if (t === 'fire') return '/ˈfaɪ.ər/';
-  if (t === 'water') return '/ˈwɔː.tər/';
-  if (t === 'earth') return '/ɜːθ/';
-  if (t === 'air') return '/eər/';
-  if (t === 'wind') return '/wɪnd/';
-  if (t === 'ether') return '/ˈiː.θər/';
-  if (t === 'void') return '/vɔɪd/';
-
-  return '';
-};
-
-// --- Helper Functions ---
-
+/**
+ * Calculate responsive title class based on text length and character set
+ * Handles both Latin and CJK characters with appropriate spacing
+ */
 const getTitleClass = (text: string, isCompact: boolean) => {
   if (isCompact) return "text-5xl tracking-widest font-black mr-[-0.1em]";
 
@@ -153,98 +31,44 @@ const getTitleClass = (text: string, isCompact: boolean) => {
   return "text-3xl tracking-widest mr-[-0.1em]";
 };
 
-const getDefClass = (text: string) => {
-  const len = text.length;
-  if (len > 150) return "text-sm leading-relaxed tracking-wide";
-  if (len > 80) return "text-base leading-relaxed tracking-wide";
-  return "text-lg leading-relaxed tracking-wide";
-};
-
-const getFlavorClass = (text: string) => {
-  const len = text.length;
-  if (len > 100) return "text-[10px] leading-tight tracking-wide";
-  if (len > 50) return "text-xs leading-relaxed tracking-wide";
-  return "text-sm leading-relaxed tracking-wide";
-};
-
-// --- Selection Overlay Component ---
-// Refactored to accept 'tokens' prop for dynamic styling
-const SelectionOverlay: React.FC<{
-  title: string;
-  items: ContentItem[];
-  selectedId: string;
-  onSelect: (item: ContentItem) => void;
-  onClose: () => void;
-  lang: string;
-  tokens: any;
-}> = ({ title, items, selectedId, onSelect, onClose, lang, tokens }) => {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: 10 }}
-      className="absolute inset-0 z-50 flex flex-col text-left p-4 overflow-hidden"
-      style={{ backgroundColor: tokens.colors.bgOverlay }}
-      onClick={(e) => e.stopPropagation()}
-      onPointerDown={(e) => e.stopPropagation()}
-      onWheel={(e) => e.stopPropagation()}
-    >
-      <div className="flex items-center justify-between mb-2 border-b pb-2" style={{ borderColor: tokens.colors.borderInner }}>
-        <div className="flex items-center" style={{ color: tokens.colors.textHighlight }}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="mr-2">
-            <circle cx="12" cy="12" r="10" />
-            <circle cx="12" cy="12" r="4" />
-          </svg>
-          <span className="font-serif tracking-widest text-xs uppercase opacity-80">SELECT</span>
-        </div>
-        <button
-          onClick={onClose}
-          className="transition-colors"
-          style={{ color: tokens.colors.textSecondary }}
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12" /></svg>
-        </button>
-      </div>
-
-      <div className="flex-1 overflow-y-auto pr-2 custom-scrollbar space-y-3 w-full">
-        {items.map(item => (
-          <div
-            key={item.id}
-            onClick={() => onSelect(item)}
-            className={`
-              p-3 rounded-sm border cursor-pointer transition-all duration-200 group relative
-            `}
-            style={{
-              backgroundColor: item.id === selectedId ? tokens.colors.selectionActive : 'rgba(255,255,255,0.05)',
-              borderColor: item.id === selectedId ? tokens.colors.textHighlight : 'rgba(0,0,0,0)',
-              boxShadow: item.id === selectedId ? `0 0 10px ${tokens.colors.selectionActive}` : 'none'
-            }}
-          >
-            <p className="text-xs font-serif leading-relaxed" style={{ color: tokens.colors.textPrimary }}>
-              {lang === '简体中文' ? item.zh : item.en}
-            </p>
-            {item.id === selectedId && (
-              <div className="absolute right-2 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rotate-45" style={{ backgroundColor: tokens.colors.textHighlight, boxShadow: `0 0 4px ${tokens.colors.textHighlight}` }} />
-            )}
-          </div>
-        ))}
-      </div>
-    </motion.div>
-  );
-};
+// ============================================================================
+// COMPONENT PROPS
+// ============================================================================
 
 export interface CardVisualProps {
-  title: string;
-  difficultyLevel?: string;
-  partOfSpeech?: string;
-  durability?: number;
-  learningLanguage?: string;
-  systemLanguage?: string;
+  /**
+   * Display data for current language
+   * Pre-extracted from CardEntity.displayData[currentLanguage]
+   */
+  displayData: LanguageDisplayData;
 
+  /**
+   * Semantic metadata
+   * Contains ontology, frequency, durability, personas, etc.
+   */
+  senseInfo: SenseInfo;
+
+  /**
+   * Visual asset data (SVG payload + loading status)
+   * Supports async loading with Persona-specific loading states
+   */
+  visual: VisualData;
+
+  /**
+   * System language for UI elements
+   */
+  systemLanguage: Language;
+
+  /**
+   * Current display language
+   */
+  currentLanguage: Language;
+
+  // ========== Interaction States ==========
   isActive?: boolean;
   isOver?: boolean;
 
-  // Motion Values
+  // ========== Motion Values (Physics) ==========
   flipScaleX?: any;
   frontOpacity?: any;
   backOpacity?: any;
@@ -254,21 +78,23 @@ export interface CardVisualProps {
   fgParallaxX?: any;
   fgParallaxY?: any;
 
-  glareBackground?: any;
-  targetGlareOpacity?: any;
+  // Glare physics input (for glare calculation)
+  displayRotateY?: any;
+  smoothXVelocity?: any;
+  smoothYVelocity?: any;
+  isExpanded?: boolean;
 
+  // ========== Layout Options ==========
   layoutMode?: 'default' | 'compact';
-
   persona?: any;
 }
 
 export const CardVisual: React.FC<CardVisualProps> = ({
-  title,
-  difficultyLevel = "A1",
-  partOfSpeech = "n.",
-  durability = 100,
-  learningLanguage = "ENGLISH",
-  systemLanguage = "ENGLISH",
+  displayData,
+  senseInfo,
+  visual,
+  systemLanguage,
+  currentLanguage,
   isActive = false,
   isOver = false,
 
@@ -281,14 +107,59 @@ export const CardVisual: React.FC<CardVisualProps> = ({
   fgParallaxX = 0,
   fgParallaxY = 0,
 
-  glareBackground = 'none',
-  targetGlareOpacity = 0,
+  // Glare physics input
+  displayRotateY,
+  smoothXVelocity,
+  smoothYVelocity,
+  isExpanded = false,
+
   layoutMode = 'default',
 
   persona,
 }) => {
+  // ========== Extract Display Data ==========
+  const { word, pronunciation, pos, level, definition, flavorText } = displayData;
+  const { durability } = senseInfo;
   // 1. Priority: External persona > Default (Alchemy)
   const Persona = persona || DefaultPersona;
+  const backFaceRef = useWheelStopPropagation();
+
+  // --- Glare Effect Calculation (from Persona) ---
+  // CRITICAL: Always call hooks unconditionally per React Rules of Hooks
+
+  // Use fallback MotionValues if not provided
+  const fallbackMotionValue = useMotionValue(0);
+  const safeDisplayRotateY = displayRotateY || fallbackMotionValue;
+  const safeSmoothXVelocity = smoothXVelocity || fallbackMotionValue;
+  const safeSmoothYVelocity = smoothYVelocity || fallbackMotionValue;
+
+  // Compute glare position from rotation (always called)
+  const glarePos = useTransform(safeDisplayRotateY, [-20, 20], ["0%", "100%"]);
+
+  // Compute movement intensity from velocity (always called)
+  const movementIntensity = useTransform(
+    [safeSmoothXVelocity, safeSmoothYVelocity],
+    (values: number[]) => {
+      const [vx = 0, vy = 0] = values;
+      const speed = Math.sqrt(vx * vx + vy * vy);
+      return Math.min(speed / 1000, Persona.physics.glare.opacityCap);
+    }
+  );
+
+  // Target opacity: hide when expanded
+  const targetGlareOpacity = isExpanded ? 0 : movementIntensity;
+
+  // Glare gradient template using persona color (always called)
+  const glareBackground = useMotionTemplate`
+    linear-gradient(
+      115deg, 
+      transparent 0%, 
+      rgba(192, 160, 98, 0.0) ${glarePos}, 
+      ${Persona.physics.glare.color} calc(${glarePos} + 10%), 
+      rgba(192, 160, 98, 0.0) calc(${glarePos} + 25%), 
+      transparent 100%
+    )
+  `;
 
   // --- Pointer Events Calculation ---
   // Convert opacity MotionValues to pointer-events strings
@@ -320,34 +191,12 @@ export const CardVisual: React.FC<CardVisualProps> = ({
   const frontPointerEvents = currentFrontOpacity > 0.5 ? 'auto' : 'none';
   const backPointerEvents = currentBackOpacity > 0.5 ? 'auto' : 'none';
 
-  // --- Back Face State ---
-  const elementKey = title.toLowerCase();
-  const elementData = ELEMENT_DATA[elementKey] || ELEMENT_DATA['earth']; // Fallback
-
-  const [selectedDefId, setSelectedDefId] = useState(elementData.definitions[0]?.id);
-  const [selectedFlavorId, setSelectedFlavorId] = useState(elementData.flavors[0]?.id);
-  const [activeSelectionMode, setActiveSelectionMode] = useState<'def' | 'flavor' | null>(null);
-
-  const selectedDef = elementData.definitions.find(d => d.id === selectedDefId) || elementData.definitions[0];
-  const selectedFlavor = elementData.flavors.find(f => f.id === selectedFlavorId) || elementData.flavors[0];
-
-  const selectedDefIndex = elementData.definitions.findIndex(d => d.id === selectedDefId);
-  const displayIndex = selectedDefIndex !== -1 ? selectedDefIndex + 1 : 1;
-  const displayPos = selectedDef.pos || partOfSpeech;
-
+  // ========== Layout Configuration ==========
   const isCompact = layoutMode === 'compact';
 
-  // --- Dynamic Content Logic ---
-  const displayTitle = getElementLabel(title, learningLanguage);
-  const displayPhonetic = getPhonetic(title, learningLanguage);
-
-  // Deduplication Logic: If System Lang == Learning Lang, hide System Label
-  const rawSystemLabel = getElementLabel(title, systemLanguage);
-  const displaySystemLabel = (systemLanguage === learningLanguage) ? null : rawSystemLabel;
-
-  // Back Face Content
-  const displayDefText = learningLanguage === '简体中文' ? selectedDef.zh : selectedDef.en;
-  const displayFlavorText = learningLanguage === '简体中文' ? selectedFlavor.zh : selectedFlavor.en;
+  // ========== Display Text Preparation ==========
+  // Note: pronunciation may be undefined for some words
+  const displayPhonetic = pronunciation ?? '';
 
   // --- Sub-Components ---
 
@@ -369,7 +218,7 @@ export const CardVisual: React.FC<CardVisualProps> = ({
 
         {Persona.visuals.ScrapLabel ? (
           <Persona.visuals.ScrapLabel>
-            {difficultyLevel}
+            {level}
           </Persona.visuals.ScrapLabel>
         ) : (
           <span className={`${isCompact ? 'text-2xl drop-shadow-[0_2px_10px_rgba(240,208,130,0.4)]' : 'text-xl drop-shadow-[0_0_12px_rgba(240,208,130,0.4)]'} font-bold tracking-[0.2em]`}
@@ -380,7 +229,7 @@ export const CardVisual: React.FC<CardVisualProps> = ({
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent',
             }}>
-            {difficultyLevel}
+            {level}
           </span>
         )}
       </div>
@@ -415,7 +264,7 @@ export const CardVisual: React.FC<CardVisualProps> = ({
             ${isCompact ? 'scale-[1.0] opacity-30 mix-blend-screen' : ''}`}
         style={{ x: fgParallaxX, y: fgParallaxY }}
       >
-        <AlchemyVisual element={title} isActive={isActive} />
+        <AlchemyVisual element={word} isActive={isActive} />
       </motion.div>
 
       {Persona.visuals.DurabilityBar ? (
@@ -456,19 +305,19 @@ export const CardVisual: React.FC<CardVisualProps> = ({
         {!Persona.visuals.ScrapLabel && !isCompact && (
           <span className="font-serif italic text-xs tracking-wider whitespace-nowrap mr-3 opacity-0 select-none pointer-events-none"
             style={{ fontFamily: Persona.tokens.typography.body.family }}>
-            {partOfSpeech}
+            {pos}
           </span>
         )}
 
         {Persona.visuals.ScrapLabel && (
           <div className="mr-2 mb-1">
             <Persona.visuals.ScrapLabel color={Persona.definitions.colors.crayonBlue || '#5BC0DE'}>
-              {partOfSpeech}
+              {pos}
             </Persona.visuals.ScrapLabel>
           </div>
         )}
 
-        <h2 className={`leading-none capitalize ${getTitleClass(displayTitle, isCompact)}`}
+        <h2 className={`leading-none capitalize ${getTitleClass(word, isCompact)}`}
           style={{
             fontFamily: Persona.tokens.typography.label.family,
             backgroundImage: Persona.definitions.gradients.goldText || Persona.tokens.typography.label.gradient,
@@ -477,7 +326,7 @@ export const CardVisual: React.FC<CardVisualProps> = ({
             filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.8))',
             textAlign: 'center'
           }}>
-          {displayTitle}
+          {word}
         </h2>
 
         {!Persona.visuals.ScrapLabel && !isCompact && (
@@ -486,7 +335,7 @@ export const CardVisual: React.FC<CardVisualProps> = ({
               fontFamily: Persona.tokens.typography.body.family,
               color: Persona.tokens.colors.goldMetallic
             }}>
-            {partOfSpeech}
+            {pos}
           </span>
         )}
 
@@ -496,29 +345,12 @@ export const CardVisual: React.FC<CardVisualProps> = ({
               fontFamily: Persona.tokens.typography.body.family,
               color: Persona.tokens.colors.goldMetallic
             }}>
-            {partOfSpeech}
+            {pos}
           </span>
         )}
       </div>
 
-      {displaySystemLabel && !isCompact && (
-        <>
-          <div className="flex items-center justify-center w-full px-12 opacity-50 mb-1">
-            <div className="h-[1px] w-full max-w-[120px]"
-              style={{ backgroundImage: `linear-gradient(to right, transparent, ${Persona.tokens.colors.goldMetallic}, transparent)` }}
-            />
-          </div>
 
-          <p className="font-serif text-lg uppercase tracking-[0.15em] drop-shadow-lg opacity-95 font-bold leading-none"
-            style={{
-              fontFamily: Persona.tokens.typography.body.family,
-              textShadow: '0 2px 4px rgba(0,0,0,0.8)',
-              color: Persona.tokens.colors.textLight || Persona.tokens.colors.textPrimary
-            }}>
-            {displaySystemLabel}
-          </p>
-        </>
-      )}
     </div>
   );
 
@@ -617,11 +449,13 @@ export const CardVisual: React.FC<CardVisualProps> = ({
           <div className="absolute inset-0 opacity-[0.04] pointer-events-none z-10 mix-blend-overlay"
             style={{ backgroundImage: Persona.definitions.assets.noiseTexture || 'none' }}
           />
+          {/* Glare effect - skin-configurable via persona */}
           <motion.div style={{ background: glareBackground, opacity: targetGlareOpacity }} className="absolute inset-0 z-40 pointer-events-none mix-blend-plus-lighter" />
         </motion.div>
 
         {/* ================= BACK FACE ================= */}
         <motion.div
+          ref={backFaceRef}
           className="absolute inset-0 overflow-hidden flex flex-col items-stretch p-5 isolate antialiased back-face-content"
           style={{
             opacity: backOpacity,
@@ -641,10 +475,18 @@ export const CardVisual: React.FC<CardVisualProps> = ({
               width: 4px;
               background-color: transparent;
             }
+            .definition-scrollable::-webkit-scrollbar {
+              width: 2px;
+              background-color: transparent;
+            }
             .custom-scrollbar-${Persona.identity.name}::-webkit-scrollbar-thumb,
             .back-scrollable::-webkit-scrollbar-thumb {
               background-color: ${Persona.tokens.colors.scrollbarThumb || Persona.tokens.colors.goldMetallic};
               border-radius: 10px;
+            }
+            .definition-scrollable::-webkit-scrollbar-thumb {
+              background-color: ${Persona.tokens.colors.scrollbarThumb || Persona.tokens.colors.goldMetallic};
+              border-radius: 2px;
             }
           `}</style>
 
@@ -655,7 +497,21 @@ export const CardVisual: React.FC<CardVisualProps> = ({
             }}
           />
           <div className="absolute inset-0 pointer-events-none" style={{ background: Persona.definitions.gradients?.backSheen || Persona.definitions.gradients.backSheen }} />
+
+          {/* VISUAL CONSISTENCY PRIORITY: Border and decorations must match front face exactly */}
+          {/* Double border system - same as front face L614-615 */}
+          <div className="absolute inset-0 pointer-events-none z-50 border-[2px] rounded-[inherit]" style={{ borderColor: Persona.tokens.colors.borderOuter || 'transparent' }} />
+          <div className="absolute inset-[4px] pointer-events-none z-50 border-[1px] rounded-[inherit]" style={{ borderColor: Persona.tokens.colors.borderInner || 'transparent' }} />
+
+          {/* Corner decorations - same as front face L616 */}
           <Persona.visuals.Corners />
+
+          {/* Top decorative element - alchemy aesthetic */}
+          {Persona.visuals.BackTopDecoration && (
+            <div className="absolute top-0 left-0 right-0 z-40 pointer-events-none">
+              <Persona.visuals.BackTopDecoration />
+            </div>
+          )}
 
           <div className={`relative flex flex-col w-full h-full z-10 custom-scrollbar-${Persona.identity.name}`}>
 
@@ -669,14 +525,14 @@ export const CardVisual: React.FC<CardVisualProps> = ({
                   WebkitTextFillColor: 'transparent',
                   filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.8))'
                 }}>
-                {displayTitle}
+                {word}
               </h3>
               <span className="text-lg italic font-serif opacity-80"
                 style={{
                   fontFamily: Persona.tokens.typography.body.family,
                   color: Persona.tokens.colors.goldMetallic
                 }}>
-                {partOfSpeech}
+                {pos}
               </span>
             </div>
 
@@ -684,86 +540,172 @@ export const CardVisual: React.FC<CardVisualProps> = ({
             <div className="flex-1 flex flex-col min-h-0 gap-2">
 
               {/* --- DEFINITION SECTION --- */}
+              {/* Alchemy-themed interactive box with hover and click states */}
+              {/* Fixed height ratios: Moved from flex-[2] to flex-[3] to increase definition space relative to flavor */}
               <div
-                className="flex-[2] overflow-y-auto back-scrollable rounded-md py-3 px-3 cursor-pointer transition-all duration-300 border border-transparent hover:border-white/10"
+                className="flex-[3] rounded-md py-4 pl-4 pr-0.5 cursor-pointer transition-all duration-300 relative group flex flex-col min-h-0 overflow-hidden"
                 style={{
-                  backgroundColor: 'rgba(0,0,0,0.35)',
-                  scrollbarWidth: 'thin',
-                  scrollbarColor: `${Persona.tokens.colors.scrollbarThumb || Persona.tokens.colors.goldMetallic} transparent`
+                  backgroundColor: Persona.tokens.colors.definitionBoxBg || 'rgba(10, 10, 10, 0.6)',
+                  border: `2px solid ${Persona.tokens.colors.borderOuter}`,
+                  boxShadow: Persona.tokens.shadows.definitionBox || `
+                    inset 0 1px 0 0 rgba(240, 208, 130, 0.1),
+                    inset 0 -1px 0 0 rgba(0, 0, 0, 0.5),
+                    0 2px 8px rgba(0, 0, 0, 0.4)
+                  `,
+                  background: `
+                    ${Persona.tokens.gradients?.definitionBoxOverlay || Persona.definitions.gradients?.definitionBoxOverlay},
+                    ${Persona.tokens.colors.definitionBoxBg || 'rgba(10, 10, 10, 0.6)'}
+                  `
                 }}
-                onClick={() => {
-                  setActiveSelectionMode(activeSelectionMode === 'def' ? null : 'def');
+                // Note: Multi-definition selection deferred to future
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = Persona.tokens.colors.goldMetallic || '#D4AF37';
+                  e.currentTarget.style.boxShadow = `
+                    inset 0 1px 0 0 rgba(240, 208, 130, 0.2),
+                    inset 0 -1px 0 0 rgba(0, 0, 0, 0.5),
+                    0 0 20px rgba(212, 175, 55, 0.3),
+                    0 2px 8px rgba(0, 0, 0, 0.4)
+                  `;
+                  e.currentTarget.style.transform = 'scale(1.01)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = Persona.tokens.colors.borderOuter || '';
+                  e.currentTarget.style.boxShadow = `
+                    inset 0 1px 0 0 rgba(240, 208, 130, 0.1),
+                    inset 0 -1px 0 0 rgba(0, 0, 0, 0.5),
+                    0 2px 8px rgba(0, 0, 0, 0.4)
+                  `;
+                  e.currentTarget.style.transform = 'scale(1)';
+                }}
+                onMouseDown={(e) => {
+                  e.currentTarget.style.boxShadow = `
+                    inset 0 1px 0 0 rgba(240, 208, 130, 0.3),
+                    inset 0 -1px 0 0 rgba(0, 0, 0, 0.5),
+                    0 0 30px rgba(212, 175, 55, 0.5),
+                    0 0 15px rgba(240, 208, 130, 0.4),
+                    0 2px 8px rgba(0, 0, 0, 0.4)
+                  `;
                 }}
               >
-                <div className="flex items-start">
-                  <span className="font-serif font-bold mr-2 mt-1 text-base opacity-90 shrink-0"
+                {/* Header with alchemy styling - shrink for refinement */}
+                <div className="text-[8px] uppercase font-serif tracking-[0.1em] mb-2 select-none flex items-center gap-1.5 pr-3.5"
+                  style={{
+                    color: Persona.tokens.colors.goldMetallic,
+                    opacity: 0.6,
+                    letterSpacing: '0.1em'
+                  }}
+                >
+                  <span className="scale-90 origin-left">DEFINITION</span>
+                  <span className="opacity-30">•</span>
+                  {/* Note: Multi-definition selection UI deferred to future */}
+                </div>
+
+                {/* Content with optimized typography */}
+                {/* Content with optimized typography and scrolling */}
+                <div
+                  className="flex items-start gap-3 w-full h-full overflow-y-auto definition-scrollable pr-0"
+                  style={{
+                    scrollbarWidth: 'thin',
+                    scrollbarColor: `${Persona.tokens.colors.scrollbarThumb || Persona.tokens.colors.goldMetallic} transparent`
+                  }}
+                  onWheel={(e) => e.stopPropagation()}
+                >
+
+                  {/* Definition Text (from CardEntity.displayData) */}
+                  <p
+                    className="text-base font-sans leading-relaxed flex-1 select-none pr-2 indent-3"
                     style={{
-                      fontFamily: Persona.tokens.typography.label.family,
-                      color: Persona.tokens.colors.goldMetallic
-                    }}>
-                    {displayIndex}.
-                  </span>
-                  <p className={`font-serif ${getDefClass(displayDefText)} transition-colors duration-300`}
-                    style={{
-                      color: Persona.tokens.colors.textLight || '#e5e5e5',
+                      color: Persona.tokens.colors.textPrimary,
                       fontFamily: Persona.tokens.typography.body.family,
-                      textShadow: '0 1px 2px rgba(0,0,0,0.8)'
-                    }}>
-                    {displayDefText}
+                      lineHeight: '1.65',
+                      letterSpacing: '0.01em'
+                    }}
+                  >
+                    {definition}
                   </p>
                 </div>
               </div>
 
-              {/* --- FLAVOR SECTION --- */}
+              {/* --- FLAVOR TEXT SECTION --- */}
+              {/* Alchemy-themed display box - subtle, complementary to definition */}
+              {/* Reduced height: flex-1 vs flex-[3] creates the requested ratio shift */}
               <div
-                className="flex-[1] overflow-y-auto back-scrollable rounded-md py-3 px-3 cursor-pointer transition-all duration-300 border border-transparent hover:border-white/10"
+                className="flex-1 rounded-md py-1.5 px-2 flex flex-col min-h-0"
                 style={{
-                  backgroundColor: 'rgba(0,0,0,0.35)',
-                  scrollbarWidth: 'thin',
-                  scrollbarColor: `${Persona.tokens.colors.scrollbarThumb || Persona.tokens.colors.goldMetallic} transparent`
-                }}
-                onClick={() => {
-                  setActiveSelectionMode(activeSelectionMode === 'flavor' ? null : 'flavor');
+                  backgroundColor: Persona.tokens.colors.flavorBoxBg || 'rgba(0, 0, 0, 0.4)',
+                  border: `1px solid ${Persona.tokens.colors.borderSubtle}`,
+                  boxShadow: Persona.tokens.shadows.flavorBox || `
+                    inset 0 1px 0 0 rgba(240, 208, 130, 0.05),
+                    inset 0 -1px 0 0 rgba(0, 0, 0, 0.3),
+                    0 1px 4px rgba(0, 0, 0, 0.3)
+                  `,
+                  cursor: 'default'
                 }}
               >
-                <div className="flex items-start h-full">
-                  <div className="w-0.5 self-stretch mr-2 opacity-60 shrink-0 my-1"
-                    style={{
-                      background: `linear-gradient(to bottom, transparent, ${Persona.tokens.colors.goldMetallic}, transparent)`
-                    }}
-                  />
-                  <p className={`font-serif italic ${getFlavorClass(displayFlavorText)} transition-all duration-300 bg-clip-text text-transparent`}
-                    style={{
-                      backgroundImage: Persona.definitions.gradients.goldText || `linear-gradient(to bottom, ${Persona.tokens.colors.goldBright}, ${Persona.tokens.colors.goldDeep})`,
-                      fontFamily: Persona.tokens.typography.body.family,
-                      filter: 'drop-shadow(0 1px 1px rgba(0,0,0,0.5))',
-                      WebkitBackgroundClip: 'text',
-                      WebkitTextFillColor: 'transparent'
-                    }}>
-                    "{displayFlavorText}"
-                  </p>
+                <div className="overflow-hidden w-full h-full flex flex-col pr-1"
+                  onWheel={(e) => e.stopPropagation()}
+                >
+                  {/* Alchemy Styled Flavor Text - Dynamic Typography */}
+                  {(() => {
+                    const text = flavorText.text;
+                    const len = text.length;
+
+                    // Intelligent typography adjustment logic - stricter sizing
+                    let fontSize = 'text-sm';
+                    let fontWeight = 'font-normal';
+                    let letterSpacing = '0.02em';
+                    let lineHeight = '1.6';
+
+                    if (len < 30) {
+                      // Now Base (Standard)
+                      fontSize = 'text-base';
+                      fontWeight = 'font-medium';
+                      letterSpacing = '0.03em';
+                      lineHeight = '1.5';
+                    } else if (len < 80) {
+                      // Small
+                      fontSize = 'text-sm';
+                      fontWeight = 'font-normal';
+                      letterSpacing = '0.02em';
+                      lineHeight = '1.35';
+                    } else if (len < 100) {
+                      //  XS
+                      fontSize = 'text-xs';
+                      fontWeight = 'font-normal';
+                      letterSpacing = '0.01em';
+                      lineHeight = '1.2';
+                    } else {
+                      // Tiny
+                      fontSize = 'text-[10px]';
+                      fontWeight = 'font-light';
+                      letterSpacing = '0.01em';
+                      lineHeight = '1.10';
+                    }
+
+                    return (
+                      <p
+                        className={`${fontSize} ${fontWeight} font-serif italic text-center w-full px-2 my-auto transition-all duration-300`}
+                        style={{
+                          fontFamily: Persona.tokens.typography.label.family,
+                          opacity: 0.9,
+                          lineHeight: lineHeight,
+                          letterSpacing: letterSpacing,
+                          textShadow: '0 1px 2px rgba(0,0,0,0.5)',
+                          backgroundImage: Persona.definitions.gradients.goldText || `linear-gradient(to bottom, ${Persona.tokens.colors.goldBright}, ${Persona.tokens.colors.goldDeep})`,
+                          WebkitBackgroundClip: 'text',
+                          WebkitTextFillColor: 'transparent',
+                        }}
+                      >
+                        "{text}"
+                      </p>
+                    );
+                  })()}
                 </div>
               </div>
             </div>
           </div>
 
-          <AnimatePresence>
-            {activeSelectionMode && (
-              <SelectionOverlay
-                title={activeSelectionMode === 'def' ? "SELECT DEFINITION" : "SELECT FLAVOR"}
-                items={activeSelectionMode === 'def' ? elementData.definitions : elementData.flavors}
-                selectedId={activeSelectionMode === 'def' ? selectedDefId : selectedFlavorId}
-                onSelect={(item) => {
-                  if (activeSelectionMode === 'def') setSelectedDefId(item.id);
-                  else setSelectedFlavorId(item.id);
-                  setActiveSelectionMode(null);
-                }}
-                onClose={() => setActiveSelectionMode(null)}
-                lang={systemLanguage}
-                tokens={Persona.tokens}
-              />
-            )}
-          </AnimatePresence>
+          {/* Multi-definition selection UI deferred to future */}
         </motion.div>
       </motion.div>
     </>

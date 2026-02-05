@@ -11,11 +11,11 @@ const definitions = {
     goldDeep: "#A08042",
     goldMetallic: "#D4AF37", // Classic metallic gold
     champagne: "#F7E7CE", // Alchemy Champagne Gold
-    
+
     obsidian: "#0a0a0a",
     obsidianDark: "#0e0e0e",
     obsidianDeep: "#050505",
-    
+
     textLight: "#e5e5e5",
     textDim: "rgba(229, 229, 229, 0.9)",
   },
@@ -24,6 +24,7 @@ const definitions = {
     goldText: "linear-gradient(to bottom, #F0D082, #A08042)",
     sheen: "linear-gradient(to right, transparent, rgba(240, 208, 130, 0.6), transparent)",
     backSheen: "linear-gradient(160deg, rgba(255,255,255,0.03) 0%, transparent 40%, rgba(0,0,0,0.2) 100%)",
+    definitionBoxOverlay: "linear-gradient(135deg, rgba(192, 160, 98, 0.03) 0%, transparent 50%, rgba(0, 0, 0, 0.2) 100%)",
   },
   assets: {
     noiseTexture: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.7' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`,
@@ -47,7 +48,7 @@ const tokens = {
     bgDeep: definitions.colors.obsidianDeep,
     bgPanel: "rgba(0, 0, 0, 0.1)",
     bgOverlay: "rgba(14, 14, 14, 0.98)",
-    
+
     textPrimary: definitions.colors.textLight,
     textSecondary: definitions.colors.goldBase,
     textMuted: "rgba(192, 160, 98, 0.7)",
@@ -58,9 +59,16 @@ const tokens = {
     borderInner: "rgba(192, 160, 98, 0.2)",
     borderSubtle: "rgba(192, 160, 98, 0.1)",
     borderHighlight: "rgba(240, 208, 130, 0.6)",
-    
+
     selectionActive: "rgba(192, 160, 98, 0.2)",
     scrollbarThumb: "rgba(212, 175, 55, 0.5)", // Original gold semi-transparent
+
+    // Back Face Specifics
+    selectionBackend: "rgba(5, 5, 5, 0.96)",
+    selectionItemActive: "rgba(192, 160, 98, 0.12)",
+    selectionItemInactive: "rgba(255, 255, 255, 0.02)",
+    definitionBoxBg: "rgba(10, 10, 10, 0.6)",
+    flavorBoxBg: "rgba(0, 0, 0, 0.4)",
   },
   typography: {
     label: {
@@ -78,6 +86,10 @@ const tokens = {
     dragging: "0 40px 80px -15px rgba(0, 0, 0, 0.9)",
     expanded: "0 80px 140px -20px rgba(0, 0, 0, 1.0)",
     innerDepth: "inset 0 0 40px rgba(0,0,0,1)",
+
+    definitionBox: "inset 0 1px 0 0 rgba(240, 208, 130, 0.1), inset 0 -1px 0 0 rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.4)",
+    flavorBox: "inset 0 1px 0 0 rgba(240, 208, 130, 0.05), inset 0 -1px 0 0 rgba(0, 0, 0, 0.3), 0 1px 4px rgba(0, 0, 0, 0.3)",
+    selectionGlow: "0 0 25px rgba(212, 175, 55, 0.25), inset 0 1px 0 rgba(240, 208, 130, 0.15)",
   }
 };
 
@@ -87,27 +99,27 @@ const tokens = {
 const HermeticBackground = React.memo(() => (
   <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-[0.08] overflow-hidden z-0 mix-blend-overlay">
     <svg viewBox="0 0 400 600" className="w-full h-full" preserveAspectRatio="xMidYMid slice">
-       <defs>
-         <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-           <stop offset="0%" stopColor={definitions.colors.goldBase} stopOpacity="0.8" />
-           <stop offset="100%" stopColor={definitions.colors.goldBase} stopOpacity="0" />
-         </linearGradient>
-       </defs>
-       
-       <line x1="200" y1="0" x2="200" y2="600" stroke={definitions.colors.goldBase} strokeWidth="0.5" strokeDasharray="2 4" />
-       
-       <g transform="translate(200, 300)">
-          <circle r="180" fill="none" stroke={definitions.colors.goldBase} strokeWidth="0.5" />
-          <circle r="175" fill="none" stroke={definitions.colors.goldBase} strokeWidth="0.2" strokeDasharray="10 5" />
-          
-          <path d="M0 -180 L155.88 90 H-155.88 Z" fill="none" stroke={definitions.colors.goldBase} strokeWidth="0.5" opacity="0.6" />
-          <path d="M0 180 L-155.88 -90 H155.88 Z" fill="none" stroke={definitions.colors.goldBase} strokeWidth="0.5" opacity="0.6" />
-          
-          <rect x="-120" y="-120" width="240" height="240" transform="rotate(45)" fill="none" stroke={definitions.colors.goldBase} strokeWidth="0.3" />
-          
-          <ellipse rx="80" ry="220" fill="none" stroke="url(#goldGrad)" strokeWidth="0.5" transform="rotate(30)" />
-          <ellipse rx="80" ry="220" fill="none" stroke="url(#goldGrad)" strokeWidth="0.5" transform="rotate(-30)" />
-       </g>
+      <defs>
+        <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stopColor={definitions.colors.goldBase} stopOpacity="0.8" />
+          <stop offset="100%" stopColor={definitions.colors.goldBase} stopOpacity="0" />
+        </linearGradient>
+      </defs>
+
+      <line x1="200" y1="0" x2="200" y2="600" stroke={definitions.colors.goldBase} strokeWidth="0.5" strokeDasharray="2 4" />
+
+      <g transform="translate(200, 300)">
+        <circle r="180" fill="none" stroke={definitions.colors.goldBase} strokeWidth="0.5" />
+        <circle r="175" fill="none" stroke={definitions.colors.goldBase} strokeWidth="0.2" strokeDasharray="10 5" />
+
+        <path d="M0 -180 L155.88 90 H-155.88 Z" fill="none" stroke={definitions.colors.goldBase} strokeWidth="0.5" opacity="0.6" />
+        <path d="M0 180 L-155.88 -90 H155.88 Z" fill="none" stroke={definitions.colors.goldBase} strokeWidth="0.5" opacity="0.6" />
+
+        <rect x="-120" y="-120" width="240" height="240" transform="rotate(45)" fill="none" stroke={definitions.colors.goldBase} strokeWidth="0.3" />
+
+        <ellipse rx="80" ry="220" fill="none" stroke="url(#goldGrad)" strokeWidth="0.5" transform="rotate(30)" />
+        <ellipse rx="80" ry="220" fill="none" stroke="url(#goldGrad)" strokeWidth="0.5" transform="rotate(-30)" />
+      </g>
     </svg>
   </div>
 ));
@@ -117,66 +129,65 @@ const AlchemicalCorners = React.memo(() => (
     <svg width="0" height="0" className="absolute">
       <defs>
         <linearGradient id="cornerGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-           <stop offset="0%" stopColor={definitions.colors.goldBright} />
-           <stop offset="100%" stopColor={definitions.colors.goldDark} />
+          <stop offset="0%" stopColor={definitions.colors.goldBright} />
+          <stop offset="100%" stopColor={definitions.colors.goldDark} />
         </linearGradient>
       </defs>
     </svg>
 
     {[0, 1, 2, 3].map((i) => (
-      <div key={i} className={`absolute w-10 h-10 ${
-        i === 0 ? 'top-0 left-0' : 
-        i === 1 ? 'top-0 right-0 transform scale-x-[-1]' : 
-        i === 2 ? 'bottom-0 left-0 transform scale-y-[-1]' : 
-        'bottom-0 right-0 transform scale-[-1]'
-      }`}>
-         <svg viewBox="0 0 40 40" className="w-full h-full overflow-visible">
-            <path d="M2 2 L35 2 L2 35 Z" fill="url(#cornerGrad)" fillOpacity="0.05" stroke="url(#cornerGrad)" strokeWidth="0.5" />
-            <circle cx="8" cy="8" r="1.5" fill={definitions.colors.goldBright} />
-            <path d="M2 14 H14" stroke={definitions.colors.goldBase} strokeWidth="0.5" />
-            <path d="M14 2 V14" stroke={definitions.colors.goldBase} strokeWidth="0.5" />
-            <circle cx="20" cy="5" r="1" fill={definitions.colors.goldBase} opacity="0.5" />
-            <circle cx="5" cy="20" r="1" fill={definitions.colors.goldBase} opacity="0.5" />
-         </svg>
+      <div key={i} className={`absolute w-10 h-10 ${i === 0 ? 'top-0 left-0' :
+        i === 1 ? 'top-0 right-0 transform scale-x-[-1]' :
+          i === 2 ? 'bottom-0 left-0 transform scale-y-[-1]' :
+            'bottom-0 right-0 transform scale-[-1]'
+        }`}>
+        <svg viewBox="0 0 40 40" className="w-full h-full overflow-visible">
+          <path d="M2 2 L35 2 L2 35 Z" fill="url(#cornerGrad)" fillOpacity="0.05" stroke="url(#cornerGrad)" strokeWidth="0.5" />
+          <circle cx="8" cy="8" r="1.5" fill={definitions.colors.goldBright} />
+          <path d="M2 14 H14" stroke={definitions.colors.goldBase} strokeWidth="0.5" />
+          <path d="M14 2 V14" stroke={definitions.colors.goldBase} strokeWidth="0.5" />
+          <circle cx="20" cy="5" r="1" fill={definitions.colors.goldBase} opacity="0.5" />
+          <circle cx="5" cy="20" r="1" fill={definitions.colors.goldBase} opacity="0.5" />
+        </svg>
       </div>
     ))}
   </div>
 ));
 
 const CrucibleFrame = React.memo(() => (
-   <>
-      <div className="absolute inset-0 border rounded-sm pointer-events-none" style={{ borderColor: tokens.colors.borderInner }} />
-      <div className="absolute inset-x-0 top-0 h-[1px] opacity-50" style={{ background: definitions.gradients.sheen }} />
-      
-      <div className="absolute top-0 inset-x-0 h-3 border-b flex justify-between px-2 items-end" style={{ borderColor: tokens.colors.borderInner }}>
-         {[...Array(25)].map((_, i) => (
-             <div key={i} className={`w-[1px] ${i % 5 === 0 ? 'h-2 opacity-50' : 'h-1 opacity-20'}`} style={{ backgroundColor: definitions.colors.goldBase }} />
-         ))}
-      </div>
+  <>
+    <div className="absolute inset-0 border rounded-sm pointer-events-none" style={{ borderColor: tokens.colors.borderInner }} />
+    <div className="absolute inset-x-0 top-0 h-[1px] opacity-50" style={{ background: definitions.gradients.sheen }} />
 
-      <div className="absolute top-1/2 left-0 -translate-y-1/2 h-2/3 w-1 border-l border-t border-b" style={{ borderColor: tokens.colors.borderOuter }} />
-      <div className="absolute top-1/2 right-0 -translate-y-1/2 h-2/3 w-1 border-r border-t border-b" style={{ borderColor: tokens.colors.borderOuter }} />
+    <div className="absolute top-0 inset-x-0 h-3 border-b flex justify-between px-2 items-end" style={{ borderColor: tokens.colors.borderInner }}>
+      {[...Array(25)].map((_, i) => (
+        <div key={i} className={`w-[1px] ${i % 5 === 0 ? 'h-2 opacity-50' : 'h-1 opacity-20'}`} style={{ backgroundColor: definitions.colors.goldBase }} />
+      ))}
+    </div>
 
-      <div className="absolute bottom-1.5 right-3 flex space-x-1 opacity-40 mix-blend-screen">
-         <svg width="60" height="6" viewBox="0 0 60 6">
-            <path d="M0 6 L5 0 L10 6 M15 3 H25 M30 0 V6 M35 0 L40 6 M45 3 H55" fill="none" stroke={definitions.colors.goldBright} strokeWidth="1" />
-         </svg>
-      </div>
-      
-      <div className="absolute -top-[1px] left-1/4 w-1 h-1 rounded-full" style={{ backgroundColor: tokens.colors.borderOuter }} />
-      <div className="absolute -top-[1px] right-1/4 w-1 h-1 rounded-full" style={{ backgroundColor: tokens.colors.borderOuter }} />
-   </>
+    <div className="absolute top-1/2 left-0 -translate-y-1/2 h-2/3 w-1 border-l border-t border-b" style={{ borderColor: tokens.colors.borderOuter }} />
+    <div className="absolute top-1/2 right-0 -translate-y-1/2 h-2/3 w-1 border-r border-t border-b" style={{ borderColor: tokens.colors.borderOuter }} />
+
+    <div className="absolute bottom-1.5 right-3 flex space-x-1 opacity-40 mix-blend-screen">
+      <svg width="60" height="6" viewBox="0 0 60 6">
+        <path d="M0 6 L5 0 L10 6 M15 3 H25 M30 0 V6 M35 0 L40 6 M45 3 H55" fill="none" stroke={definitions.colors.goldBright} strokeWidth="1" />
+      </svg>
+    </div>
+
+    <div className="absolute -top-[1px] left-1/4 w-1 h-1 rounded-full" style={{ backgroundColor: tokens.colors.borderOuter }} />
+    <div className="absolute -top-[1px] right-1/4 w-1 h-1 rounded-full" style={{ backgroundColor: tokens.colors.borderOuter }} />
+  </>
 ));
 
 const SunMoonDivider = React.memo(() => (
   <div className="relative flex items-center justify-center w-full mb-5 opacity-90">
     <div className="h-[1px] w-full max-w-[140px]" style={{ background: definitions.gradients.sheen }} />
     <div className="absolute flex items-center justify-center">
-       <div className="w-3 h-3 rounded-full border flex items-center justify-center z-10" style={{ borderColor: definitions.colors.goldBright, backgroundColor: definitions.colors.obsidian, boxShadow: `0 0 10px rgba(240, 208, 130, 0.3)` }}>
-          <div className="w-1 h-1 rounded-full" style={{ backgroundColor: definitions.colors.goldBright, boxShadow: `0 0 4px ${definitions.colors.goldBright}` }} />
-       </div>
-       <div className="absolute -left-5 w-3 h-3 rounded-full border-l -rotate-45" style={{ borderColor: tokens.colors.borderHighlight }} />
-       <div className="absolute -right-5 w-3 h-3 rounded-full border-r rotate-45" style={{ borderColor: tokens.colors.borderHighlight }} />
+      <div className="w-3 h-3 rounded-full border flex items-center justify-center z-10" style={{ borderColor: definitions.colors.goldBright, backgroundColor: definitions.colors.obsidian, boxShadow: `0 0 10px rgba(240, 208, 130, 0.3)` }}>
+        <div className="w-1 h-1 rounded-full" style={{ backgroundColor: definitions.colors.goldBright, boxShadow: `0 0 4px ${definitions.colors.goldBright}` }} />
+      </div>
+      <div className="absolute -left-5 w-3 h-3 rounded-full border-l -rotate-45" style={{ borderColor: tokens.colors.borderHighlight }} />
+      <div className="absolute -right-5 w-3 h-3 rounded-full border-r rotate-45" style={{ borderColor: tokens.colors.borderHighlight }} />
     </div>
   </div>
 ));
@@ -203,14 +214,14 @@ const BackMiddleSeparator = React.memo(() => (
 
 const AlchemyDurabilityBar = React.memo(({ progress }: { progress: number }) => (
   <div className="w-full flex justify-center items-end pb-[1px]">
-     <div 
-        className="h-[2px] transition-all duration-500 ease-out"
-        style={{ 
-           width: `${progress}%`,
-           background: definitions.gradients.goldMetallic,
-           boxShadow: `0 0 8px ${definitions.colors.goldBright}, 0 0 4px ${definitions.colors.goldBase}`
-        }} 
-     />
+    <div
+      className="h-[2px] transition-all duration-500 ease-out"
+      style={{
+        width: `${progress}%`,
+        background: definitions.gradients.goldMetallic,
+        boxShadow: `0 0 8px ${definitions.colors.goldBright}, 0 0 4px ${definitions.colors.goldBase}`
+      }}
+    />
   </div>
 ));
 
