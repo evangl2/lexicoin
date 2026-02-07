@@ -17,13 +17,14 @@ interface CardProps {
   cardData: CardEntity;
 
   /**
-   * Current display language for the card
-   * Used to select displayData[currentLanguage] for rendering
+   * Learning language - the target language being studied
+   * Used for card content (word, definition, flavor text)
    */
-  currentLanguage: Language;
+  learningLanguage: Language;
 
   /**
-   * System language for UI elements (fallback language)
+   * System language - the familiar language for assistance
+   * Used for supplementary translations and UI elements
    */
   systemLanguage: Language;
 
@@ -45,7 +46,7 @@ interface CardProps {
 
 export const Card: React.FC<CardProps> = ({
   cardData,
-  currentLanguage,
+  learningLanguage,
   systemLanguage,
   x,
   y,
@@ -59,14 +60,16 @@ export const Card: React.FC<CardProps> = ({
   onDropItem,
 }) => {
   // ========== Extract Display Data from CardEntity ==========
-  // Select display data for current language
-  const displayData = cardData.displayData[currentLanguage];
+  // Extract data for BOTH languages (bilingual support)
+  // Note: CardEntity contract guarantees all 8 languages exist in displayData
+  const learningData = cardData.displayData[learningLanguage]!;
+  const systemData = cardData.displayData[systemLanguage]!;
 
   // Extract commonly used fields for convenience
   const id = cardData.uid;
-  const title = displayData.word;
-  const difficultyLevel = displayData.level;
-  const partOfSpeech = displayData.pos;
+  const title = learningData.word;  // Primary title uses learning language
+  const difficultyLevel = learningData.level;
+  const partOfSpeech = learningData.pos;
   const durability = cardData.senseInfo.durability;
   const [isHovered, setIsHovered] = useState(false);
 
@@ -85,6 +88,10 @@ export const Card: React.FC<CardProps> = ({
   const [isDragging, setIsDragging] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [isFlipped, setIsFlipped] = useState(false);
+
+  // --- Selection Overlay State ---
+  const [isOverlayOpen, setIsOverlayOpen] = useState(false);
+  const [selectedDefId, setSelectedDefId] = useState<string>('default');
 
   const [windowDim, setWindowDim] = useState({ w: 0, h: 0 });
   const cardRef = useRef<HTMLDivElement>(null);
@@ -136,6 +143,35 @@ export const Card: React.FC<CardProps> = ({
     window.addEventListener('pointerdown', handleGlobalClick, { capture: true });
     return () => window.removeEventListener('pointerdown', handleGlobalClick, { capture: true });
   }, [isExpanded, isFlipped]);
+
+  // --- Selection Overlay Handlers ---
+  const handleDefinitionClick = () => {
+    setIsOverlayOpen(true);
+  };
+
+  const handleSelectDefinition = (item: any) => {
+    // In a real app, this would update the card's selected definition
+    // For now, we just update the local state and close the overlay
+    setSelectedDefId(item.id);
+    setIsOverlayOpen(false);
+  };
+
+  // Selection items - strictly using real data from SenseEntity
+  const selectionItems = [
+    {
+      id: 'default',
+      definitions: Object.keys(cardData.displayData).reduce((acc, lang) => {
+        acc[lang as Language] = cardData.displayData[lang as Language]?.definition || '';
+        return acc;
+      }, {} as Record<Language, string>),
+      pos: partOfSpeech
+    }
+  ];
+
+  const selectedItem = selectionItems.find(i => i.id === selectedDefId);
+  const definitionOverride = selectedDefId !== 'default'
+    ? selectedItem?.definitions[learningLanguage]
+    : undefined;
 
   // --- Physics ---
   const xVelocity = useVelocity(x);
@@ -328,7 +364,7 @@ export const Card: React.FC<CardProps> = ({
         transform: 'translate3d(0, 0, 0)',
         // Dynamic performance optimization: 
         // Only hint will-change during active high-framerate operations to prevent blurring
-        willChange: (isDragging || isExpanded) ? 'transform' : 'auto',
+        willChange: (isDragging || (!isExpanded && canvasScale < 1)) ? 'transform' : 'auto',
         transformStyle: 'preserve-3d', // Enable 3D context for sharper scaling
         cursor: isFlipped ? 'default' : (isDragging ? "grabbing" : (isExpanded ? "zoom-out" : "grab")),
         position: 'absolute', left: '50%', top: '50%',
@@ -337,7 +373,7 @@ export const Card: React.FC<CardProps> = ({
       }}
       onPointerDown={(e) => {
         e.stopPropagation();
-        if (!isFlipped) handlers.onPointerDown(e);
+        if (!isFlipped && handlers?.onPointerDown) handlers.onPointerDown(e);
       }}
       onHoverStart={() => !isFlipped && setIsHovered(true)}
       onHoverEnd={() => !isFlipped && setIsHovered(false)}
@@ -347,12 +383,13 @@ export const Card: React.FC<CardProps> = ({
       className="canvas-card select-none group relative transition-colors duration-300"
     >
       <CardVisual
-        displayData={displayData}
+        learningData={learningData}
+        systemData={systemData}
         senseInfo={cardData.senseInfo}
         visual={cardData.visual}
+        learningLanguage={learningLanguage}
         systemLanguage={systemLanguage}
-        currentLanguage={currentLanguage}
-        isActive={isActive}
+        isActive={isDragging || isHovered}
         isOver={isOver}
 
         flipScaleX={flipScaleX}
@@ -368,6 +405,14 @@ export const Card: React.FC<CardProps> = ({
         smoothXVelocity={smoothXVelocity}
         smoothYVelocity={smoothYVelocity}
         isExpanded={isExpanded}
+
+        // Selection Overlay Props
+        isOverlayOpen={isOverlayOpen}
+        selectionItems={selectionItems}
+        selectedDefId={selectedDefId}
+        definitionOverride={definitionOverride}
+        onDefinitionClick={handleDefinitionClick}
+        onSelectDefinition={handleSelectDefinition}
       />
     </motion.div>
   );

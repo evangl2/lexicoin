@@ -1,13 +1,13 @@
+import type { Language } from 'a:/lexicoin/lexicoin/schemas/schemas/SenseEntity.schema';
+
 /**
  * Represents a single content item (definition or flavor text) for a card.
  */
 export type ContentItem = {
     /** Unique identifier for the content item */
     id: string;
-    /** English text */
-    en: string;
-    /** Chinese text (Simplified) */
-    zh: string;
+    /** Definitions indexed by language */
+    definitions: Record<Language, string>;
     /** Part of speech (optional, for definitions) */
     pos?: string;
 };

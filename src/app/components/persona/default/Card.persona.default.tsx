@@ -71,12 +71,24 @@ const tokens = {
     flavorBoxBg: "rgba(0, 0, 0, 0.4)",
   },
   typography: {
+    /**
+     * Label Font (Card Titles - Front & Back)
+     * Alchemical aesthetic with multilingual support
+     * - Cinzel: Elegant serif for Latin scripts (en, fr, de, es, it, pt)
+     * - Noto Serif SC/JP: Elegant serif for Chinese & Japanese
+     */
     label: {
-      family: "'Cinzel', serif",
+      family: "'Cinzel', 'Noto Serif SC', 'Noto Serif JP', 'PingFang SC', 'Hiragino Mincho ProN', 'Songti SC', 'Microsoft YaHei', 'SimSun', 'MS Mincho', serif",
       gradient: definitions.gradients.goldText,
     },
+    /**
+     * Body Font (Definition & Flavor Text)
+     * Readable with multilingual support
+     * - Merriweather: Clear serif for Latin scripts
+     * - Noto Sans SC/JP: Clean sans-serif for Chinese & Japanese
+     */
     body: {
-      family: "'Merriweather', serif",
+      family: "'Merriweather', 'Noto Sans SC', 'Noto Sans JP', 'PingFang SC', 'Hiragino Sans', 'Microsoft YaHei', 'SimHei', 'MS Gothic', sans-serif",
       color: definitions.colors.goldBase,
     }
   },

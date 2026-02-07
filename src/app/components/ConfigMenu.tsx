@@ -207,20 +207,94 @@ interface ConfigMenuProps {
   setSystemLang: (val: string) => void;
 }
 
-// Localization Helper
+// Localization Helper - Supports all 8 languages
 const getLoc = (key: string, lang: string) => {
-  const isZh = lang === '简体中文';
-  const dict: Record<string, { en: string; zh: string }> = {
-    'SYSTEM CONFIGURATION': { en: 'SYSTEM CONFIGURATION', zh: '系统设置' },
-    'LEARNING LANGUAGE': { en: 'LEARNING LANGUAGE', zh: '学习语言' },
-    'SYSTEM LANGUAGE': { en: 'SYSTEM LANGUAGE', zh: '系统语言' },
-    'CARD SKIN': { en: 'CARD SKIN', zh: '卡片皮肤' },
-    'CANVAS SKIN': { en: 'CANVAS SKIN', zh: '画布皮肤' },
-    'INTERFACE SKIN': { en: 'INTERFACE SKIN', zh: '界面皮肤' },
-    'NO SIGNAL': { en: 'NO SIGNAL', zh: '无信号' },
-    'OFFLINE': { en: 'OFFLINE', zh: '离线' },
+  // Translation dictionary for all UI strings
+  const dict: Record<string, Record<string, string>> = {
+    'SYSTEM CONFIGURATION': {
+      'ENGLISH': 'SYSTEM CONFIGURATION',
+      '简体中文': '系统设置',
+      'FRANÇAIS': 'CONFIGURATION SYSTÈME',
+      'DEUTSCH': 'SYSTEMKONFIGURATION',
+      '日本語': 'システム設定',
+      'ESPAÑOL': 'CONFIGURACIÓN DEL SISTEMA',
+      'ITALIANO': 'CONFIGURAZIONE DI SISTEMA',
+      'PORTUGUÊS': 'CONFIGURAÇÃO DO SISTEMA'
+    },
+    'LEARNING LANGUAGE': {
+      'ENGLISH': 'LEARNING LANGUAGE',
+      '简体中文': '学习语言',
+      'FRANÇAIS': 'LANGUE D\'APPRENTISSAGE',
+      'DEUTSCH': 'LERNSPRACHE',
+      '日本語': '学習言語',
+      'ESPAÑOL': 'IDIOMA DE APRENDIZAJE',
+      'ITALIANO': 'LINGUA DI APPRENDIMENTO',
+      'PORTUGUÊS': 'IDIOMA DE APRENDIZADO'
+    },
+    'SYSTEM LANGUAGE': {
+      'ENGLISH': 'SYSTEM LANGUAGE',
+      '简体中文': '系统语言',
+      'FRANÇAIS': 'LANGUE DU SYSTÈME',
+      'DEUTSCH': 'SYSTEMSPRACHE',
+      '日本語': 'システム言語',
+      'ESPAÑOL': 'IDIOMA DEL SISTEMA',
+      'ITALIANO': 'LINGUA DI SISTEMA',
+      'PORTUGUÊS': 'IDIOMA DO SISTEMA'
+    },
+    'CARD SKIN': {
+      'ENGLISH': 'CARD SKIN',
+      '简体中文': '卡片皮肤',
+      'FRANÇAIS': 'STYLE DE CARTE',
+      'DEUTSCH': 'KARTEN-SKIN',
+      '日本語': 'カードスキン',
+      'ESPAÑOL': 'ESTILO DE TARJETA',
+      'ITALIANO': 'TEMA CARTA',
+      'PORTUGUÊS': 'TEMA DO CARTÃO'
+    },
+    'CANVAS SKIN': {
+      'ENGLISH': 'CANVAS SKIN',
+      '简体中文': '画布皮肤',
+      'FRANÇAIS': 'STYLE DE TOILE',
+      'DEUTSCH': 'CANVAS-SKIN',
+      '日本語': 'キャンバススキン',
+      'ESPAÑOL': 'ESTILO DE LIENZO',
+      'ITALIANO': 'TEMA TELA',
+      'PORTUGUÊS': 'TEMA DA TELA'
+    },
+    'INTERFACE SKIN': {
+      'ENGLISH': 'INTERFACE SKIN',
+      '简体中文': '界面皮肤',
+      'FRANÇAIS': 'STYLE D\'INTERFACE',
+      'DEUTSCH': 'INTERFACE-SKIN',
+      '日本語': 'インターフェーススキン',
+      'ESPAÑOL': 'ESTILO DE INTERFAZ',
+      'ITALIANO': 'TEMA INTERFACCIA',
+      'PORTUGUÊS': 'TEMA DA INTERFACE'
+    },
+    'NO SIGNAL': {
+      'ENGLISH': 'NO SIGNAL',
+      '简体中文': '无信号',
+      'FRANÇAIS': 'PAS DE SIGNAL',
+      'DEUTSCH': 'KEIN SIGNAL',
+      '日本語': '信号なし',
+      'ESPAÑOL': 'SIN SEÑAL',
+      'ITALIANO': 'NESSUN SEGNALE',
+      'PORTUGUÊS': 'SEM SINAL'
+    },
+    'OFFLINE': {
+      'ENGLISH': 'OFFLINE',
+      '简体中文': '离线',
+      'FRANÇAIS': 'HORS LIGNE',
+      'DEUTSCH': 'OFFLINE',
+      '日本語': 'オフライン',
+      'ESPAÑOL': 'DESCONECTADO',
+      'ITALIANO': 'NON IN LINEA',
+      'PORTUGUÊS': 'DESCONECTADO'
+    }
   };
-  return isZh ? (dict[key]?.zh || key) : (dict[key]?.en || key);
+
+  // Return translation for current language, fallback to key if not found
+  return dict[key]?.[lang] || key;
 };
 
 export const ConfigMenu: React.FC<ConfigMenuProps> = ({
@@ -325,14 +399,32 @@ export const ConfigMenu: React.FC<ConfigMenuProps> = ({
               <div className="flex flex-col px-4 py-4" style={{ backgroundColor: interfacePersona.palette.colors.bgVoid + '80' }}>
                 <ScrollSelect
                   label={getLoc('LEARNING LANGUAGE', systemLang)}
-                  options={['ENGLISH', '简体中文']}
+                  options={[
+                    'ENGLISH',
+                    '简体中文',
+                    'FRANÇAIS',
+                    'DEUTSCH',
+                    '日本語',
+                    'ESPAÑOL',
+                    'ITALIANO',
+                    'PORTUGUÊS'
+                  ]}
                   value={learningLang}
                   onChange={setLearningLang}
                 />
                 <Spacer />
                 <ScrollSelect
                   label={getLoc('SYSTEM LANGUAGE', systemLang)}
-                  options={['ENGLISH', '简体中文']}
+                  options={[
+                    'ENGLISH',
+                    '简体中文',
+                    'FRANÇAIS',
+                    'DEUTSCH',
+                    '日本語',
+                    'ESPAÑOL',
+                    'ITALIANO',
+                    'PORTUGUÊS'
+                  ]}
                   value={systemLang}
                   onChange={setSystemLang}
                 />

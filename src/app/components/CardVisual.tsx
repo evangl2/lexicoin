@@ -4,6 +4,9 @@ import { motion } from 'motion/react';
 import { DefaultCardPersona as DefaultPersona } from '@/app/components/persona/default/Card.persona.default';
 import { AlchemyVisual } from '@/app/components/AlchemyVisual';
 import { useWheelStopPropagation } from '@/app/hooks/useWheelStopPropagation';
+import { DynamicText } from '@/app/components/ui/DynamicText';
+import { SelectionOverlay } from '@/app/components/SelectionOverlay';
+import type { ContentItem } from '@/app/types/CardContent';
 import type { LanguageDisplayData, SenseInfo, VisualData } from '@/types/CardEntity';
 import type { Language } from 'a:/lexicoin/lexicoin/schemas/schemas/SenseEntity.schema';
 
@@ -37,14 +40,20 @@ const getTitleClass = (text: string, isCompact: boolean) => {
 
 export interface CardVisualProps {
   /**
-   * Display data for current language
-   * Pre-extracted from CardEntity.displayData[currentLanguage]
+   * Learning language display data
+   * Contains word, definition, and flavor text in the target learning language
    */
-  displayData: LanguageDisplayData;
+  learningData: LanguageDisplayData;
 
   /**
-   * Semantic metadata
-   * Contains ontology, frequency, durability, personas, etc.
+   * System language display data
+   * Contains word translation in the familiar system language for assistance
+   */
+  systemData: LanguageDisplayData;
+
+  /**
+   * Semantic metadata (ontology, frequency, fingerprint, personas, durability)
+   * Used for filtering, sorting, and game mechanics
    */
   senseInfo: SenseInfo;
 
@@ -55,15 +64,15 @@ export interface CardVisualProps {
   visual: VisualData;
 
   /**
-   * System language for UI elements
+   * System language - retained for future UI localization
+   * Currently unused as all text comes from learningData/systemData
    */
-  systemLanguage: Language;
+  systemLanguage?: Language;
 
   /**
-   * Current display language
+   * Learning language code - used to determine if bilingual display is needed
    */
-  currentLanguage: Language;
-
+  learningLanguage?: Language;
   // ========== Interaction States ==========
   isActive?: boolean;
   isOver?: boolean;
@@ -87,14 +96,23 @@ export interface CardVisualProps {
   // ========== Layout Options ==========
   layoutMode?: 'default' | 'compact';
   persona?: any;
+
+  // ==========/ Selection Overlay /==========
+  onDefinitionClick?: () => void;
+  isOverlayOpen?: boolean;
+  selectionItems?: ContentItem[];
+  selectedDefId?: string;
+  onSelectDefinition?: (item: ContentItem) => void;
+  definitionOverride?: string;
 }
 
 export const CardVisual: React.FC<CardVisualProps> = ({
-  displayData,
+  learningData,
+  systemData,
   senseInfo,
   visual,
+  learningLanguage,
   systemLanguage,
-  currentLanguage,
   isActive = false,
   isOver = false,
 
@@ -116,9 +134,21 @@ export const CardVisual: React.FC<CardVisualProps> = ({
   layoutMode = 'default',
 
   persona,
+
+  // Selection Overlay Defaults
+  onDefinitionClick,
+  isOverlayOpen = false,
+  selectionItems = [],
+  selectedDefId = '',
+  onSelectDefinition = () => { },
+  definitionOverride,
 }) => {
   // ========== Extract Display Data ==========
-  const { word, pronunciation, pos, level, definition, flavorText } = displayData;
+  // Learning language data (primary)
+  const { word, pronunciation, pos, level, definition, flavorText } = learningData;
+  // System language word (for bilingual front face)
+  const systemWord = systemData.word;
+
   const { durability } = senseInfo;
   // 1. Priority: External persona > Default (Alchemy)
   const Persona = persona || DefaultPersona;
@@ -291,10 +321,10 @@ export const CardVisual: React.FC<CardVisualProps> = ({
   );
 
   const renderText = () => (
-    <div className="flex flex-col items-center justify-end w-full h-full pb-3 relative z-40">
+    <div className="flex flex-col items-center justify-end w-full h-full pb-0 relative z-40">
       {displayPhonetic && !isCompact && (
-        <div className="mb-1 w-full text-center">
-          <span className="font-serif text-[10px] tracking-[0.2em] mr-[-0.2em] opacity-50 mix-blend-plus-lighter inline-block"
+        <div className="mb-0.5 w-full text-center">
+          <span className="font-serif text-[10px] tracking-[0.2em] opacity-50 mix-blend-plus-lighter inline-block"
             style={{ color: Persona.tokens.colors.goldBright || Persona.tokens.colors.textHighlight }}>
             {displayPhonetic}
           </span>
@@ -302,52 +332,37 @@ export const CardVisual: React.FC<CardVisualProps> = ({
       )}
 
       <div className={`flex ${isCompact ? 'flex-col' : 'items-baseline'} justify-center mb-1 w-full text-center relative z-10`}>
-        {!Persona.visuals.ScrapLabel && !isCompact && (
-          <span className="font-serif italic text-xs tracking-wider whitespace-nowrap mr-3 opacity-0 select-none pointer-events-none"
-            style={{ fontFamily: Persona.tokens.typography.body.family }}>
-            {pos}
-          </span>
-        )}
 
-        {Persona.visuals.ScrapLabel && (
-          <div className="mr-2 mb-1">
-            <Persona.visuals.ScrapLabel color={Persona.definitions.colors.crayonBlue || '#5BC0DE'}>
-              {pos}
-            </Persona.visuals.ScrapLabel>
-          </div>
-        )}
 
-        <h2 className={`leading-none capitalize ${getTitleClass(word, isCompact)}`}
-          style={{
-            fontFamily: Persona.tokens.typography.label.family,
-            backgroundImage: Persona.definitions.gradients.goldText || Persona.tokens.typography.label.gradient,
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.8))',
-            textAlign: 'center'
-          }}>
-          {word}
-        </h2>
-
-        {!Persona.visuals.ScrapLabel && !isCompact && (
-          <span className="font-serif italic text-xs opacity-60 font-medium tracking-wider whitespace-nowrap ml-3"
+        <div className="flex flex-col itemscenter justify-center gap-2.5 px-4 mb-1.5">
+          {/* Main title: Learning language word */}
+          <h2 className={`leading-tight capitalize pb-[0.1em] ${getTitleClass(word, isCompact)}`}
             style={{
-              fontFamily: Persona.tokens.typography.body.family,
-              color: Persona.tokens.colors.goldMetallic
+              fontFamily: Persona.tokens.typography.label.family,
+              backgroundImage: Persona.definitions.gradients.goldText || Persona.tokens.typography.label.gradient,
+              WebkitBackgroundClip: 'text',
+              WebkitTextFillColor: 'transparent',
+              filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.8))',
+              textAlign: 'center'
             }}>
-            {pos}
-          </span>
-        )}
+            {word}
+          </h2>
 
-        {!Persona.visuals.ScrapLabel && isCompact && (
-          <span className="font-serif italic tracking-wider whitespace-nowrap mt-2 text-base opacity-90 font-bold"
-            style={{
-              fontFamily: Persona.tokens.typography.body.family,
-              color: Persona.tokens.colors.goldMetallic
-            }}>
-            {pos}
-          </span>
-        )}
+          {/* System language translation (bilingual support) */}
+          {/* Show systemWord only if languages are different */}
+          {learningLanguage !== systemLanguage && (
+            <span className="text-sm opacity-70 text-center font-medium"
+              style={{
+                fontFamily: Persona.tokens.typography.body.family,
+                color: Persona.tokens.colors.goldMetallic,
+                filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))'
+              }}>
+              {systemWord}
+            </span>
+          )}
+        </div>
+
+
       </div>
 
 
@@ -517,7 +532,7 @@ export const CardVisual: React.FC<CardVisualProps> = ({
 
             {/* --- HEADER SECTION --- */}
             <div className="flex items-baseline mb-3 px-1 shrink-0">
-              <h3 className="text-3xl font-bold font-serif mr-3 leading-none"
+              <h3 className="text-3xl font-bold font-serif mr-3 leading-tight pb-[0.1em]"
                 style={{
                   fontFamily: Persona.tokens.typography.label.family,
                   backgroundImage: Persona.definitions.gradients.goldText || `linear-gradient(to bottom, ${Persona.tokens.colors.goldBright}, ${Persona.tokens.colors.goldDeep})`,
@@ -577,14 +592,9 @@ export const CardVisual: React.FC<CardVisualProps> = ({
                   `;
                   e.currentTarget.style.transform = 'scale(1)';
                 }}
-                onMouseDown={(e) => {
-                  e.currentTarget.style.boxShadow = `
-                    inset 0 1px 0 0 rgba(240, 208, 130, 0.3),
-                    inset 0 -1px 0 0 rgba(0, 0, 0, 0.5),
-                    0 0 30px rgba(212, 175, 55, 0.5),
-                    0 0 15px rgba(240, 208, 130, 0.4),
-                    0 2px 8px rgba(0, 0, 0, 0.4)
-                  `;
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDefinitionClick?.();
                 }}
               >
                 {/* Header with alchemy styling - shrink for refinement */}
@@ -613,7 +623,7 @@ export const CardVisual: React.FC<CardVisualProps> = ({
 
                   {/* Definition Text (from CardEntity.displayData) */}
                   <p
-                    className="text-base font-sans leading-relaxed flex-1 select-none pr-2 indent-3"
+                    className="text-base font-sans leading-relaxed flex-1 select-none pr-0.5 indent-3"
                     style={{
                       color: Persona.tokens.colors.textPrimary,
                       fontFamily: Persona.tokens.typography.body.family,
@@ -621,7 +631,7 @@ export const CardVisual: React.FC<CardVisualProps> = ({
                       letterSpacing: '0.01em'
                     }}
                   >
-                    {definition}
+                    {definitionOverride || definition}
                   </p>
                 </div>
               </div>
@@ -630,7 +640,7 @@ export const CardVisual: React.FC<CardVisualProps> = ({
               {/* Alchemy-themed display box - subtle, complementary to definition */}
               {/* Reduced height: flex-1 vs flex-[3] creates the requested ratio shift */}
               <div
-                className="flex-1 rounded-md py-1.5 px-2 flex flex-col min-h-0"
+                className="flex-1 rounded-md py-1.5 px-1 flex flex-col min-h-0"
                 style={{
                   backgroundColor: Persona.tokens.colors.flavorBoxBg || 'rgba(0, 0, 0, 0.4)',
                   border: `1px solid ${Persona.tokens.colors.borderSubtle}`,
@@ -645,69 +655,36 @@ export const CardVisual: React.FC<CardVisualProps> = ({
                 <div className="overflow-hidden w-full h-full flex flex-col pr-1"
                   onWheel={(e) => e.stopPropagation()}
                 >
-                  {/* Alchemy Styled Flavor Text - Dynamic Typography */}
-                  {(() => {
-                    const text = flavorText.text;
-                    const len = text.length;
-
-                    // Intelligent typography adjustment logic - stricter sizing
-                    let fontSize = 'text-sm';
-                    let fontWeight = 'font-normal';
-                    let letterSpacing = '0.02em';
-                    let lineHeight = '1.6';
-
-                    if (len < 30) {
-                      // Now Base (Standard)
-                      fontSize = 'text-base';
-                      fontWeight = 'font-medium';
-                      letterSpacing = '0.03em';
-                      lineHeight = '1.5';
-                    } else if (len < 80) {
-                      // Small
-                      fontSize = 'text-sm';
-                      fontWeight = 'font-normal';
-                      letterSpacing = '0.02em';
-                      lineHeight = '1.35';
-                    } else if (len < 100) {
-                      //  XS
-                      fontSize = 'text-xs';
-                      fontWeight = 'font-normal';
-                      letterSpacing = '0.01em';
-                      lineHeight = '1.2';
-                    } else {
-                      // Tiny
-                      fontSize = 'text-[10px]';
-                      fontWeight = 'font-light';
-                      letterSpacing = '0.01em';
-                      lineHeight = '1.10';
-                    }
-
-                    return (
-                      <p
-                        className={`${fontSize} ${fontWeight} font-serif italic text-center w-full px-2 my-auto transition-all duration-300`}
-                        style={{
-                          fontFamily: Persona.tokens.typography.label.family,
-                          opacity: 0.9,
-                          lineHeight: lineHeight,
-                          letterSpacing: letterSpacing,
-                          textShadow: '0 1px 2px rgba(0,0,0,0.5)',
-                          backgroundImage: Persona.definitions.gradients.goldText || `linear-gradient(to bottom, ${Persona.tokens.colors.goldBright}, ${Persona.tokens.colors.goldDeep})`,
-                          WebkitBackgroundClip: 'text',
-                          WebkitTextFillColor: 'transparent',
-                        }}
-                      >
-                        "{text}"
-                      </p>
-                    );
-                  })()}
+                  {/* Flavor Text - Dynamic Typography */}
+                  {/* Flavor Text - Dynamic Typography */}
+                  <DynamicText
+                    text={flavorText.text}
+                    className="font-serif italic text-center w-full px-1"
+                    style={{
+                      fontFamily: Persona.tokens.typography.label.family,
+                      opacity: 0.9,
+                      textShadow: '0 1px 2px rgba(0,0,0,0.5)',
+                    }}
+                    gradient={Persona.definitions.gradients.goldText || `linear-gradient(to bottom, ${Persona.tokens.colors.goldBright}, ${Persona.tokens.colors.goldDeep})`}
+                  />
                 </div>
               </div>
             </div>
           </div>
 
           {/* Multi-definition selection UI deferred to future */}
+
+          {isOverlayOpen && (
+            <SelectionOverlay
+              items={selectionItems}
+              selectedId={selectedDefId}
+              onSelect={onSelectDefinition}
+              systemLang={systemLanguage || 'en'}
+              tokens={Persona.tokens}
+            />
+          )}
         </motion.div>
-      </motion.div>
+      </motion.div >
     </>
   );
 };

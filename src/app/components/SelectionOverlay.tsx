@@ -2,13 +2,14 @@ import React from 'react';
 import { motion } from 'motion/react';
 import type { ContentItem } from '@/app/types/CardContent';
 import { useWheelStopPropagation } from '@/app/hooks/useWheelStopPropagation';
+import { DynamicText } from '@/app/components/ui/DynamicText';
+import type { Language } from 'a:/lexicoin/lexicoin/schemas/schemas/SenseEntity.schema';
 
 export interface SelectionOverlayProps {
     items: ContentItem[];
     selectedId: string;
     onSelect: (item: ContentItem) => void;
-    onClose: () => void;
-    lang: string;
+    systemLang: Language;
     tokens: any;
 }
 
@@ -20,10 +21,21 @@ export const SelectionOverlay: React.FC<SelectionOverlayProps> = ({
     items,
     selectedId,
     onSelect,
-    onClose,
-    lang,
+    systemLang,
     tokens
 }) => {
+    const prompts: Record<string, string> = {
+        'en': 'SELECT DEFINITION',
+        'zh-CN': '选择定义',
+        'ja': '定義を選択',
+        'fr': 'CHOISIR LA DÉFINITION',
+        'de': 'DEFINITION WÄHLEN',
+        'es': 'SELECCIONAR DEFINICIÓN',
+        'it': 'SELEZIONA DEFINIZIONE',
+        'pt': 'SELECIONAR DEFINIÇÃO'
+    };
+
+    const headerPrompt = prompts[systemLang] || prompts['en'] || '';
     const overlayRef = useWheelStopPropagation();
 
     return (
@@ -54,42 +66,24 @@ export const SelectionOverlay: React.FC<SelectionOverlayProps> = ({
             />
 
             {/* Header with alchemy decorations */}
-            <div className="flex items-center justify-center px-5 h-[5%] min-h-[32px] shrink-0 border-b relative"
+            <div className="flex items-center justify-center px-10 h-[5%] min-h-[32px] shrink-0 border-b relative"
                 style={{ borderColor: tokens.colors.borderSubtle }}
             >
-                <h3
-                    className="text-sm font-serif tracking-wider text-center relative z-10"
-                    style={{
-                        color: tokens.colors.textHighlight,
-                        fontFamily: tokens.typography.label.family,
-                        backgroundImage: tokens.gradients?.primary || `linear-gradient(to bottom, ${tokens.colors.goldBright}, ${tokens.colors.goldDeep})`,
-                        WebkitBackgroundClip: 'text',
-                        WebkitTextFillColor: 'transparent',
-                        filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.8))',
-                        letterSpacing: '0.1em'
-                    }}
-                >
-                    <span className="opacity-70 mx-2">✧</span>
-                    SELECT DEFINITION
-                    <span className="opacity-70 mx-2">✧</span>
-                </h3>
-
-                {/* Close button */}
-                <button
-                    onClick={onClose}
-                    className="absolute right-3 p-1 rounded transition-all duration-200 hover:bg-white/10"
-                    style={{ color: tokens.colors.textSecondary }}
-                    onMouseEnter={(e) => {
-                        e.currentTarget.style.boxShadow = `0 0 10px rgba(212, 175, 55, 0.3)`;
-                    }}
-                    onMouseLeave={(e) => {
-                        e.currentTarget.style.boxShadow = 'none';
-                    }}
-                >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                        <path d="M18 6L6 18M6 6l12 12" />
-                    </svg>
-                </button>
+                <div className="w-full h-full max-w-[80%] flex items-center justify-center relative z-10">
+                    <DynamicText
+                        text={headerPrompt}
+                        baseFontSize={14}
+                        maxLines={1}
+                        gradient={tokens.typography.label.gradient || true}
+                        shadow={true}
+                        style={{
+                            fontFamily: tokens.typography.label.family,
+                            fontWeight: 'bold',
+                            letterSpacing: '0.1em',
+                            textTransform: 'uppercase'
+                        }}
+                    />
+                </div>
             </div>
 
             {/* Options List */}
@@ -99,6 +93,8 @@ export const SelectionOverlay: React.FC<SelectionOverlayProps> = ({
             >
                 {items.map((item, index) => {
                     const isSelected = item.id === selectedId;
+                    const displayDefinition = item.definitions[systemLang] || item.definitions['en'] || '';
+
                     return (
                         <div
                             key={item.id}
@@ -150,7 +146,7 @@ export const SelectionOverlay: React.FC<SelectionOverlayProps> = ({
                                     letterSpacing: '0.01em'
                                 }}
                             >
-                                {lang === 'zh' ? item.zh : item.en}
+                                {displayDefinition}
                             </p>
 
                             {/* Selected indicator glow */}

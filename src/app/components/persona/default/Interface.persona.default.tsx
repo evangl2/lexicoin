@@ -91,7 +91,7 @@ const tokens = {
       nodeSize: "2.25rem", // w-9 h-9
     },
     behavior: {
-      fadeDelay: 3000,
+      fadeDelay: 400,
       scaleMin: 0.6,
       scaleMax: 1.3,
     },
@@ -215,7 +215,7 @@ const DockBackdropVisual = React.memo(({ isActive }: { isActive: boolean }) => {
               },
               opacity: {
                 duration: isActive ? p.duration : 1,
-                delay: isActive ? p.delay : 3,
+                delay: isActive ? p.delay : 0,
                 repeat: isActive ? Infinity : 0,
                 ease: "easeInOut"
               }

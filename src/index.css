@@ -2,6 +2,8 @@
  * Global Styles
  */
 
+@import './assets/fonts/fonts.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;

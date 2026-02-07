@@ -355,7 +355,7 @@ function InnerApp() {
           <Card
             key={item.cardData.rawSense.uid}
             cardData={item.cardData}
-            currentLanguage={mapLanguageCode(learningLang)}
+            learningLanguage={mapLanguageCode(learningLang)}
             systemLanguage={mapLanguageCode(systemLang)}
             x={item.mx}
             y={item.my}

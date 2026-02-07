@@ -77,14 +77,52 @@ const sharedPalette = {
     },
 };
 
-// ==================== SHARED TYPOGRAPHY ====================
-
+/**
+ * Shared Typography Configuration
+ * 
+ * Font Stacks optimized for all 8 supported languages:
+ * - Latin scripts: en, fr, de, es, it, pt
+ * - CJK scripts: zh-CN (Simplified Chinese), ja (Japanese)
+ * 
+ * Strategy:
+ * - Label (Titles): Alchemical aesthetic with Cinzel for Latin + Noto Serif for CJK
+ * - Body (Definition/Flavor): Readable with Merriweather for Latin + Noto Sans for CJK
+ */
 const sharedTypography = {
     fonts: {
-        heading: "'Cinzel', serif",
-        body: "'Merriweather', serif",
-        mono: "'Fira Code', monospace",
-        decorative: "'Cinzel Decorative', serif",
+        /**
+         * Heading Font Stack (Decorative, Alchemical)
+         * - Cinzel: Classical, serif-based for Latin scripts (en, fr, de, es, it, pt)
+         * - Noto Serif SC: Elegant serif for Simplified Chinese (zh-CN)
+         * - Noto Serif JP: Elegant serif for Japanese (ja)
+         * - System fallbacks for safety
+         */
+        heading: "'Cinzel', 'Noto Serif SC', 'Noto Serif JP', 'SimSun', 'MS Mincho', serif",
+
+        /**
+         * Label Font Stack (Card Front/Back Titles - Alchemical Aesthetic)
+         * Same as heading - used for learningLanguage and systemLanguage on card faces
+         */
+        label: "'Cinzel', 'Noto Serif SC', 'Noto Serif JP', 'SimSun', 'MS Mincho', serif",
+
+        /**
+         * Body Font Stack (Readable, for definitions and flavor text)
+         * - Merriweather: Highly readable serif for Latin scripts
+         * - Noto Sans SC: Clean sans-serif for Simplified Chinese
+         * - Noto Sans JP: Clean sans-serif for Japanese
+         * - System fallbacks for safety
+         */
+        body: "'Merriweather', 'Noto Sans SC', 'Noto Sans JP', 'SimHei', 'MS Gothic', sans-serif",
+
+        /**
+         * Monospace (for code/debug, not used in cards)
+         */
+        mono: "'Fira Code', 'Consolas', monospace",
+
+        /**
+         * Decorative Font (ornamental UI elements)
+         */
+        decorative: "'Cinzel Decorative', 'Noto Serif SC', serif",
     },
     sizes: {
         xs: '10px',
@@ -336,5 +374,5 @@ export const DefaultPersona: PersonaBundle = {
     interface: DefaultInterfacePersona,
 };
 
-// 为了向后兼容，同时导出 Legacy 格式（可在后续版本移除）
+
 export { LegacyCardPersona, LegacyCanvasPersona, LegacyInterfacePersona };
