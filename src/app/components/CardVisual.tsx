@@ -2,17 +2,39 @@ import React, { useState, useEffect } from 'react';
 import { useTransform, useMotionTemplate, useMotionValue } from 'motion/react';
 import { motion } from 'motion/react';
 import { DefaultCardPersona as DefaultPersona } from '@/app/components/persona/default/Card.persona.default';
-import { AlchemyVisual } from '@/app/components/AlchemyVisual';
+import { DynamicVisual } from '@/app/components/DynamicVisual';
 import { useWheelStopPropagation } from '@/app/hooks/useWheelStopPropagation';
-import { DynamicText } from '@/app/components/ui/DynamicText';
+import { FlavorCarousel } from '@/app/components/ui/FlavorCarousel';
+import { tts } from '@/app/utils/audio/tts';
 import { SelectionOverlay } from '@/app/components/SelectionOverlay';
 import type { ContentItem } from '@/app/types/CardContent';
 import type { LanguageDisplayData, SenseInfo, VisualData } from '@/types/CardEntity';
 import type { Language } from 'a:/lexicoin/lexicoin/schemas/schemas/SenseEntity.schema';
 
 // ============================================================================
-// HELPER FUNCTIONS (Typography)
+// HELPER FUNCTIONS (Typography & Icons)
 // ============================================================================
+
+// Temporary Mock Icons for testing persona switching
+const PERSONA_ICONS: Record<string, React.ReactNode> = {
+  'default': (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10" />
+      <path d="M12 5 L19 18 L5 18 Z" />
+      <circle cx="12" cy="13" r="2.5" fill="currentColor" fillOpacity="0.4" stroke="none" />
+    </svg>
+  ),
+  'scifi': (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+    </svg>
+  ),
+  'ancient': (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 2L2 22h20L12 2zm0 3l6 14H6l6-14z" />
+    </svg>
+  )
+};
 
 /**
  * Calculate responsive title class based on text length and character set
@@ -110,7 +132,6 @@ export const CardVisual: React.FC<CardVisualProps> = ({
   learningData,
   systemData,
   senseInfo,
-  visual,
   learningLanguage,
   systemLanguage,
   isActive = false,
@@ -142,22 +163,90 @@ export const CardVisual: React.FC<CardVisualProps> = ({
   selectedDefId = '',
   onSelectDefinition = () => { },
   definitionOverride,
+  visual,
 }) => {
   // ========== Extract Display Data ==========
   // Learning language data (primary)
-  const { word, pronunciation, pos, level, definition, flavorText } = learningData;
+  const { word, pronunciation, pos, level, definition, flavorContents } = learningData;
   // System language word (for bilingual front face)
   const systemWord = systemData.word;
 
   const { durability } = senseInfo;
+
+  // Flavor Carousel State
+  const [flavorIndex, setFlavorIndex] = useState(0);
+  const [flavorDirection, setFlavorDirection] = useState(0);
+
+  // Persona Switching State (for Flavor Text Box)
+  const [activePersonaId, setActivePersonaId] = useState(0);
+
+  // 1. Calculate Available Personas from Content
+  // We extract unique persona keys from the flavor contents to create the switchable list.
+  const availablePersonas = React.useMemo(() => {
+    // Get unique personas from content
+    const personas = Array.from(new Set(flavorContents.map(item => item.persona)));
+
+    // Ensure 'default' is always first if present
+    personas.sort((a, b) => {
+      if (a === 'default') return -1;
+      if (b === 'default') return 1;
+      return a.localeCompare(b);
+    });
+
+    // Fallback if no personas found (shouldn't happen with valid data)
+    if (personas.length === 0) return ['default'];
+    return personas;
+  }, [flavorContents]);
+
+  // Get current persona name (e.g., 'default', 'formal', 'slang')
+  const currentPersonaName = availablePersonas[activePersonaId] || availablePersonas[0];
+
+  // Filter content for the current persona
+  const currentFlavorContents = React.useMemo(() => {
+    return flavorContents.filter(item => item.persona === currentPersonaName);
+  }, [flavorContents, currentPersonaName]);
+
   // 1. Priority: External persona > Default (Alchemy)
+  // Note: We DO NOT change the visual skin (Persona object) based on flavor text persona.
+  // The skin remains consistent for the card.
   const Persona = persona || DefaultPersona;
-  const backFaceRef = useWheelStopPropagation();
 
-  // --- Glare Effect Calculation (from Persona) ---
-  // CRITICAL: Always call hooks unconditionally per React Rules of Hooks
+  // 2. Wheel Propagation Control
+  // We MUST use native listeners to stop propagation because the Canvas (parent) likely uses native listeners.
+  // AND we must use native listeners for our custom logic (Flavor) because if we put a stopPropagation on the
+  // parent container, React's synthetic events on children might be blocked (event delegation issue).
 
-  // Use fallback MotionValues if not provided
+  const backFaceRef = useWheelStopPropagation(); // Blocks zoom on general back face
+  const flavorContainerRef = React.useRef<HTMLDivElement>(null);
+
+  // Native wheel listener for Flavor Text (Persona Switch)
+  // We attach this directly to the DOM node so it fires BEFORE it bubbles to backFaceRef or Canvas.
+  useEffect(() => {
+    const el = flavorContainerRef.current;
+    if (!el) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      e.stopPropagation(); // Stop bubbling to backFaceRef (redundant but safe) and Canvas (critical)
+
+      // Logic from previous onWheel
+      if (Math.abs(e.deltaY) > 20) {
+        const direction = e.deltaY > 0 ? 1 : -1;
+        setActivePersonaId(prev => {
+          let next = prev + direction;
+          if (next < 0) next = availablePersonas.length - 1;
+          if (next >= availablePersonas.length) next = 0;
+          return next;
+        });
+      }
+    };
+
+    // Passive: false is required to use stopPropagation/preventDefault if needed, 
+    // though here we just need the event.
+    el.addEventListener('wheel', handleWheel, { passive: false });
+    return () => el.removeEventListener('wheel', handleWheel);
+  }, [availablePersonas.length]); // Re-bind if length changes (unlikely but correct)
+
+  // Sub-Components
   const fallbackMotionValue = useMotionValue(0);
   const safeDisplayRotateY = displayRotateY || fallbackMotionValue;
   const safeSmoothXVelocity = smoothXVelocity || fallbackMotionValue;
@@ -294,7 +383,7 @@ export const CardVisual: React.FC<CardVisualProps> = ({
             ${isCompact ? 'scale-[1.0] opacity-30 mix-blend-screen' : ''}`}
         style={{ x: fgParallaxX, y: fgParallaxY }}
       >
-        <AlchemyVisual element={word} isActive={isActive} />
+        <DynamicVisual code={visual.payload} isActive={isActive} fallbackElement={word} />
       </motion.div>
 
       {Persona.visuals.DurabilityBar ? (
@@ -558,7 +647,7 @@ export const CardVisual: React.FC<CardVisualProps> = ({
               {/* Alchemy-themed interactive box with hover and click states */}
               {/* Fixed height ratios: Moved from flex-[2] to flex-[3] to increase definition space relative to flavor */}
               <div
-                className="flex-[3] rounded-md py-4 pl-4 pr-0.5 cursor-pointer transition-all duration-300 relative group flex flex-col min-h-0 overflow-hidden"
+                className="flex-[3] rounded-md pt-1.5 pb-4 pl-4 pr-0.5 cursor-pointer transition-all duration-300 relative group flex flex-col min-h-0 overflow-hidden"
                 style={{
                   backgroundColor: Persona.tokens.colors.definitionBoxBg || 'rgba(10, 10, 10, 0.6)',
                   border: `2px solid ${Persona.tokens.colors.borderOuter}`,
@@ -598,7 +687,7 @@ export const CardVisual: React.FC<CardVisualProps> = ({
                 }}
               >
                 {/* Header with alchemy styling - shrink for refinement */}
-                <div className="text-[8px] uppercase font-serif tracking-[0.1em] mb-2 select-none flex items-center gap-1.5 pr-3.5"
+                <div className="text-[8px] uppercase font-serif tracking-[0.1em] mb-0.5 select-none flex items-center gap-1.5 pr-3.5"
                   style={{
                     color: Persona.tokens.colors.goldMetallic,
                     opacity: 0.6,
@@ -623,7 +712,7 @@ export const CardVisual: React.FC<CardVisualProps> = ({
 
                   {/* Definition Text (from CardEntity.displayData) */}
                   <p
-                    className="text-base font-sans leading-relaxed flex-1 select-none pr-0.5 indent-3"
+                    className="text-base font-sans leading-relaxed flex-1 select-none pr-0.5"
                     style={{
                       color: Persona.tokens.colors.textPrimary,
                       fontFamily: Persona.tokens.typography.body.family,
@@ -636,11 +725,10 @@ export const CardVisual: React.FC<CardVisualProps> = ({
                 </div>
               </div>
 
-              {/* --- FLAVOR TEXT SECTION --- */}
-              {/* Alchemy-themed display box - subtle, complementary to definition */}
-              {/* Reduced height: flex-1 vs flex-[3] creates the requested ratio shift */}
+              {/* --- FLAVOR CAROUSEL SECTION --- */}
+              {/* Carousel container with optimized alchemy styling */}
               <div
-                className="flex-1 rounded-md py-1.5 px-1 flex flex-col min-h-0"
+                className="flex-1 rounded-md py-1.5 px-0.5 flex flex-col min-h-0 relative group/flavor"
                 style={{
                   backgroundColor: Persona.tokens.colors.flavorBoxBg || 'rgba(0, 0, 0, 0.4)',
                   border: `1px solid ${Persona.tokens.colors.borderSubtle}`,
@@ -651,26 +739,64 @@ export const CardVisual: React.FC<CardVisualProps> = ({
                   `,
                   cursor: 'default'
                 }}
+                ref={flavorContainerRef}
               >
-                <div className="overflow-hidden w-full h-full flex flex-col pr-1"
-                  onWheel={(e) => e.stopPropagation()}
-                >
-                  {/* Flavor Text - Dynamic Typography */}
-                  {/* Flavor Text - Dynamic Typography */}
-                  <DynamicText
-                    text={flavorText.text}
-                    className="font-serif italic text-center w-full px-1"
-                    style={{
-                      fontFamily: Persona.tokens.typography.label.family,
-                      opacity: 0.9,
-                      textShadow: '0 1px 2px rgba(0,0,0,0.5)',
-                    }}
-                    gradient={Persona.definitions.gradients.goldText || `linear-gradient(to bottom, ${Persona.tokens.colors.goldBright}, ${Persona.tokens.colors.goldDeep})`}
-                  />
+                {/* Carousel Content */}
+
+                {/* Persona Icon - Alchemy Symbol (Transmutation Circle) */}
+                {/* Persona Icon - Dynamic based on active persona */}
+                <div className="absolute top-0 left-0 text-white opacity-70 pointer-events-none z-10">
+                  {PERSONA_ICONS[currentPersonaName || 'default'] || PERSONA_ICONS['default']}
                 </div>
+
+                <FlavorCarousel
+                  items={currentFlavorContents}
+                  persona={Persona}
+                  tokens={Persona.tokens}
+                  currentIndex={flavorIndex}
+                  direction={flavorDirection}
+                  onNavigate={(newIndex, newDir) => {
+                    setFlavorDirection(newDir);
+                    setFlavorIndex(newIndex);
+                  }}
+                  onContentClick={() => {
+                    const text = currentFlavorContents[flavorIndex]?.text;
+                    if (text && learningLanguage) {
+                      tts.speak(text, learningLanguage);
+                    }
+                  }}
+                />
               </div>
+
             </div>
+
           </div>
+
+          {/* --- FLAVOR INDICATORS --- */}
+          {/* Positioned OUTSIDE the flex boxes, at the absolute bottom edge of the card back component */}
+          {currentFlavorContents.length > 1 && (
+            <div className="absolute bottom-[12px] left-0 right-0 flex items-center justify-center gap-1.5 pointer-events-none z-50">
+              {currentFlavorContents.map((item, idx) => {
+                const isActive = idx === flavorIndex;
+                return (
+                  <button
+                    key={item.id}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setFlavorDirection(idx > flavorIndex ? 1 : -1);
+                      setFlavorIndex(idx);
+                    }}
+                    className={`
+                      w-3 h-px rounded-full transition-all duration-300 pointer-events-auto
+                      ${isActive ? 'opacity-100 scale-x-125' : 'opacity-20 hover:opacity-50'}
+                    `}
+                    style={{ backgroundColor: 'white' }}
+                    title={item.type}
+                  />
+                );
+              })}
+            </div>
+          )}
 
           {/* Multi-definition selection UI deferred to future */}
 

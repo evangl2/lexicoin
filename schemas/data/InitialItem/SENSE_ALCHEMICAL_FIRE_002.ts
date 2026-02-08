@@ -8,8 +8,8 @@ export const VISUAL_FIRE_ALCHEMICAL: VisualEntry = {
         "firstDiscoverer": "UNKNOWN",
         "firstDiscoveredAt": 0
     },
-    "payload": "import React from 'react';
-import { motion } from 'motion/react';
+    "payload": `import React from 'react';
+import { motion } from 'framer-motion';
 
 
     const FireTotem = ({ isActive = false }) => {
@@ -159,5 +159,5 @@ fill = "url(#coreGradient)"
 };
 
 
-export default FireTotem; "
+export default FireTotem; `
 };

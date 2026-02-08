@@ -18,7 +18,7 @@ import { personaModule } from '@modules/persona/PersonaModule';
 import { itemModule } from '@modules/item/ItemModule';
 import { reviewModule } from '@modules/review/ReviewModule';
 import { libraryModule } from '@modules/library/LibraryModule';
-import type { BaseMessage } from '../../types/protocol';
+import type { BaseMessage } from '@app-types/protocol';
 import './DevConsole.css';
 
 type TabType = 'messages' | 'state' | 'telemetry' | 'inject' | 'logs';

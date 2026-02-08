@@ -67,7 +67,7 @@ class LevelModule {
             configs.push({
                 level: i,
                 xpRequired,
-                cefrLevel: cefrLevels[cefrIndex],
+                cefrLevel: cefrLevels[cefrIndex]!,
                 unlockedFeatures: this.getFeaturesForLevel(i),
             });
         }
@@ -304,12 +304,12 @@ class LevelModule {
 
         // If success rate is high, recommend next level
         if (successRate > 0.8 && currentIndex < cefrLevels.length - 1) {
-            return cefrLevels[currentIndex + 1];
+            return cefrLevels[currentIndex + 1]!;
         }
 
         // If success rate is low, recommend previous level
         if (successRate < 0.4 && currentIndex > 0) {
-            return cefrLevels[currentIndex - 1];
+            return cefrLevels[currentIndex - 1]!;
         }
 
         return currentCEFR;

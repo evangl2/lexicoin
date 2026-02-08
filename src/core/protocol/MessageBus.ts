@@ -173,7 +173,7 @@ class MessageBus {
     unregisterInterceptor(interceptorId: string): void {
         const index = this.interceptors.findIndex(i => i.id === interceptorId);
         if (index !== -1) {
-            const interceptor = this.interceptors[index];
+            const interceptor = this.interceptors[index]!;
             this.interceptors.splice(index, 1);
 
             if (this.debugMode) {

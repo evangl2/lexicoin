@@ -7,15 +7,10 @@
 import { messageBus } from '@core/protocol/MessageBus';
 import { storageManager } from '@core/storage/StorageManager';
 import { platformAdapter } from '@core/platform/PlatformAdapter';
-import { constructionModule } from '@modules/construction/ConstructionModule';
 import { levelModule } from '@modules/level/LevelModule';
-import { personaModule } from '@modules/persona/PersonaModule';
-import { itemModule } from '@modules/item/ItemModule';
-import { reviewModule } from '@modules/review/ReviewModule';
-import { libraryModule } from '@modules/library/LibraryModule';
-import { sedimentationModule } from '@modules/sedimentation/SedimentationModule';
 import { useGameStore } from '@store/index';
 import { logger } from '@utils/logger';
+import { initializeVisuals } from './initializeVisuals';
 
 /**
  * Initialize all modules and set up MessageBus subscriptions
@@ -35,6 +30,9 @@ export async function initializeModules(): Promise<void> {
 
         // Set up MessageBus subscriptions for store synchronization
         setupMessageBusSubscriptions();
+
+        // Initialize Visual Registry
+        initializeVisuals();
 
         // Mark modules as ready
         useGameStore.getState().setModulesReady(true);

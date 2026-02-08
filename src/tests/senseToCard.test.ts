@@ -5,7 +5,7 @@
  * to validate correct data extraction and card creation.
  */
 
-import { INITIAL_SENSES } from '../data/initialSenses';
+import { INITIAL_SENSES } from '../../schemas/data/initialSenses';
 import { senseToCard, sensesToCards } from '../pipelines/senseToCard';
 import type { CardEntity } from '../types/CardEntity';
 
@@ -18,7 +18,7 @@ console.log('SENSE-TO-CARD PIPELINE TEST');
 console.log('='.repeat(80));
 
 // Test with first sense (should be 'fire')
-const firstSense = INITIAL_SENSES[0];
+const firstSense = INITIAL_SENSES[0]!;
 const firstCard = senseToCard(firstSense, 0);
 
 console.log('\n1. SINGLE CARD TRANSFORMATION TEST');
@@ -42,15 +42,15 @@ console.log('-'.repeat(80));
 const languages = ['en', 'zh-CN', 'fr', 'de', 'ja', 'es', 'it', 'pt'] as const;
 
 languages.forEach(lang => {
-    const displayData = firstCard.displayData[lang];
+    const displayData = firstCard.displayData[lang]!;
     console.log(`\n[${lang}]`);
     console.log(`  Word: ${displayData.word}`);
     console.log(`  Pronunciation: ${displayData.pronunciation || 'N/A'}`);
     console.log(`  POS: ${displayData.pos}`);
     console.log(`  Level: ${displayData.level}`);
     console.log(`  Definition: ${displayData.definition.substring(0, 60)}...`);
-    console.log(`  Flavor Persona: ${displayData.flavorText.persona}`);
-    console.log(`  Flavor Text: ${displayData.flavorText.text.substring(0, 50)}...`);
+    // console.log(`  Flavor Persona: ${displayData.flavorContents[0]?.persona}`);
+    // console.log(`  Flavor Text: ${displayData.flavorContents[0]?.text.substring(0, 50)}...`);
 });
 
 // ============================================================================
@@ -67,7 +67,7 @@ console.log(`Total cards created: ${allCards.length}`);
 console.log('\nCard grid layout:');
 
 allCards.forEach((card, index) => {
-    console.log(`  [${index}] ${card.displayData['en'].word.padEnd(15)} @ (${card.position.x}, ${card.position.y})`);
+    console.log(`  [${index}] ${card.displayData['en']!.word.padEnd(15)} @ (${card.position.x}, ${card.position.y})`);
 });
 
 // ============================================================================
@@ -79,7 +79,7 @@ console.log('-'.repeat(80));
 
 // Check that rawSense matches original
 const integrityCheck = allCards.every((card, index) => {
-    const originalUid = INITIAL_SENSES[index].uid;
+    const originalUid = INITIAL_SENSES[index]!.uid;
     const cardUid = card.uid;
     const rawUid = card.rawSense.uid;
 

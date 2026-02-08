@@ -12,8 +12,6 @@ import type {
     CanvasView,
     DragState,
     Notification,
-    Language,
-    ModelId,
     Sense,
     UUID,
     PersonaType,

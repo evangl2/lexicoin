@@ -7,7 +7,7 @@
 
 import { logger } from '@utils/logger';
 import { messageBus } from '@core/protocol/MessageBus';
-import type { AssetDescriptor, AssetType, Language, LoadingState } from '@types/index';
+import type { AssetDescriptor, AssetType, Language, LoadingState } from '@app-types/index';
 
 class AssetManager {
     private static instance: AssetManager;

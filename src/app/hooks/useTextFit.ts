@@ -53,11 +53,22 @@ export const useTextFit = (
         const textEl = textRef.current;
         if (!container || !textEl) return;
 
+        // CRITICAL FIX: If container has no dimension (e.g. hidden or initializing inside AnimatePresence),
+        // abort fitting. Returning "false" in checkFit would cause binary search to collapse to minFontSize.
+        // Instead, we just do nothing and wait for ResizeObserver to fire when valid dimensions exist.
+        if (container.clientHeight === 0 || container.clientWidth === 0) {
+            return;
+        }
+
         let min = minFontSize;
         let max = maxFontSize;
 
         // Helper to check if text fits
         const checkFit = (size: number) => {
+            // Safety check: if container has no dimensions, we can't fit anything.
+            // This happens during mount/unmount or animation frames.
+            if (container.clientWidth === 0 || container.clientHeight === 0) return false;
+
             textEl.style.fontSize = `${size}px`;
 
             // Apply custom style resolution (e.g. dynamic line-height)
@@ -78,10 +89,10 @@ export const useTextFit = (
             // VISUAL SAFETY CHECK:
             // Even if it technically "fits" in the box, ascenders/descenders might be clipped
             // by overflow:hidden if the fit is too tight.
-            // We enforce a small safety buffer (e.g., 4px total, 2px top/bottom).
+            // Reduced safety buffer to avoid false positives on small screens or tight fits.
             const textRect = textEl.getBoundingClientRect();
             // Note: clientHeight doesn't include borders, which is what we want.
-            const safetyBuffer = 3;
+            const safetyBuffer = 0; // Was 3, setting to 0 to trust scrollHeight/clientWidth checks more
             if (textRect.height > (container.clientHeight - safetyBuffer)) return false;
 
             // If maxLines is set, check approximate line count.
@@ -114,6 +125,25 @@ export const useTextFit = (
 
     useLayoutEffect(() => {
         fitText();
+
+        // Multi-stage retry strategy to handle complex animation states.
+        // Spring animations (framer-motion) can take variable time to settle.
+        // Failing to catch the final state results in permanent small text.
+        const timeouts: NodeJS.Timeout[] = [];
+        const delays = [50, 150, 300, 500];
+
+        delays.forEach(delay => {
+            const timeout = setTimeout(() => {
+                // Only retry if we suspect sub-optimal fit (optional optimization, 
+                // but here we just force it to be safe)
+                fitText();
+            }, delay);
+            timeouts.push(timeout);
+        });
+
+        return () => {
+            timeouts.forEach(t => clearTimeout(t));
+        };
     }, [text, minFontSize, maxFontSize]);
 
     return {

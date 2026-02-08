@@ -22,17 +22,17 @@ import type { SenseEntity, Language } from 'a:/lexicoin/lexicoin/schemas/schemas
 import type {
     CardEntity,
     LanguageDisplayData,
-    FlavorTextDisplay,
+    FlavorContentItem,
     SenseInfo,
-    VisualData,
+    // Removed unused VisualData import
     CardPosition,
-    SUPPORTED_LANGUAGES,
-    DEFAULT_LANGUAGE,
+    // Removed unused constants exports that are now re-exported below
 } from '../types/CardEntity';
 
 // Import supported languages constant
 // Note: Using explicit import path for clarity
 export { SUPPORTED_LANGUAGES, DEFAULT_LANGUAGE } from '../types/CardEntity';
+import { visualForCard } from './visualForCard';
 
 // ============================================================================
 // 1. EXTRACT DISPLAY DATA (Language-Specific Flattening)
@@ -79,33 +79,50 @@ export function extractDisplayData(
     // Extract dictionary definition (with fallback)
     const definition = sense.meaning?.[lang]?.value || "No definition available";
 
-    // Extract flavor text (with multi-step fallback)
-    const flavorText: FlavorTextDisplay = (() => {
+    // Extract flavor text contents (description + example)
+    const flavorContents: FlavorContentItem[] = (() => {
         const flavorEntries = sense.flavorText || [];
+        const contents: FlavorContentItem[] = [];
 
-        // Try to find 'default' persona entry first
-        let flavorEntry = flavorEntries.find(f => f.persona === 'default');
+        // Iterate through ALL flavor entries to support persona switching
+        for (const flavorEntry of flavorEntries) {
+            if (!flavorEntry.persona) continue;
 
-        // Fallback to first entry if 'default' not found
-        if (!flavorEntry && flavorEntries.length > 0) {
-            flavorEntry = flavorEntries[0];
+            // 1. Add Description
+            const descriptionText = flavorEntry.text[lang]?.value;
+            if (descriptionText) {
+                contents.push({
+                    id: `flavor-desc-${flavorEntry.persona}`,
+                    type: 'description',
+                    text: descriptionText,
+                    persona: flavorEntry.persona
+                });
+            }
+
+            // 2. Add Example
+            const exampleText = flavorEntry.example[lang]?.value;
+            if (exampleText) {
+                contents.push({
+                    id: `flavor-ex-${flavorEntry.persona}`,
+                    type: 'example',
+                    text: exampleText,
+                    persona: flavorEntry.persona
+                });
+            }
         }
 
-        // If still no entry found, return empty structure
-        if (!flavorEntry) {
-            return {
-                persona: 'default',
-                text: '',
-                example: '',
-            };
-        }
+        // Sort items: 'default' first, then alphabetical by persona
+        // This ensures the default view is always correct
+        contents.sort((a, b) => {
+            if (a.persona === 'default' && b.persona !== 'default') return -1;
+            if (a.persona !== 'default' && b.persona === 'default') return 1;
+            return a.persona.localeCompare(b.persona);
+        });
 
-        // Extract text and example with fallbacks
-        return {
-            persona: flavorEntry.persona,
-            text: flavorEntry.text[lang]?.value || '',
-            example: flavorEntry.example[lang]?.value || '',
-        };
+        // Fallback: if no content found but we have entries with specific languages falling back?
+        // (Current logic relies on extracted values being present)
+
+        return contents;
     })();
 
     return {
@@ -114,7 +131,7 @@ export function extractDisplayData(
         pos,
         level,
         definition,
-        flavorText,
+        flavorContents,
     };
 }
 
@@ -180,29 +197,7 @@ export function extractSenseInfo(sense: SenseEntity): SenseInfo {
 // 3. INITIALIZE VISUAL STATE
 // ============================================================================
 
-/**
- * Initialize visual loading state
- * 
- * Creates initial visual data structure with 'loading' status.
- * Payload is empty string - actual loading icon rendered by Persona component.
- * 
- * Visual loading lifecycle:
- * 1. Create card with status='loading', payload=''
- * 2. CardVisual renders Persona.visuals.LoadingIcon
- * 3. Async loader fetches SVG from visualEntry
- * 4. Update status='loaded', inject SVG into payload via uid
- * 
- * Note: This implementation does NOT extract visual from sense.visual array.
- * That extraction happens asynchronously after card creation.
- * 
- * @returns Initial visual data structure
- */
-export function initVisual(): VisualData {
-    return {
-        status: 'loading',
-        payload: '', // Empty - Persona.visuals.LoadingIcon handles rendering
-    };
-}
+// initVisual removed - replaced by external visualForCard pipeline
 
 // ============================================================================
 // 4. CALCULATE CARD POSITION
@@ -299,7 +294,7 @@ export function senseToCard(sense: SenseEntity, index: number): CardEntity {
     return {
         uid: sense.uid,
         displayData: extractAllDisplayData(sense),
-        visual: initVisual(),
+        visual: visualForCard(sense),
         rawSense: sense,
         senseInfo: extractSenseInfo(sense),
         position: calculatePosition(index),

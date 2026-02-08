@@ -40,12 +40,35 @@ export const DragPreviewCard: React.FC<DragPreviewCardProps> = ({
       className="relative select-none pointer-events-none"
     >
       <CardVisual
-        title={title}
-        difficultyLevel={difficultyLevel}
-        partOfSpeech={partOfSpeech}
-        durability={durability}
-        learningLanguage={learningLanguage}
-        systemLanguage={systemLanguage}
+        learningData={{
+          word: title || '',
+          pronunciation: '',
+          pos: partOfSpeech as any,
+          level: difficultyLevel as any,
+          definition: '',
+          flavorContents: []
+        }}
+        systemData={{
+          word: title || '',
+          pronunciation: '',
+          pos: partOfSpeech as any,
+          level: difficultyLevel as any,
+          definition: '',
+          flavorContents: []
+        }}
+        senseInfo={{
+          ontology: 'OBJECT',
+          frequency: 50,
+          fingerprint: { items: [] },
+          personas: [],
+          durability: durability
+        }}
+        visual={{
+          status: 'idle',
+          payload: ''
+        }}
+        learningLanguage={learningLanguage as any}
+        systemLanguage={systemLanguage as any}
         layoutMode={layoutMode}
         persona={persona}
         // Force front face visible
@@ -55,8 +78,6 @@ export const DragPreviewCard: React.FC<DragPreviewCardProps> = ({
         // Disable interactions
         isActive={false}
         isOver={false}
-        frontPointerEvents="none"
-        backPointerEvents="none"
       />
     </div>
   );

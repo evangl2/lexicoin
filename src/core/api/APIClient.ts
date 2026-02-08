@@ -26,7 +26,7 @@ import type {
     FeedbackSubmissionResponse,
     AnalyticsEventRequest,
     AnalyticsEventResponse,
-} from '../types/api';
+} from '@app-types/api';
 
 class APIClient {
     private static instance: APIClient;

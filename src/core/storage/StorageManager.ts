@@ -99,7 +99,7 @@ class StorageManager {
         }
 
         for (let i = startIndex; i < versions.length - 1; i++) {
-            const migrationFn = this.migrations.get(versions[i]);
+            const migrationFn = this.migrations.get(versions[i]!);
             if (migrationFn) {
                 currentData = migrationFn(currentData);
             }

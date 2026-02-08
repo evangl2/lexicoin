@@ -8,7 +8,7 @@
 import { logger } from '@utils/logger';
 import { messageBus } from '@core/protocol/MessageBus';
 import { generateId } from '@utils/helpers';
-import type { UUID, CEFRLevel } from '../../types/index';
+import type { UUID } from '../../types/index';
 
 export type MiniGameType =
     | 'REVERSE_SYNTHESIS'  // Given result, find inputs
@@ -153,12 +153,12 @@ class ReviewModule {
 
         // For new senses, focus on basic recognition
         if (!mastery || mastery.level < 30) {
-            return ['SEMANTIC_MATCH', 'CONTEXT_SELECT'].slice(0, count);
+            return (['SEMANTIC_MATCH', 'CONTEXT_SELECT'] as MiniGameType[]).slice(0, count);
         }
 
         // For mastered senses, use more challenging games
         if (mastery.level > 70) {
-            return ['REVERSE_SYNTHESIS', 'ANALOGY_COMPLETE'].slice(0, count);
+            return (['REVERSE_SYNTHESIS', 'ANALOGY_COMPLETE'] as MiniGameType[]).slice(0, count);
         }
 
         // Mix of games for intermediate mastery
@@ -230,7 +230,7 @@ class ReviewModule {
     /**
      * Check if answer is correct
      */
-    private checkAnswer(game: MiniGame, answer: any): boolean {
+    private checkAnswer(_game: MiniGame, _answer: any): boolean {
         // Placeholder - actual implementation would check game-specific logic
         return true;
     }
@@ -328,7 +328,7 @@ class ReviewModule {
         ];
 
         const index = Math.min(reviewCount, baseIntervals.length - 1);
-        let interval = baseIntervals[index];
+        let interval = baseIntervals[index]!;
 
         // Adjust based on mastery level
         const masteryMultiplier = 1 + (masteryLevel / 100);
@@ -367,7 +367,7 @@ class ReviewModule {
     private shuffleArray<T>(array: T[]): T[] {
         for (let i = array.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
-            [array[i], array[j]] = [array[j], array[i]];
+            [array[i]!, array[j]!] = [array[j]!, array[i]!];
         }
         return array;
     }

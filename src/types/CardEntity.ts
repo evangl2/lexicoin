@@ -19,31 +19,16 @@ import type { SenseEntity, Language, OntologyType, Fingerprint, WordLevel, POS }
 // ============================================================================
 
 /**
- * Flavor Text Display Structure
+ * Flavor Content Item
  * 
- * Contains persona-driven narrative content extracted from SenseEntity.
- * Includes both descriptive text and usage examples.
+ * Represents a single piece of flavor content (description or example)
+ * to be displayed in the flavor text carousel.
  */
-export interface FlavorTextDisplay {
-    /**
-     * Persona identifier (e.g., 'default', 'jester', 'prophet')
-     * Determines the narrative style of the content
-     */
-    persona: string;
-
-    /**
-     * Narrative description text
-     * Extracted from flavorText[*].text[lang].value
-     */
+export interface FlavorContentItem {
+    id: string;
+    type: 'description' | 'example';
     text: string;
-
-    /**
-     * Usage example sentence
-     * Extracted from flavorText[*].example[lang].value
-     * 
-     * Note: Currently not displayed on cards (reserved for future UI enhancement)
-     */
-    example: string;
+    persona: string;
 }
 
 /**
@@ -91,11 +76,11 @@ export interface LanguageDisplayData {
     definition: string;
 
     /**
-     * Narrative flavor text with example
+     * Narrative flavor content queue
+     * Array of content items (descriptions + examples) for carousel display
      * Extracted from first matching flavorText entry
-     * Uses 'default' persona if available, fallback to first entry
      */
-    flavorText: FlavorTextDisplay;
+    flavorContents: FlavorContentItem[];
 }
 
 // ============================================================================

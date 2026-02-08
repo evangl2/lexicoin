@@ -4,7 +4,7 @@
  * Root component that initializes all modules and renders the new Canvas-based UI
  */
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { DevConsole } from '@/app/components/system/DevConsole';
 import { NotificationSystem } from '@/app/components/system/NotificationSystem';
 import { logger } from '@utils/logger';
@@ -17,6 +17,8 @@ import CanvasApp from './app/App';
 
 function App() {
 
+    const [isReady, setIsReady] = useState(false);
+
     // Initialize all modules on mount
     useEffect(() => {
         const initializeApp = async () => {
@@ -26,6 +28,7 @@ function App() {
                 // Use centralized module initialization
                 await initializeModules();
                 logger.info('✅ All modules initialized successfully', undefined, 'App');
+                setIsReady(true);
             } catch (error) {
                 logger.error('❌ Failed to initialize app', error, 'App');
             }
@@ -33,6 +36,14 @@ function App() {
 
         initializeApp();
     }, []);
+
+    if (!isReady) {
+        return (
+            <div className="flex items-center justify-center h-screen w-screen bg-black text-gold-500 font-serif">
+                <div className="animate-pulse">Initializing Lexicoin...</div>
+            </div>
+        );
+    }
 
     return (
         <div className="app-container">

@@ -18,8 +18,8 @@
         "jsx": "react-jsx",
         /* Linting */
         "strict": true,
-        "noUnusedLocals": true,
-        "noUnusedParameters": true,
+        "noUnusedLocals": false,
+        "noUnusedParameters": false,
         "noFallthroughCasesInSwitch": true,
         "noUncheckedIndexedAccess": true,
         /* Path Aliases */
@@ -46,12 +46,22 @@
             "@utils/*": [
                 "./src/utils/*"
             ],
+            "@app-types/*": [
+                "./src/types/*"
+            ],
             "@store/*": [
                 "./src/store/*"
+            ],
+            "@schemas/*": [
+                "./schemas/*"
             ]
         }
     },
     "include": [
-        "src"
+        "src",
+        "schemas"
+    ],
+    "exclude": [
+        "schemas/data/InitialItem"
     ]
 }

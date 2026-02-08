@@ -571,23 +571,7 @@ export interface SenseEntity {
      */
     qualia?: QualiaStructure;
 
-    /**
-     * Visual Library: SVG/animation payloads.
-     * 
-     * Stores different visual representations:
-     * - Default visual state
-     * - Persona-specific variants
-     * - Context-specific styles
-     * 
-     * Each entry:
-     * - Complete indivisible payload (preserves all logic)
-     * - Links back to parent SenseEntity via uid
-     * - Tracks stability and firstDiscoverer
-     * 
-     * Generated and stored independently.
-     * Optional: May be undefined if no visuals generated.
-     */
-    visual?: VisualEntry[];
+
 
     /**
      * Flavor Text Library: Narrative descriptions.

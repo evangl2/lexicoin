@@ -2,7 +2,7 @@
  * Utility Helper Functions
  */
 
-import type { UUID } from '@types/index';
+import type { UUID } from '../types/index';
 
 /**
  * Generate a unique ID

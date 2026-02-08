@@ -1,11 +1,12 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useDrop } from 'react-dnd';
 import { motion, useVelocity, useTransform, useSpring, useMotionValue, MotionValue } from 'motion/react';
 import { useDrag } from '@use-gesture/react';
 import { DefaultCardPersona as CardPersona } from '@/app/components/persona/default/Card.persona.default';
 import { CardVisual } from '@/app/components/CardVisual';
+import { tts } from '@/app/utils/audio/tts';
 import type { CardEntity } from '@/types/CardEntity';
-import type { Language } from 'a:/lexicoin/lexicoin/schemas/schemas/SenseEntity.schema';
+import type { Language } from '@schemas/schemas/SenseEntity.schema';
 
 // --- Types & Data ---
 
@@ -15,6 +16,12 @@ interface CardProps {
    * Contains all displayData, senseInfo, visual, and rawSense
    */
   cardData: CardEntity;
+
+  /**
+   * Variants are other cards that have been merged into this one.
+   * They share the same word but have different senses/definitions.
+   */
+  variants?: CardEntity[];
 
   /**
    * Learning language - the target language being studied
@@ -46,6 +53,7 @@ interface CardProps {
 
 export const Card: React.FC<CardProps> = ({
   cardData,
+  variants = [],
   learningLanguage,
   systemLanguage,
   x,
@@ -59,24 +67,46 @@ export const Card: React.FC<CardProps> = ({
   isHidden = false,
   onDropItem,
 }) => {
-  // ========== Extract Display Data from CardEntity ==========
+  // ========== State: Active Sense Identity ==========
+  // Default to the main card's UID (Anchor)
+  const [activeUid, setActiveUid] = useState<string>(cardData.uid);
+
+  // Sync activeUid if cardData changes (e.g. if anchor changes externally)
+  useEffect(() => {
+    setActiveUid(cardData.uid);
+  }, [cardData.uid]);
+
+  // ========== Computed: Sorted Variants & Current Data ==========
+  // Combine anchor + variants and sort by frequency (High -> Low)
+  // If frequencies are equal, use UID as tiebreaker for stability
+  const sortedVariants = useMemo(() => {
+    const allCards = [cardData, ...variants];
+    return allCards.sort((a, b) => {
+      const freqDiff = b.senseInfo.frequency - a.senseInfo.frequency;
+      if (freqDiff !== 0) return freqDiff;
+      return a.uid.localeCompare(b.uid);
+    });
+  }, [cardData, variants]);
+
+  // Derive the currently active card data to render
+  const currentCardData = useMemo(() => {
+    return sortedVariants.find(v => v.uid === activeUid) || cardData;
+  }, [sortedVariants, activeUid, cardData]);
+
+  // ========== Extract Display Data from Current Active Card ==========
   // Extract data for BOTH languages (bilingual support)
-  // Note: CardEntity contract guarantees all 8 languages exist in displayData
-  const learningData = cardData.displayData[learningLanguage]!;
-  const systemData = cardData.displayData[systemLanguage]!;
+  const learningData = currentCardData.displayData[learningLanguage]!;
+  const systemData = currentCardData.displayData[systemLanguage]!;
 
   // Extract commonly used fields for convenience
-  const id = cardData.uid;
   const title = learningData.word;  // Primary title uses learning language
-  const difficultyLevel = learningData.level;
-  const partOfSpeech = learningData.pos;
-  const durability = cardData.senseInfo.durability;
+  // const partOfSpeech = learningData.pos;
   const [isHovered, setIsHovered] = useState(false);
 
   // --- Drop Target (Items) ---
   const [{ isOver }, drop] = useDrop(() => ({
     accept: 'ITEM',
-    drop: (item, monitor) => {
+    drop: (item) => {
       onDropItem?.(item);
       return { name: title }; // Return drop result if needed
     },
@@ -91,7 +121,10 @@ export const Card: React.FC<CardProps> = ({
 
   // --- Selection Overlay State ---
   const [isOverlayOpen, setIsOverlayOpen] = useState(false);
-  const [selectedDefId, setSelectedDefId] = useState<string>('default');
+
+  // We no longer use 'default' string, but actual UIDs. 
+  // Map activeUid to the SelectionOverlay's selectedDefId concept.
+  const selectedDefId = activeUid;
 
   const [windowDim, setWindowDim] = useState({ w: 0, h: 0 });
   const cardRef = useRef<HTMLDivElement>(null);
@@ -150,28 +183,36 @@ export const Card: React.FC<CardProps> = ({
   };
 
   const handleSelectDefinition = (item: any) => {
-    // In a real app, this would update the card's selected definition
-    // For now, we just update the local state and close the overlay
-    setSelectedDefId(item.id);
+    // Update active Identity based on selection
+    setActiveUid(item.id);
     setIsOverlayOpen(false);
+
+    // TTS: Speak the selected definition from the NEW identity
+    // We need to look up the data for the selected ID
+    const selectedVariant = sortedVariants.find(v => v.uid === item.id);
+    if (selectedVariant) {
+      const def = selectedVariant.displayData[learningLanguage]?.definition;
+      if (def) {
+        tts.speak(def, learningLanguage);
+      }
+    }
   };
 
-  // Selection items - strictly using real data from SenseEntity
-  const selectionItems = [
-    {
-      id: 'default',
-      definitions: Object.keys(cardData.displayData).reduce((acc, lang) => {
-        acc[lang as Language] = cardData.displayData[lang as Language]?.definition || '';
-        return acc;
-      }, {} as Record<Language, string>),
-      pos: partOfSpeech
-    }
-  ];
+  // Selection items - Built from Sorted Variants
+  const selectionItems = sortedVariants.map(variant => ({
+    id: variant.uid,
+    definitions: Object.keys(variant.displayData).reduce((acc, lang) => {
+      acc[lang as Language] = variant.displayData[lang as Language]?.definition || '';
+      return acc;
+    }, {} as Record<Language, string>),
+    pos: variant.displayData[learningLanguage]?.pos || 'n.'
+  }));
 
-  const selectedItem = selectionItems.find(i => i.id === selectedDefId);
-  const definitionOverride = selectedDefId !== 'default'
-    ? selectedItem?.definitions[learningLanguage]
-    : undefined;
+  // We actually don't need `definitionOverride` anymore because `currentCardData` 
+  // completely swaps the content passed to CardVisual.
+  // But we pass it to retain API compatibility if SelectionOverlay uses it, 
+  // or simply rely on `learningData.definition` which is already correct.
+  const definitionOverride = undefined;
 
   // --- Physics ---
   const xVelocity = useVelocity(x);
@@ -242,12 +283,16 @@ export const Card: React.FC<CardProps> = ({
   const backOpacity = useTransform(flipSpring, [0.45, 0.55], [0, 1]);
 
   // --- Gesture ---
-  const bind = useDrag(({ active, xy: [px, py], movement: [mx, my], delta: [dx, dy], first, last }) => {
+  const bind = useDrag(({ active, xy: [px, py], delta: [dx, dy], first, last }) => {
     // Disable dragging when card is flipped to back face
     if (isFlipped) return;
 
     if (first) {
       setIsDragging(true);
+      // TTS: Speak word on drag start
+      if (title) {
+        tts.speak(title, learningLanguage);
+      }
       if (isExpanded) {
         // Smart Snap
         if (cardRef.current) {
@@ -304,7 +349,7 @@ export const Card: React.FC<CardProps> = ({
       x.set(finalX);
       y.set(finalY);
 
-      updatePosition(cardData.uid, finalX, finalY);
+      updatePosition(currentCardData.uid, finalX, finalY);
     }
     if (last) {
       setIsDragging(false);
@@ -314,16 +359,17 @@ export const Card: React.FC<CardProps> = ({
   const handlers = bind();
 
   // Active state for animations
-  const isActive = isHovered || isDragging || isExpanded || isOver;
+  // Add: active when variants overlay is open
+  const isActive = isHovered || isDragging || isExpanded || isOver || isOverlayOpen;
 
   return (
     <motion.div
       ref={(node) => {
-        // @ts-ignore
+        // @ts-ignore - Handler type conflict between use-gesture and framer-motion
         cardRef.current = node;
         drop(node);
       }}
-      {...(isFlipped ? {} : handlers)} // CRITICAL FIX: Only apply drag handlers on front face
+      {...((isFlipped ? {} : handlers) as any)} // CRITICAL FIX: Only apply drag handlers on front face
       onClick={(e) => {
         if (isDragging) return;
         // Ensure only left click triggers this logic to prevent conflict with context menu
@@ -343,7 +389,13 @@ export const Card: React.FC<CardProps> = ({
         }
 
         // Front face: toggle expansion
-        setIsExpanded(!isExpanded);
+        const nextState = !isExpanded;
+        setIsExpanded(nextState);
+
+        // TTS: Speak word on expand
+        if (nextState && title) {
+          tts.speak(title, learningLanguage);
+        }
       }}
       onContextMenu={(e) => {
         e.preventDefault();
@@ -383,13 +435,14 @@ export const Card: React.FC<CardProps> = ({
       className="canvas-card select-none group relative transition-colors duration-300"
     >
       <CardVisual
+        // Pass the CURRENT ACTIVE data
         learningData={learningData}
         systemData={systemData}
-        senseInfo={cardData.senseInfo}
-        visual={cardData.visual}
+        senseInfo={currentCardData.senseInfo}
+        visual={currentCardData.visual}
         learningLanguage={learningLanguage}
         systemLanguage={systemLanguage}
-        isActive={isDragging || isHovered}
+        isActive={isActive}
         isOver={isOver}
 
         flipScaleX={flipScaleX}
@@ -406,7 +459,7 @@ export const Card: React.FC<CardProps> = ({
         smoothYVelocity={smoothYVelocity}
         isExpanded={isExpanded}
 
-        // Selection Overlay Props
+        // Selection Overlay Props - Now Multi-Sense Aware
         isOverlayOpen={isOverlayOpen}
         selectionItems={selectionItems}
         selectedDefId={selectedDefId}

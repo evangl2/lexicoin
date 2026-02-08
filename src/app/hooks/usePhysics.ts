@@ -28,6 +28,7 @@ export const usePhysics = (items: PhysicsItem[], draggingId: string | null) => {
       for (let j = i + 1; j < items.length; j++) {
         const itemA = items[i];
         const itemB = items[j];
+        if (!itemA || !itemB) continue;
 
         const ax = itemA.x.get();
         const ay = itemA.y.get();
@@ -37,7 +38,7 @@ export const usePhysics = (items: PhysicsItem[], draggingId: string | null) => {
         // Approximate collision with circles for smooth "bounce"
         const rA = Math.min(itemA.width, itemA.height) / 2 + padding;
         const rB = Math.min(itemB.width, itemB.height) / 2 + padding;
-        
+
         const dx = bx - ax;
         const dy = by - ay;
         const distSq = dx * dx + dy * dy;
@@ -70,19 +71,20 @@ export const usePhysics = (items: PhysicsItem[], draggingId: string | null) => {
     // 2. Enforce World Boundaries (Step 4)
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
-      
+      if (!item) continue;
+
       // If user is dragging this item, we might want to let them drag it...
       // BUT Step 4 says "Collision Blocking: If element is about to move out of boundary, stop updating".
       // Since we are using MotionValues driven by drag controls in Card.tsx, 
       // the `usePhysics` loop might fight with the Drag gesture if we set it here while dragging.
-      
+
       // Ideally, the Drag Gesture itself should be constrained. 
       // However, if we want "Physics" to enforce it (e.g. if pushed by another card), we do it here.
-      
+
       // If dragging, we often let the Drag gesture handle constraints (dragConstraints prop).
       // But if we want a hard "Physics Wall", we can enforce it here even during drag 
       // if the drag updates the motion value directly.
-      
+
       // Let's enforce it for NON-dragging items first to keep them inside.
       if (draggingId !== item.id) {
         const x = item.x.get();
@@ -116,5 +118,5 @@ export const usePhysics = (items: PhysicsItem[], draggingId: string | null) => {
     return () => {
       if (requestRef.current) cancelAnimationFrame(requestRef.current);
     };
-  }, [items, draggingId]); 
+  }, [items, draggingId]);
 };

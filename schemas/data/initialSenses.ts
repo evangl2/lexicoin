@@ -1,6 +1,7 @@
 import type { SenseEntity } from '../schemas/SenseEntity.schema';
 
 
+
 export const SENSE_PHYSICAL_FIRE_001: SenseEntity = {
     "uid": "SENSE_PHYSICAL_FIRE_001",
     "fingerprint": {

@@ -2,8 +2,9 @@ import {
   useState,
   useEffect,
   useCallback,
+  useRef,
 } from "react";
-import { useMotionValue, MotionValue } from "motion/react";
+import { useMotionValue, MotionValue, animate } from "motion/react";
 import { motionValue } from "motion";
 import { DndProvider, useDrop, useDragLayer } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
@@ -20,7 +21,16 @@ import { Focus } from "lucide-react";
 import type { CardEntity } from "@/types/CardEntity";
 import { sensesToCards } from "@/pipelines/senseToCard";
 import { INITIAL_SENSES } from "../../schemas/data/initialSenses";
-import type { Language } from 'a:/lexicoin/lexicoin/schemas/schemas/SenseEntity.schema';
+import type { Language } from '@schemas/schemas/SenseEntity.schema';
+
+// Helper Hook for previous value
+function usePrevious<T>(value: T): T | undefined {
+  const ref = useRef<T>();
+  useEffect(() => {
+    ref.current = value;
+  });
+  return ref.current;
+}
 
 // Simple types for storage
 export interface SavedItem {
@@ -48,7 +58,8 @@ interface CardItem {
 
 // ========== Initial Card Data ==========
 // Transform INITIAL_SENSES to CardEntity using senseToCard pipeline
-const INITIAL_CARD_ENTITIES: CardEntity[] = sensesToCards(INITIAL_SENSES);
+// MOVED INSIDE COMPONENT TO WAIT FOR VISUAL REGISTRY INITIALIZATION
+// const INITIAL_CARD_ENTITIES: CardEntity[] = sensesToCards(INITIAL_SENSES);
 
 // Initial positions for first 2 cards
 const INITIAL_POSITIONS = [
@@ -95,7 +106,7 @@ function InnerApp() {
   const canvasScale = useMotionValue(1);
   const [scaleState, setScaleState] = useState(1);
   const [items, setItems] = useState<CardItem[]>([]);
-  const [storedItems, setStoredItems] = useState<SavedItem[]>(INITIAL_DECK_ITEMS);
+  const [storedItems] = useState<SavedItem[]>(INITIAL_DECK_ITEMS);
   const [propItems, setPropItems] = useState<SavedItem[]>(INITIAL_PROP_ITEMS);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
@@ -148,7 +159,10 @@ function InnerApp() {
     }
 
     // Combine CardEntity data with positions
-    const initialCards = INITIAL_CARD_ENTITIES.slice(0, 2).map((cardData, idx) => {
+    // GENERATE CARDS HERE TO ENSURE VISUAL REGISTRY IS READY
+    const generatedCards = sensesToCards(INITIAL_SENSES);
+
+    const initialCards = generatedCards.slice(0, 2).map((cardData, idx) => {
       const pos = positions[idx] || { x: 0, y: 0 };
       return {
         cardData: {
@@ -203,17 +217,17 @@ function InnerApp() {
   // 1. Drop from Deck to Canvas
   const [, drop] = useDrop(() => ({
     accept: ['CARD'], // ONLY Accept CARDS on Canvas background
-    drop: (item: SavedItem, monitor) => {
+    drop: (_item: SavedItem, monitor) => {
       const clientOffset = monitor.getClientOffset();
       if (!clientOffset) return;
 
-      const cx = canvasX.get();
-      const cy = canvasY.get();
-      const s = canvasScale.get();
+      // const cx = canvasX.get();
+      // const cy = canvasY.get();
+      // const s = canvasScale.get();
 
       // Convert screen coords to canvas coords
-      const x = (clientOffset.x - cx) / s;
-      const y = (clientOffset.y - cy) / s;
+      // const x = (clientOffset.x - cx) / s;
+      // const y = (clientOffset.y - cy) / s;
 
       // TODO: Later implement dragging from Deck -> Canvas with CardEntity
       // For now, we only support cards already on canvas
@@ -225,16 +239,16 @@ function InnerApp() {
   const checkDeckCollision = (id: string) => {
     if (!isDeckOpen) return;
 
-    const item = items.find(i => i.id === id);
-    if (!item) return;
+    const targetItem = items.find(i => i.cardData.rawSense.uid === id);
+    if (!targetItem) return;
 
     const cx = canvasX.get();
     const cy = canvasY.get();
     const s = canvasScale.get();
 
     // Calculate approximate screen position of the card center
-    const screenX = cx + item.mx.get() * s;
-    const screenY = cy + item.my.get() * s;
+    const screenX = cx + targetItem.mx.get() * s;
+    const screenY = cy + targetItem.my.get() * s;
 
     // Deck Zone Definition
     const deckHeight = 260;
@@ -267,10 +281,10 @@ function InnerApp() {
     setItems(prev => prev.filter(i => i.cardData.rawSense.uid !== id));
   };
 
-  const handleUpdateImage = (id: string, url: string) => {
-    // TODO: Implement image update for CardEntity visual field
-    console.warn('Image update not yet implemented for CardEntity');
-  };
+  // const handleUpdateImage = (id: string, url: string) => {
+  //   // TODO: Implement image update for CardEntity visual field
+  //   console.warn('Image update not yet implemented for CardEntity');
+  // };
 
   // --- CUSTOM DRAG LAYER (Deck -> Canvas) ---
   const CustomDragLayer = () => {
@@ -339,6 +353,219 @@ function InnerApp() {
     );
   };
 
+  // --- Card Merging & Grouping Logic ---
+
+  // --- Reactive Regrouping Logic (Merge & Split) ---
+
+  // This state holds the "Variants" for each Anchor UID
+  // Map<AnchorUID, CardEntity[]>
+  const [mergedVariants, setMergedVariants] = useState<Record<string, CardEntity[]>>({});
+
+  const prevLang = usePrevious(learningLang);
+  const prevItemsLength = usePrevious(items.length);
+
+  // Debounce regrouping to avoid thrashing
+  useEffect(() => {
+    // Condition to trigger regroup:
+    // 1. Language Changed
+    // 2. New items added (Potential Merge)
+    const langChanged = prevLang !== undefined && prevLang !== learningLang;
+    const itemsAdded = prevItemsLength !== undefined && items.length > prevItemsLength;
+
+    if (!langChanged && !itemsAdded) return;
+
+    console.log('[Regroup] Triggered. LangChanged:', langChanged, 'ItemsAdded:', itemsAdded);
+
+    // 1. Flatten all cards (Anchors + Variants)
+    const allCards: CardEntity[] = [];
+    items.forEach(item => {
+      allCards.push(item.cardData);
+      const variants = mergedVariants[item.cardData.uid] || [];
+      allCards.push(...variants);
+    });
+
+    // 2. Regroup based on NEW Language
+    const groups: Record<string, CardEntity[]> = {};
+    const currentLangCode = mapLanguageCode(learningLang);
+
+    allCards.forEach(card => {
+      const word = card.displayData[currentLangCode]?.word.toLowerCase();
+      if (word) {
+        if (!groups[word]) groups[word] = [];
+        groups[word].push(card);
+      } else {
+        // Fallback for missing word? Treat as unique group
+        groups[card.uid] = [card];
+      }
+    });
+
+    // 3. Diff & Animate
+    // We need to determine:
+    // - Who is now an Anchor?
+    // - Who is now a Variant?
+    // - Who needs to move?
+
+    const newItems: CardItem[] = [];
+    const newMergedVariants: Record<string, CardEntity[]> = {};
+
+    // Track positions of existing anchors to preserve them or use as spawn points
+    const anchorPositions = new Map<string, { x: number, y: number }>();
+    items.forEach(i => anchorPositions.set(i.cardData.uid, { x: i.mx.get(), y: i.my.get() }));
+
+    // Process each group
+    Object.values(groups).forEach(group => {
+      // Sort group: Higher Frequency First -> Anchor
+      group.sort((a, b) => {
+        const freqDiff = b.senseInfo.frequency - a.senseInfo.frequency;
+        if (freqDiff !== 0) return freqDiff;
+        return a.uid.localeCompare(b.uid);
+      });
+
+      const anchor = group[0];
+      if (!anchor) return; // Should not happen given group creation logic
+
+      const variants = group.slice(1);
+
+      // Store Variants
+      if (variants.length > 0) {
+        newMergedVariants[anchor.uid] = variants;
+      }
+
+      // Determine Anchor Position
+      let targetX: number = 0; // Default values
+      let targetY: number = 0;
+
+      // Case A: Anchor was already an Anchor
+      if (anchorPositions.has(anchor.uid)) {
+        const pos = anchorPositions.get(anchor.uid)!;
+        targetX = pos.x;
+        targetY = pos.y;
+      }
+      // Case B: Anchor was a Variant (Split or Promotion)
+      else {
+        // Try to find the position of the OLD Anchor this card belonged to
+        // We look through 'items' to find who held this card as a variant
+        const oldAnchorItem = items.find(i => {
+          const v = mergedVariants[i.cardData.uid];
+          return v && v.some((vc: CardEntity) => vc.uid === anchor.uid);
+        });
+
+        if (oldAnchorItem) {
+          // Spawning from Old Anchor
+          const spawnX = oldAnchorItem.mx.get();
+          const spawnY = oldAnchorItem.my.get();
+
+
+          // Native Physics Split:
+          // Spawn slightly offset from center to avoid perfect overlap (divide by zero in physics)
+          // The usePhysics hook will naturally push them apart ("Cell Division" effect)
+          const offset = 10;
+          const randX = (Math.random() - 0.5) * offset;
+          const randY = (Math.random() - 0.5) * offset;
+
+          const startX = spawnX + randX;
+          const startY = spawnY + randY;
+
+          // No forced animation - Let physics drive the motion
+          newItems.push({
+            cardData: anchor,
+            width: 250,
+            height: 350,
+            mx: motionValue(startX),
+            my: motionValue(startY)
+          });
+          return; // Skip default push
+        } else {
+          // Fallback (Shouldn't happen often if logic is consistent)
+          targetX = (Math.random() - 0.5) * 200;
+          targetY = (Math.random() - 0.5) * 200;
+        }
+      }
+
+      // Create new Item (Default / No Animation Case)
+      newItems.push({
+        cardData: anchor,
+        width: 250,
+        height: 350,
+        mx: motionValue(targetX),
+        my: motionValue(targetY)
+      });
+    });
+
+    // 4. Batch Updates
+    setItems(newItems);
+    setMergedVariants(newMergedVariants);
+
+    // 5. Smart Camera: Zoom to Fit
+    // We want to frame all items that moved or are new
+    // For simplicity in this version, we frame ALL active items (newItems)
+    // This ensures the user sees the result of the split/merge clearly.
+
+    if (newItems.length > 0) {
+      // Calculate Bounding Box
+      const padding = 100; // px
+      let minX = Infinity;
+      let minY = Infinity;
+      let maxX = -Infinity;
+      let maxY = -Infinity;
+
+      newItems.forEach(item => {
+        const x = item.mx.get();
+        const y = item.my.get();
+        const w = item.width;
+        const h = item.height;
+
+        // Include item bounds
+        if (x < minX) minX = x;
+        if (y < minY) minY = y;
+        if (x + w > maxX) maxX = x + w;
+        if (y + h > maxY) maxY = y + h;
+      });
+
+      // Valid Box?
+      if (minX !== Infinity) {
+        // Add padding
+        minX -= padding;
+        minY -= padding;
+        maxX += padding;
+        maxY += padding;
+
+        const boxW = maxX - minX;
+        const boxH = maxY - minY;
+
+        // Calculate Scale to fit
+        const screenW = window.innerWidth;
+        const screenH = window.innerHeight;
+
+        const scaleX = screenW / boxW;
+        const scaleY = screenH / boxH;
+        let targetScale = Math.min(scaleX, scaleY);
+
+        // Clamp Scale
+        targetScale = Math.min(Math.max(targetScale, 0.5), 1.2);
+
+        // Calculate Center
+        const centerX = (minX + maxX) / 2;
+        const centerY = (minY + maxY) / 2;
+
+        // Convert center to visual offset
+        // Visual Center: cx = screenW/2 - realCenterX * scale
+        const targetCX = screenW / 2 - centerX * targetScale;
+        const targetCY = screenH / 2 - centerY * targetScale;
+
+        // Animate Camera
+        animate(canvasScale, targetScale, { type: "spring", stiffness: 100, damping: 20 });
+        animate(canvasX, targetCX, { type: "spring", stiffness: 100, damping: 20 });
+        animate(canvasY, targetCY, { type: "spring", stiffness: 100, damping: 20 });
+
+        console.log('[Smart Camera] Fitting to box:', { minX, minY, boxW, boxH, targetScale });
+      }
+    }
+
+  }, [learningLang, items.length]); // Dependencies: Language change or Count change
+
+
+
   return (
     // Attach drop ref to the main container & Disable Context Menu
     <div
@@ -355,6 +582,7 @@ function InnerApp() {
           <Card
             key={item.cardData.rawSense.uid}
             cardData={item.cardData}
+            variants={mergedVariants[item.cardData.uid] || []}
             learningLanguage={mapLanguageCode(learningLang)}
             systemLanguage={mapLanguageCode(systemLang)}
             x={item.mx}
