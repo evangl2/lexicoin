@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { loadDynamicComponent } from '../utils/dynamicComponentLoader';
+import { loadDynamicComponent } from '../../utils/dynamicComponentLoader';
 import { AlchemyVisual } from './AlchemyVisual';
 
 interface DynamicVisualProps {

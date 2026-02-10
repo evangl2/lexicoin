@@ -18,6 +18,11 @@ const definitions = {
 
     textLight: "#e5e5e5",
     textDim: "rgba(229, 229, 229, 0.9)",
+
+    // Feedback Colors
+    cyan: "#ffffff", // Changed to White per feedback (Albedo)
+    cyanGlow: "rgba(255, 255, 255, 0.4)",
+    goldGlow: "rgba(255, 215, 0, 0.4)",
   },
   gradients: {
     goldMetallic: "linear-gradient(135deg, #C0A062 0%, #F0D082 50%, #8B7355 100%)",
@@ -69,6 +74,35 @@ const tokens = {
     selectionItemInactive: "rgba(255, 255, 255, 0.02)",
     definitionBoxBg: "rgba(10, 10, 10, 0.6)",
     flavorBoxBg: "rgba(0, 0, 0, 0.4)",
+  },
+  feedback: {
+    merge: {
+      color: definitions.colors.cyan, // White
+      glow: `0 0 20px ${definitions.colors.cyanGlow}, inset 0 0 10px ${definitions.colors.cyanGlow}`,
+      // Conjunction Rune: Two Intersecting Circles/Rings + Vertical Line
+      svg: {
+        // Ring 1 (Top Center 12,9 R5) + Ring 2 (Bottom Center 12,15 R5)
+        // M12 4... defines outer/inner ring paths. M11 4... defines vertical line.
+        path: "M12 4a5 5 0 1 0 0 10 5 5 0 1 0 0-10zm0 2a3 3 0 1 1 0 6 3 3 0 1 1 0-6zm0 4a5 5 0 1 0 0 10 5 5 0 1 0 0-10zm0 2a3 3 0 1 1 0 6 3 3 0 1 1 0-6z",
+        secondaryPath: "M11.5 3h1v18h-1z", // Vertical Line
+      }
+    },
+    split: {
+      color: definitions.colors.goldBright,
+      glow: `0 0 20px ${definitions.colors.goldGlow}, inset 0 0 10px ${definitions.colors.goldGlow}`,
+      // Separation Rune (Alchemical): "The Cracked Core"
+      // Detailed: A solid inner gold core (R=7) split horizontally, contained by a fine, dashed orbital ring (R=11).
+      svg: {
+        // Inner: Split Solid Circle (Radius 7 -> D=14)
+        // M5 11... Upper Half. M5 13... Lower Half.
+        path: "M5 11 A7 7 0 0 1 19 11 Z M5 13 A7 7 0 0 0 19 13 Z",
+
+        // Outer: Fine Dashed Ring (Radius 11 -> D=22)
+        strokePath: "M12 1 A11 11 0 1 0 12 23 A11 11 0 1 0 12 1 Z",
+        strokeWidth: "0.8",  // Fine alchemical line
+        strokeDash: "2 3",   // Dotted/Stippled effect
+      }
+    }
   },
   typography: {
     /**

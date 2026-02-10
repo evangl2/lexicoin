@@ -8,8 +8,8 @@ export const VISUAL_EARTH_PHYSICAL: VisualEntry = {
         "firstDiscoverer": "UNKNOWN",
         "firstDiscoveredAt": 0
     },
-    "payload": "import React from 'react';
-import { motion } from 'framer-motion';
+    "payload": `import React from 'react';
+import { motion } from 'motion/react';
 
 
     const EarthSoilTotem = ({ isActive = false }) => {
@@ -133,5 +133,5 @@ animate = { isActive? "active": "dormant" }
 };
 
 
-export default EarthSoilTotem; "
+export default EarthSoilTotem; `
 };

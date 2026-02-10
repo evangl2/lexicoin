@@ -25,6 +25,7 @@ export interface ITTSProvider {
 class WebSpeechProvider implements ITTSProvider {
     private voices: SpeechSynthesisVoice[] = [];
     private initialized = false;
+    private volume = 1.0;
 
     // Priority keywords for voice selection (Natural sounding voices)
     private readonly VOICE_PRIORITIES = ['Google', 'Neural', 'Premium', 'Enhanced', 'Natural'];
@@ -54,6 +55,10 @@ class WebSpeechProvider implements ITTSProvider {
     private initVoices() {
         this.voices = window.speechSynthesis.getVoices();
         this.initialized = true;
+    }
+
+    setVolume(v: number) {
+        this.volume = Math.max(0, Math.min(1, v));
     }
 
     /**
@@ -100,6 +105,7 @@ class WebSpeechProvider implements ITTSProvider {
         const locale = this.LANG_MAP[language] || 'en-US';
         const utterance = new SpeechSynthesisUtterance(text);
         utterance.lang = locale;
+        utterance.volume = this.volume;
 
         // 3. Select Voice
         const voice = this.getBestVoice(locale);

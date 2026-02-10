@@ -8,7 +8,7 @@ export const VISUAL_WATER_ALCHEMICAL: VisualEntry = {
         "firstDiscoverer": "UNKNOWN",
         "firstDiscoveredAt": 0
     },
-    "payload": "import React from 'react';
+    "payload": `import React from 'react';
 import { motion } from 'motion/react';
 
 
@@ -100,11 +100,12 @@ import { motion } from 'motion/react';
                 < rect x = "0" y = "0" width = "100" height = "100" fill = "#012B4D" />
 
                     {/* Animated Liquid Volume */ }
-                    < motion.path
-        variants = { waveVariants }
-        animate = { isActive? "active": "dormant" }
-        fill = "url(#waterDepth)"
-            />
+                    <motion.path
+                        variants={waveVariants}
+                        animate={isActive ? "active" : "dormant"}
+                        fill="url(#waterDepth)"
+                        d="M18 40 Q50 40 82 40 L82 83 L18 83 Z"
+                    />
 
 
             {/* Layer 3: Internal "Solvent" Nodes (Dissolving Matter) */ }
@@ -148,5 +149,5 @@ opacity = "0.4"
 };
 
 
-export default WaterTotem; "
+export default WaterTotem; `
 };

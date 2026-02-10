@@ -8,7 +8,7 @@ export const VISUAL_AIR_ALCHEMICAL: VisualEntry = {
         "firstDiscoverer": "UNKNOWN",
         "firstDiscoveredAt": 0
     },
-    "payload": "import React from 'react';
+    "payload": `import React from 'react';
 import { motion } from 'motion/react';
 
 
@@ -96,7 +96,7 @@ import { motion } from 'motion/react';
               custom = { i }
               variants = { streamVariants }
               animate = { isActive? "active": "dormant" }
-              d = {`M ${20 + i * 5} ${80 - i * 10} Q 50 ${40 - i * 5} ${80 - i * 5} ${20 + i * 5}`}
+              d = {\`M \${ 20 + i * 5} \${ 80 - i * 10 } Q 50 \${ 40 - i * 5 } \${ 80 - i * 5 } \${ 20 + i * 5 } \`}
         stroke = "#F0F9FF"
         strokeWidth = "0.5"
         strokeDasharray = "10 20"
@@ -122,7 +122,7 @@ transition = {{ duration: 2, repeat: Infinity }}
 {
     isActive && [...Array(6)].map((_, i) => (
         <motion.circle
-            key= {`wisp-${i}`}
+            key= {\`wisp - \${ i } \`}
 cx = { 40 + Math.random() * 20 }
 cy = { 30 + Math.random() * 40 }
 r = "0.4"
@@ -134,9 +134,9 @@ animate = {{
             }}
 transition = {{
     duration: 4,
-        repeat: Infinity,
-            delay: i * 0.7,
-                ease: "easeOut"
+    repeat: Infinity,
+    delay: i * 0.7,
+    ease: "easeOut"
 }}
           />
         ))}
@@ -146,5 +146,5 @@ transition = {{
 };
 
 
-export default AirTotem; "
+export default AirTotem; `
 };

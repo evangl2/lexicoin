@@ -8,8 +8,8 @@ export const VISUAL_WATER_PHYSICAL: VisualEntry = {
     "firstDiscoverer": "UNKNOWN",
     "firstDiscoveredAt": 0
   },
-  "payload": "import React from 'react';
-import { motion } from 'framer-motion';
+  "payload": `import React from 'react';
+import { motion } from 'motion/react';
 
 
   const FireSenseWater = ({ isActive = false }) => {
@@ -166,5 +166,5 @@ transition = {{ duration: 3, repeat: Infinity }}
 };
 
 
-export default FireSenseWater; "
+export default FireSenseWater; `
 };

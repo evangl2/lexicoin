@@ -2,11 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { useTransform, useMotionTemplate, useMotionValue } from 'motion/react';
 import { motion } from 'motion/react';
 import { DefaultCardPersona as DefaultPersona } from '@/app/components/persona/default/Card.persona.default';
-import { DynamicVisual } from '@/app/components/DynamicVisual';
+import { DynamicVisual } from '@/app/components/ui/DynamicVisual';
 import { useWheelStopPropagation } from '@/app/hooks/useWheelStopPropagation';
-import { FlavorCarousel } from '@/app/components/ui/FlavorCarousel';
+import { FlavorCarousel } from '@/app/utils/FlavorCarousel';
 import { tts } from '@/app/utils/audio/tts';
-import { SelectionOverlay } from '@/app/components/SelectionOverlay';
+import { SelectionOverlay } from '@/app/components/ui/SelectionOverlay';
 import type { ContentItem } from '@/app/types/CardContent';
 import type { LanguageDisplayData, SenseInfo, VisualData } from '@/types/CardEntity';
 import type { Language } from 'a:/lexicoin/lexicoin/schemas/schemas/SenseEntity.schema';
@@ -126,9 +126,10 @@ export interface CardVisualProps {
   selectedDefId?: string;
   onSelectDefinition?: (item: ContentItem) => void;
   definitionOverride?: string;
+  visualFeedback?: 'merge' | 'split' | null;
 }
 
-export const CardVisual: React.FC<CardVisualProps> = ({
+export const CardVisual = React.memo<CardVisualProps>(({
   learningData,
   systemData,
   senseInfo,
@@ -164,6 +165,7 @@ export const CardVisual: React.FC<CardVisualProps> = ({
   onSelectDefinition = () => { },
   definitionOverride,
   visual,
+  visualFeedback,
 }) => {
   // ========== Extract Display Data ==========
   // Learning language data (primary)
@@ -355,59 +357,7 @@ export const CardVisual: React.FC<CardVisualProps> = ({
     </>
   );
 
-  const renderVisual = () => (
-    <motion.div
-      className="relative w-full h-full rounded-sm overflow-hidden flex items-center justify-center"
-      style={{ boxShadow: isCompact ? 'none' : Persona.tokens.shadows.innerDepth }}
-    >
-      <motion.div className="absolute inset-[-20%]"
-        style={{
-          x: bgParallaxX,
-          y: bgParallaxY,
-          background: Persona.tokens.colors.bgDeep,
-          opacity: 0.8
-        }}
-      >
-        <div className="w-full h-full opacity-[0.15]"
-          style={{
-            backgroundImage: Persona.definitions.assets.deepPattern || Persona.definitions.assets.backPattern,
-            backgroundSize: "120px 60px"
-          }}
-        />
-      </motion.div>
 
-      <Persona.visuals.Frame />
-
-      <motion.div
-        className={`absolute inset-0 flex items-center justify-center z-40 drop-shadow-[0_10px_20px_rgba(0,0,0,0.8)] 
-            ${isCompact ? 'scale-[1.0] opacity-30 mix-blend-screen' : ''}`}
-        style={{ x: fgParallaxX, y: fgParallaxY }}
-      >
-        <DynamicVisual code={visual.payload} isActive={isActive} fallbackElement={word} />
-      </motion.div>
-
-      {Persona.visuals.DurabilityBar ? (
-        <div className="absolute bottom-0 inset-x-0 z-50 flex justify-center">
-          <Persona.visuals.DurabilityBar progress={durability} />
-        </div>
-      ) : (
-        !isCompact && (
-          <div className="absolute bottom-0 left-0 right-0 z-50 w-full h-[4px] bg-black/20 flex justify-center items-center">
-            <motion.div
-              initial={{ width: 0 }}
-              animate={{ width: `${durability}%` }}
-              transition={{ duration: 0.5, ease: "easeOut" }}
-              className="h-full opacity-90"
-              style={{
-                background: `linear-gradient(to right, ${Persona.tokens.colors.goldMetallic}, ${Persona.tokens.colors.goldBright}, ${Persona.tokens.colors.goldMetallic})`,
-                boxShadow: `0 0 10px ${Persona.tokens.colors.goldMetallic}`
-              }}
-            />
-          </div>
-        )
-      )}
-    </motion.div>
-  );
 
   const renderText = () => (
     <div className="flex flex-col items-center justify-end w-full h-full pb-0 relative z-40">
@@ -499,20 +449,35 @@ export const CardVisual: React.FC<CardVisualProps> = ({
           <div className="absolute inset-[4px] pointer-events-none z-50 border-[1px] rounded-[inherit]" style={{ borderColor: Persona.tokens.colors.borderInner || 'transparent' }} />
           <Persona.visuals.Corners />
 
-          {/* --- LAYOUT SWITCHER --- */}
+          {/* --- CONTENT LAYOUT --- */}
           {isCompact ? (
+            // COMPACT MODE LAYOUT
             <div className="relative z-30 w-full h-full flex flex-col px-4 pt-4 pb-3">
               <div className="flex justify-center items-center w-full relative z-30 mb-0 shrink-0 h-[15%]">
                 {renderHeader()}
               </div>
               <div className="flex-1 relative flex items-center justify-center w-full min-h-0">
+                {/* MEMOIZED VISUAL */}
                 <div className="absolute inset-0 z-10 flex items-center justify-center opacity-60 mix-blend-screen scale-110" style={{ perspective: '1000px' }}>
-                  {renderVisual()}
+                  <MemoizedCardVisual
+                    isCompact={isCompact}
+                    visualPayload={visual.payload}
+                    isActive={isActive}
+                    fallbackWord={word}
+                    Persona={Persona}
+                    bgParallaxX={bgParallaxX}
+                    bgParallaxY={bgParallaxY}
+                    fgParallaxX={fgParallaxX}
+                    fgParallaxY={fgParallaxY}
+                    durability={durability}
+                  />
                 </div>
                 <div className="relative z-40 flex flex-col items-center justify-center drop-shadow-[0_4px_8px_rgba(0,0,0,0.9)] w-full">
                   {renderText()}
                 </div>
               </div>
+
+              {/* COMPACT DURABILITY BAR */}
               {Persona.visuals.DurabilityBar ? (
                 <div className="w-full relative z-50 mt-auto shrink-0 flex justify-center transform scale-y-[3] origin-bottom">
                   <Persona.visuals.DurabilityBar progress={durability} />
@@ -534,12 +499,25 @@ export const CardVisual: React.FC<CardVisualProps> = ({
               )}
             </div>
           ) : (
+            // STANDARD MODE LAYOUT
             <>
-              <div className={`relative z-30 w-full h-[15%] flex items-center ${isCompact ? 'justify-between' : 'justify-center'} px-5 pt-3`}>
+              <div className={`relative z-30 w-full h-[15%] flex items-center justify-center px-5 pt-3`}>
                 {renderHeader()}
               </div>
               <div className="relative z-20 w-full h-[55%] flex items-center justify-center px-4 pt-0 pb-0 -translate-y-2" style={{ perspective: '1000px' }}>
-                {renderVisual()}
+                {/* MEMOIZED VISUAL */}
+                <MemoizedCardVisual
+                  isCompact={isCompact}
+                  visualPayload={visual.payload}
+                  isActive={isActive}
+                  fallbackWord={word}
+                  Persona={Persona}
+                  bgParallaxX={bgParallaxX}
+                  bgParallaxY={bgParallaxY}
+                  fgParallaxX={fgParallaxX}
+                  fgParallaxY={fgParallaxY}
+                  durability={durability}
+                />
                 <div className="absolute -bottom-5 w-full px-12 opacity-80">
                   <Persona.visuals.Divider />
                 </div>
@@ -555,6 +533,10 @@ export const CardVisual: React.FC<CardVisualProps> = ({
           />
           {/* Glare effect - skin-configurable via persona */}
           <motion.div style={{ background: glareBackground, opacity: targetGlareOpacity }} className="absolute inset-0 z-40 pointer-events-none mix-blend-plus-lighter" />
+
+          {/* Feedback Effect (Memoized) */}
+          <VisualFeedbackOverlay visualFeedback={visualFeedback || null} persona={Persona} />
+
         </motion.div>
 
         {/* ================= BACK FACE ================= */}
@@ -616,6 +598,21 @@ export const CardVisual: React.FC<CardVisualProps> = ({
               <Persona.visuals.BackTopDecoration />
             </div>
           )}
+
+          {/* Ontology Badge - Refined & Compact */}
+          <div className="absolute top-[8px] left-1/2 -translate-x-1/2 z-40
+                          px-1.5 pt-[2px] pb-0 border-[0.5px] rounded-full
+                          flex items-center justify-center
+                          text-[7px] leading-none font-serif tracking-[0.1em] uppercase
+                          opacity-50 mix-blend-plus-lighter select-none whitespace-nowrap"
+            style={{
+              borderColor: Persona.tokens.colors.goldMetallic || '#D4AF37',
+              color: Persona.tokens.colors.goldBright || '#F0D082',
+              background: 'transparent',
+              boxShadow: `0 0 2px ${Persona.tokens.colors.goldMetallic}20`
+            }}>
+            {senseInfo.ontology}
+          </div>
 
           <div className={`relative flex flex-col w-full h-full z-10 custom-scrollbar-${Persona.identity.name}`}>
 
@@ -813,4 +810,129 @@ export const CardVisual: React.FC<CardVisualProps> = ({
       </motion.div >
     </>
   );
-};
+});
+
+// ============================================================================
+// MEMOIZED SUB-COMPONENTS
+// ============================================================================
+
+const MemoizedCardVisual = React.memo(({
+  isCompact,
+  visualPayload,
+  isActive,
+  fallbackWord,
+  Persona,
+  bgParallaxX,
+  bgParallaxY,
+  fgParallaxX,
+  fgParallaxY,
+  durability
+}: any) => {
+  return (
+    <motion.div
+      className="relative w-full h-full rounded-sm overflow-hidden flex items-center justify-center"
+      style={{ boxShadow: isCompact ? 'none' : Persona.tokens.shadows.innerDepth }}
+    >
+      <motion.div className="absolute inset-[-20%]"
+        style={{
+          x: bgParallaxX,
+          y: bgParallaxY,
+          background: Persona.tokens.colors.bgDeep,
+          opacity: 0.8
+        }}
+      >
+        <div className="w-full h-full opacity-[0.15]"
+          style={{
+            backgroundImage: Persona.definitions.assets.deepPattern || Persona.definitions.assets.backPattern,
+            backgroundSize: "120px 60px"
+          }}
+        />
+      </motion.div>
+
+      <Persona.visuals.Frame />
+
+      <motion.div
+        className={`absolute inset-0 flex items-center justify-center z-40 drop-shadow-[0_10px_20px_rgba(0,0,0,0.8)] 
+            ${isCompact ? 'scale-[1.0] opacity-30 mix-blend-screen' : ''}`}
+        style={{ x: fgParallaxX, y: fgParallaxY }}
+      >
+        <DynamicVisual code={visualPayload} isActive={isActive} fallbackElement={fallbackWord} />
+      </motion.div>
+
+      {Persona.visuals.DurabilityBar ? (
+        <div className="absolute bottom-0 inset-x-0 z-50 flex justify-center">
+          <Persona.visuals.DurabilityBar progress={durability} />
+        </div>
+      ) : (
+        !isCompact && (
+          <div className="absolute bottom-0 left-0 right-0 z-50 w-full h-[4px] bg-black/20 flex justify-center items-center">
+            <motion.div
+              initial={{ width: 0 }}
+              animate={{ width: `${durability}%` }}
+              transition={{ duration: 0.5, ease: "easeOut" }}
+              className="h-full opacity-90"
+              style={{
+                background: `linear-gradient(to right, ${Persona.tokens.colors.goldMetallic}, ${Persona.tokens.colors.goldBright}, ${Persona.tokens.colors.goldMetallic})`,
+                boxShadow: `0 0 10px ${Persona.tokens.colors.goldMetallic}`
+              }}
+            />
+          </div>
+        )
+      )}
+    </motion.div>
+  );
+}, (prevProps, nextProps) => {
+  return (
+    prevProps.isCompact === nextProps.isCompact &&
+    prevProps.visualPayload === nextProps.visualPayload &&
+    prevProps.isActive === nextProps.isActive &&
+    prevProps.fallbackWord === nextProps.fallbackWord &&
+    prevProps.durability === nextProps.durability &&
+    prevProps.bgParallaxX === nextProps.bgParallaxX &&
+    prevProps.bgParallaxY === nextProps.bgParallaxY
+  );
+});
+
+const VisualFeedbackOverlay = React.memo(({ visualFeedback, persona }: { visualFeedback: 'merge' | 'split' | null, persona: any }) => {
+  if (!visualFeedback || !persona.tokens.feedback) return null;
+
+  const config = persona.tokens.feedback[visualFeedback];
+
+  return (
+    <motion.div
+      className="absolute inset-[-4px] z-[70] pointer-events-none rounded-[26px] border-[3px]"
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 1.05 }}
+      transition={{ duration: 0.4, ease: "easeOut" }}
+      style={{
+        borderColor: config.color,
+        boxShadow: config.glow,
+        willChange: "opacity, transform" // GPU Hint
+      }}
+    >
+      {/* Static SVG Icon */}
+      <div className="absolute top-2 right-2 filter drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill={config.color}>
+          {config.svg && (
+            <>
+              <path d={config.svg.path} />
+              {config.svg.secondaryPath && (
+                <path d={config.svg.secondaryPath} fillOpacity={0.5} />
+              )}
+              {config.svg.strokePath && (
+                <path
+                  d={config.svg.strokePath}
+                  fill="none"
+                  stroke={config.color}
+                  strokeWidth={config.svg.strokeWidth || "1"}
+                  strokeDasharray={config.svg.strokeDash || "none"}
+                />
+              )}
+            </>
+          )}
+        </svg>
+      </div>
+    </motion.div>
+  );
+});

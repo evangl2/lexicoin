@@ -9,7 +9,7 @@ export const VISUAL_FIRE_ALCHEMICAL: VisualEntry = {
         "firstDiscoveredAt": 0
     },
     "payload": `import React from 'react';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 
 
     const FireTotem = ({ isActive = false }) => {

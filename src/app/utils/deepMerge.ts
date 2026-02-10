@@ -8,6 +8,9 @@
  * 2. null → Explicit disable (for Slot components)
  * 3. object → Recursive merge
  * 4. other → Direct override
+ * 
+ * @note This utility is a temporary solution for the current Persona system.
+ * It will be replaced by a more complex and deep persona customization feature in the future.
  */
 
 import React from 'react';
@@ -77,6 +80,7 @@ export function deepMerge<T extends Record<string, unknown>>(
             continue;
         }
 
+
         // Both are plain objects → Recursive merge
         if (isPlainObject(customValue) && isPlainObject(defaultValue)) {
             result[key] = deepMerge(
@@ -91,21 +95,4 @@ export function deepMerge<T extends Record<string, unknown>>(
     }
 
     return result;
-}
-
-/**
- * Merge arrays (for special cases)
- * Default behavior is replace, not merge
- */
-export function mergeArrays<T>(defaults: T[], custom: T[] | undefined): T[] {
-    if (custom === undefined) return defaults;
-    return custom;
-}
-
-/**
- * Create Persona Merger
- * Pre-bind Default Persona for reuse
- */
-export function createPersonaMerger<T extends Record<string, unknown>>(defaults: T) {
-    return (custom: Partial<T> | undefined | null): T => deepMerge(defaults, custom);
 }

@@ -1,0 +1,351 @@
+import { useState, useEffect, useRef } from 'react';
+import { animate, motionValue } from "motion/react";
+import type { CardEntity } from "@/types/CardEntity";
+import type { CardItem } from "@/app/hooks/logic/useCardManager";
+import type { Language } from '@schemas/schemas/SenseEntity.schema';
+
+// Helper Hook for previous value
+function usePrevious<T>(value: T): T | undefined {
+    const ref = useRef<T>();
+    useEffect(() => {
+        ref.current = value;
+    });
+    return ref.current;
+}
+
+// Map UI language names to CardEntity Language codes
+const mapLanguageCode = (uiLang: string): Language => {
+    const langMap: Record<string, Language> = {
+        'ENGLISH': 'en',
+        '简体中文': 'zh-CN',
+        'FRANÇAIS': 'fr',
+        'DEUTSCH': 'de',
+        '日本語': 'ja',
+        'ESPAÑOL': 'es',
+        'ITALIANO': 'it',
+        'PORTUGUÊS': 'pt',
+    };
+    return langMap[uiLang] || 'en'; // Default to 'en'
+};
+
+interface UseCardGroupingProps {
+    items: CardItem[];
+    setItems: React.Dispatch<React.SetStateAction<CardItem[]>>;
+    learningLang: string;
+}
+
+export const useCardGrouping = ({ items, setItems, learningLang }: UseCardGroupingProps) => {
+    // This state holds the "Variants" for each Anchor UID
+    // Map<AnchorUID, CardEntity[]>
+    const [mergedVariants, setMergedVariants] = useState<Record<string, CardEntity[]>>({});
+    const [exitingItems, setExitingItems] = useState<CardItem[]>([]); // Transient items animating out (Merge)
+    const [groupFeedback, setGroupFeedback] = useState<{
+        merge: string[],
+        split: string[],
+        timestamp: number
+    } | null>(null);
+
+    const prevLang = usePrevious(learningLang);
+    const prevItemsLength = usePrevious(items.length);
+    const prevMergedVariants = usePrevious(mergedVariants); // Track previous state for split detection
+
+    // Debounce regrouping to avoid thrashing
+    useEffect(() => {
+        // Condition to trigger regroup:
+        // 1. Language Changed
+        // 2. New items added (Potential Merge)
+        const langChanged = prevLang !== undefined && prevLang !== learningLang;
+        const itemsAdded = prevItemsLength !== undefined && items.length > prevItemsLength;
+
+        if (!langChanged && !itemsAdded) return;
+
+        console.log('[Regroup] Triggered. LangChanged:', langChanged, 'ItemsAdded:', itemsAdded);
+
+        // 1. Flatten all cards (Anchors + Variants)
+        const allCards: CardEntity[] = [];
+        items.forEach(item => {
+            allCards.push(item.cardData);
+            const variants = mergedVariants[item.cardData.uid] || [];
+            allCards.push(...variants);
+        });
+
+        // 2. Regroup based on NEW Language
+        const groups: Record<string, CardEntity[]> = {};
+        const currentLangCode = mapLanguageCode(learningLang);
+
+        allCards.forEach(card => {
+            const word = card.displayData[currentLangCode]?.word.toLowerCase();
+            if (word) {
+                if (!groups[word]) groups[word] = [];
+                groups[word].push(card);
+            } else {
+                // Fallback for missing word? Treat as unique group
+                groups[card.uid] = [card];
+            }
+        });
+
+        // 3. Diff & Animate
+        // We need to determine:
+        // - Who is now an Anchor?
+        // - Who is now a Variant?
+        // - Who needs to move?
+
+        const newItems: CardItem[] = [];
+        const newMergedVariants: Record<string, CardEntity[]> = {};
+
+        // Track positions of existing anchors to preserve them or use as spawn points
+        const anchorPositions = new Map<string, { x: number, y: number }>();
+        items.forEach(i => anchorPositions.set(i.cardData.uid, { x: i.mx.get(), y: i.my.get() }));
+        const currentItems = [...items]; // Snapshot for lookups
+
+        // Process each group
+        Object.values(groups).forEach(group => {
+            // Sort group: Higher Frequency First -> Anchor
+            group.sort((a, b) => {
+                const freqDiff = b.senseInfo.frequency - a.senseInfo.frequency;
+                if (freqDiff !== 0) return freqDiff;
+                return a.uid.localeCompare(b.uid);
+            });
+
+            const anchor = group[0];
+            if (!anchor) return; // Should not happen given group creation logic
+
+            const variants = group.slice(1);
+
+            // Store Variants
+            if (variants.length > 0) {
+                newMergedVariants[anchor.uid] = variants;
+            }
+
+            // Determine Anchor Position
+            let targetX: number = 0; // Default values
+            let targetY: number = 0;
+
+            // Case A: Anchor was already an Anchor
+            if (anchorPositions.has(anchor.uid)) {
+                const pos = anchorPositions.get(anchor.uid)!;
+                targetX = pos.x;
+                targetY = pos.y;
+            }
+            // Case B: Anchor was a Variant (Split or Promotion)
+            else {
+                // Try to find the position of the OLD Anchor this card belonged to
+                // We look through 'items' to find who held this card as a variant
+                // NOTE: We need the PREVIOUS mergedVariants state here, which is 'mergedVariants' from closure
+                // We also need to find which item held it.
+
+                const oldAnchorItem = currentItems.find(i => {
+                    const v = mergedVariants[i.cardData.uid];
+                    return v && v.some((vc: CardEntity) => vc.uid === anchor.uid);
+                });
+
+                if (oldAnchorItem) {
+                    // Spawning from Old Anchor
+                    const spawnX = oldAnchorItem.mx.get();
+                    const spawnY = oldAnchorItem.my.get();
+
+
+                    // Native Physics Split:
+                    // Spawn slightly offset from center to avoid perfect overlap (divide by zero in physics)
+                    // The usePhysics hook will naturally push them apart ("Cell Division" effect)
+                    const offset = 10;
+                    const randX = (Math.random() - 0.5) * offset;
+                    const randY = (Math.random() - 0.5) * offset;
+
+                    const startX = spawnX + randX;
+                    const startY = spawnY + randY;
+
+                    // No forced animation - Let physics drive the motion
+                    newItems.push({
+                        cardData: anchor,
+                        width: 250,
+                        height: 350,
+                        mx: motionValue(startX),
+                        my: motionValue(startY)
+                    });
+                    return; // Skip default push
+                } else {
+                    // Fallback (Shouldn't happen often if logic is consistent)
+                    targetX = (Math.random() - 0.5) * 200;
+                    targetY = (Math.random() - 0.5) * 200;
+                }
+            }
+
+            // Create new Item (Default / No Animation Case)
+            newItems.push({
+                cardData: anchor,
+                width: 250,
+                height: 350,
+                mx: motionValue(targetX),
+                my: motionValue(targetY)
+            });
+        });
+
+        // 3.5 Detect Merging Items (Exiting)
+        // Find items that are currently visible (Anchors) but will become Variants in the new state.
+        const exiting: CardItem[] = [];
+        items.forEach(oldItem => {
+            const uid = oldItem.cardData.rawSense.uid;
+            // Is it still an anchor?
+            const isStillAnchor = newItems.some(ni => ni.cardData.rawSense.uid === uid);
+            if (isStillAnchor) return;
+
+            // Did it merge into someone?
+            // Find the Anchor that contains this UID in its variants
+            let targetAnchorUID: string | undefined;
+            let targetAnchorItem: CardItem | undefined;
+
+            // Look in newMergedVariants
+            for (const [anchorID, variants] of Object.entries(newMergedVariants)) {
+                if (variants.some(v => v.uid === uid)) {
+                    targetAnchorUID = anchorID;
+                    break;
+                }
+            }
+
+            if (targetAnchorUID) {
+                // Find the visible item for this anchor
+                targetAnchorItem = newItems.find(ni => ni.cardData.rawSense.uid === targetAnchorUID);
+            }
+
+            if (targetAnchorItem) {
+                // Yes, it merged. Animate it to the target anchor.
+                const startX = oldItem.mx.get();
+                const startY = oldItem.my.get();
+                const targetX = targetAnchorItem.mx.get();
+                const targetY = targetAnchorItem.my.get();
+
+                // Use existing motion values if possible, or create new ones? 
+                // We reuse the oldItem's motion values to preserve momentum/state if needed,
+                // but simple animate is enough.
+
+                animate(oldItem.mx, targetX, { type: "spring", stiffness: 200, damping: 20 });
+                animate(oldItem.my, targetY, { type: "spring", stiffness: 200, damping: 20 });
+
+                exiting.push(oldItem);
+            }
+        });
+
+        if (exiting.length > 0) {
+            setExitingItems(prev => [...prev, ...exiting]);
+            // Cleanup after animation (approx timing)
+            setTimeout(() => {
+                setExitingItems(prev => prev.filter(p => !exiting.includes(p)));
+            }, 600);
+        }
+
+        // 3.6 Detect Feedback Events (Merge/Split)
+        const mergeUIDs = new Set<string>();
+        const splitUIDs = new Set<string>();
+        const connections: { from: string, to: string }[] = [];
+
+        // Identify Merged Anchors (Target of exiting items)
+        // We reuse the logic: finding which anchor the exiting items went to.
+        // Optimization: We could have collected this during the loop above, but separating is cleaner for now.
+        exiting.forEach(item => {
+            const uid = item.cardData.rawSense.uid;
+            for (const [anchorID, variants] of Object.entries(newMergedVariants)) {
+                if (variants.some(v => v.uid === uid)) {
+                    mergeUIDs.add(anchorID);
+                    break;
+                }
+            }
+        });
+
+        // Identify Split Items (New Items that were not in valid items list before)
+        if (prevLang && prevLang !== learningLang) {
+            const prevUIDs = new Set(items.map(i => i.cardData.uid));
+            const processedNewItems = new Set<string>();
+
+            newItems.forEach(ni => {
+                // Check if this is a newly appeared item
+                if (!prevUIDs.has(ni.cardData.uid)) {
+                    const newUID = ni.cardData.uid;
+                    splitUIDs.add(newUID);
+                    processedNewItems.add(newUID);
+
+                    // Find Source (The Anchor it came from)
+                    // Look in prevMergedVariants
+                    if (prevMergedVariants) {
+                        for (const [anchorID, variants] of Object.entries(prevMergedVariants)) {
+                            // Check if this new item was a variant in a previous anchor
+                            // AND that anchor (or a card with that UID) still exists in the new view
+                            // (If the anchor itself disappeared, we might have a full explosion, but let's assume one survives)
+                            if (variants.some(v => v.uid === newUID)) {
+                                // Found origin!
+                                // Check if anchorID (the Source) is in newItems
+                                const sourceItem = newItems.find(i => i.cardData.uid === anchorID);
+                                if (sourceItem) {
+                                    splitUIDs.add(anchorID); // Highlight source too
+                                    connections.push({ from: anchorID, to: newUID });
+                                }
+                                break;
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        if (mergeUIDs.size > 0 || splitUIDs.size > 0) {
+            setGroupFeedback({
+                merge: Array.from(mergeUIDs),
+                split: Array.from(splitUIDs),
+                timestamp: Date.now()
+            });
+        }
+
+        // 4. Batch Updates (Optimized)
+        // Only update if data actually changed to avoid re-renders
+
+        // Helper for deep comparison of variants
+        const variantsChanged = (oldV: Record<string, CardEntity[]>, newV: Record<string, CardEntity[]>) => {
+            const oldKeys = Object.keys(oldV);
+            const newKeys = Object.keys(newV);
+            if (oldKeys.length !== newKeys.length) return true;
+
+            for (const key of newKeys) {
+                const ov = oldV[key];
+                const nv = newV[key];
+                if (!ov || !nv) return true; // Should exist if keys match
+                if (ov.length !== nv.length) return true;
+                // Check UIDs of variants
+                for (let i = 0; i < nv.length; i++) {
+                    if (nv[i]?.uid !== ov[i]?.uid) return true;
+                }
+            }
+            return false;
+        };
+
+        // Helper for items comparison (UIDs and Positions)
+        // Note: motionValues (mx, my) are objects, but we only care about the list structure 
+        // and if a new item replaced an old one. Position updates are handled by physics/motion directly.
+        // We mainly care if the LIST of items changed.
+        const itemsListChanged = items.length !== newItems.length || items.some((item, i) => {
+            // Safe access in case newItems length differs (though length check above handles most cases)
+            const newItem = newItems[i];
+            return !newItem || item.cardData.uid !== newItem.cardData.uid;
+        });
+
+
+        if (itemsListChanged) {
+            setItems(newItems);
+            // console.log('[Regroup] Items updated', newItems.length);
+        }
+
+        if (variantsChanged(mergedVariants, newMergedVariants)) {
+            setMergedVariants(newMergedVariants);
+            // console.log('[Regroup] Variants updated');
+        }
+
+        // 5. Smart Camera: Removed as per optimization plan
+        // Camera no longer moves automatically on merge/split.
+
+    }, [learningLang, items.length]); // Dependencies: Language change or Count change
+
+    return {
+        mergedVariants,
+        exitingItems,
+        groupFeedback // Expose feedback events
+    };
+};

@@ -5,8 +5,8 @@ import { motion, AnimatePresence } from 'motion/react';
 import { X, Box, Sparkles, ArrowDownAZ, ArrowUpAZ, SlidersHorizontal } from 'lucide-react';
 import { DefaultCardPersona as CardPersona } from '@/app/components/persona/default/Card.persona.default';
 import { DefaultInterfacePersona as InterfacePersona } from '@/app/components/persona/default/Interface.persona.default';
-import { CardVisual } from '@/app/components/CardVisual';
-import { PropVisual } from '@/app/components/PropVisual';
+import { CardVisual } from '@/app/components/ui/CardVisual';
+import { PropVisual } from '@/app/components/ui/PropVisual';
 
 export interface StoredCard {
     id: string;

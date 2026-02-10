@@ -46,7 +46,7 @@ The camera (`Canvas` viewport) automatically adapts to tell the story:
     -   **Diffs** to determine who stays, who merges, who splits.
     -   **Updates** state and triggers animations (`animate`, `usePhysics`).
 
-## 4. Developer Guide (开发者指南)
+## 4. Developer Guide 
 
 ### 4.1 Integration
 The feature is currently centralized in **`src/app/App.tsx`**. It is designed as a "Layout Effect" that runs whenever the deck or language state changes.
@@ -69,7 +69,7 @@ useEffect(() => {
 
 ---
 
-## 5. Debugging (调试指南)
+## 5. Debugging
 
 ### 5.1 Console Logs
 Filter your console for the tag **`[Regroup]`** or **`[Smart Camera]`**.
@@ -91,7 +91,7 @@ Filter your console for the tag **`[Regroup]`** or **`[Smart Camera]`**.
 
 ---
 
-## 6. Extension Guide (拓展指南)
+## 6. Extension Guide
 
 ### 6.1 Customizing Grouping Rules
 Target: `App.tsx` -> `Regroup` phase.

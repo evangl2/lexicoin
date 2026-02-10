@@ -1,9 +1,10 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
+import { useCardVariants } from '@/app/utils/mergeSplit/useCardVariants';
 import { useDrop } from 'react-dnd';
 import { motion, useVelocity, useTransform, useSpring, useMotionValue, MotionValue } from 'motion/react';
 import { useDrag } from '@use-gesture/react';
 import { DefaultCardPersona as CardPersona } from '@/app/components/persona/default/Card.persona.default';
-import { CardVisual } from '@/app/components/CardVisual';
+import { CardVisual } from '@/app/components/ui/CardVisual';
 import { tts } from '@/app/utils/audio/tts';
 import type { CardEntity } from '@/types/CardEntity';
 import type { Language } from '@schemas/schemas/SenseEntity.schema';
@@ -49,6 +50,7 @@ interface CardProps {
   onDelete?: () => void;
   onDropItem?: (item: any) => void;
   isHidden?: boolean;
+  groupFeedback?: { merge: string[], split: string[], timestamp: number } | null;
 }
 
 export const Card: React.FC<CardProps> = ({
@@ -66,32 +68,15 @@ export const Card: React.FC<CardProps> = ({
   updatePosition,
   isHidden = false,
   onDropItem,
+  groupFeedback,
 }) => {
-  // ========== State: Active Sense Identity ==========
-  // Default to the main card's UID (Anchor)
-  const [activeUid, setActiveUid] = useState<string>(cardData.uid);
-
-  // Sync activeUid if cardData changes (e.g. if anchor changes externally)
-  useEffect(() => {
-    setActiveUid(cardData.uid);
-  }, [cardData.uid]);
-
-  // ========== Computed: Sorted Variants & Current Data ==========
-  // Combine anchor + variants and sort by frequency (High -> Low)
-  // If frequencies are equal, use UID as tiebreaker for stability
-  const sortedVariants = useMemo(() => {
-    const allCards = [cardData, ...variants];
-    return allCards.sort((a, b) => {
-      const freqDiff = b.senseInfo.frequency - a.senseInfo.frequency;
-      if (freqDiff !== 0) return freqDiff;
-      return a.uid.localeCompare(b.uid);
-    });
-  }, [cardData, variants]);
-
-  // Derive the currently active card data to render
-  const currentCardData = useMemo(() => {
-    return sortedVariants.find(v => v.uid === activeUid) || cardData;
-  }, [sortedVariants, activeUid, cardData]);
+  // ========== Variant Logic (Extracted) ==========
+  const {
+    activeUid,
+    setActiveUid,
+    sortedVariants,
+    currentCardData
+  } = useCardVariants({ cardData, variants });
 
   // ========== Extract Display Data from Current Active Card ==========
   // Extract data for BOTH languages (bilingual support)
@@ -116,8 +101,36 @@ export const Card: React.FC<CardProps> = ({
   }));
 
   const [isDragging, setIsDragging] = useState(false);
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false); // isExpanded state
+
+  // ========== Visual Feedback Logic ==========
+  const [visualFeedback, setVisualFeedback] = useState<'merge' | 'split' | null>(null);
+
+  useEffect(() => {
+    if (!groupFeedback) return;
+    const uid = cardData.uid;
+
+    // Check if this card is affected by the latest event
+    if (groupFeedback.merge.includes(uid)) {
+      setVisualFeedback('merge');
+    } else if (groupFeedback.split.includes(uid)) {
+      setVisualFeedback('split');
+    }
+  }, [groupFeedback, cardData.uid]);
+
+  // Clear feedback on interaction
+  useEffect(() => {
+    if (isHovered || isDragging) {
+      setVisualFeedback(null);
+    }
+  }, [isHovered, isDragging]);
+
   const [isFlipped, setIsFlipped] = useState(false);
+
+  // Transient animation flag: enables will-change GPU hint only during flip/scale transitions
+  // Auto-clears after spring settles (~600ms) to restore text sharpness
+  const [isAnimating, setIsAnimating] = useState(false);
+  const animatingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // --- Selection Overlay State ---
   const [isOverlayOpen, setIsOverlayOpen] = useState(false);
@@ -159,16 +172,18 @@ export const Card: React.FC<CardProps> = ({
     return () => window.removeEventListener('mousemove', handleMouseMove);
   }, [isExpanded, isFlipped, mouseX, mouseY]);
 
-  // Auto-expand when flipped to back face
-  useEffect(() => {
-    if (isFlipped) {
-      setIsExpanded(true);
-    }
-  }, [isFlipped]);
+  // Auto-expand logic moved to onContextMenu to avoid cascading renders
+  // useEffect(() => {
+  //   if (isFlipped) {
+  //     setIsExpanded(true);
+  //   }
+  // }, [isFlipped]);
 
   useEffect(() => {
     const handleGlobalClick = (e: PointerEvent) => {
       if ((isExpanded || isFlipped) && cardRef.current && !cardRef.current.contains(e.target as Node)) {
+        // Bug Fix: Explicitly reset isHovered because onListLeave might have been blocked while flipped
+        setIsHovered(false);
         setIsExpanded(false);
         setIsFlipped(false);
       }
@@ -178,17 +193,20 @@ export const Card: React.FC<CardProps> = ({
   }, [isExpanded, isFlipped]);
 
   // --- Selection Overlay Handlers ---
-  const handleDefinitionClick = () => {
+  const handleDefinitionClick = React.useCallback(() => {
     setIsOverlayOpen(true);
-  };
+  }, []);
 
-  const handleSelectDefinition = (item: any) => {
+  const handleSelectDefinition = React.useCallback((item: any) => {
     // Update active Identity based on selection
     setActiveUid(item.id);
     setIsOverlayOpen(false);
 
     // TTS: Speak the selected definition from the NEW identity
     // We need to look up the data for the selected ID
+    // Note: strict dependencies would require sortedVariants/learningLanguage, 
+    // but for TTS side-effect in event handler it's often acceptable. 
+    // To be perfectly safe/stable, we can rely on the fact that `sortedVariants` is now stable from hook.
     const selectedVariant = sortedVariants.find(v => v.uid === item.id);
     if (selectedVariant) {
       const def = selectedVariant.displayData[learningLanguage]?.definition;
@@ -196,17 +214,17 @@ export const Card: React.FC<CardProps> = ({
         tts.speak(def, learningLanguage);
       }
     }
-  };
+  }, [setActiveUid, sortedVariants, learningLanguage]);
 
   // Selection items - Built from Sorted Variants
-  const selectionItems = sortedVariants.map(variant => ({
+  const selectionItems = useMemo(() => sortedVariants.map(variant => ({
     id: variant.uid,
     definitions: Object.keys(variant.displayData).reduce((acc, lang) => {
       acc[lang as Language] = variant.displayData[lang as Language]?.definition || '';
       return acc;
     }, {} as Record<Language, string>),
     pos: variant.displayData[learningLanguage]?.pos || 'n.'
-  }));
+  })), [sortedVariants, learningLanguage]);
 
   // We actually don't need `definitionOverride` anymore because `currentCardData` 
   // completely swaps the content passed to CardVisual.
@@ -401,8 +419,15 @@ export const Card: React.FC<CardProps> = ({
         e.preventDefault();
         e.stopPropagation();
 
+        // Enable GPU hint for the duration of the animation
+        setIsAnimating(true);
+        if (animatingTimerRef.current) clearTimeout(animatingTimerRef.current);
+        animatingTimerRef.current = setTimeout(() => setIsAnimating(false), 600);
+
+        // Batched State Update:
         if (!isFlipped) {
           setIsFlipped(true);
+          setIsExpanded(true);
         } else {
           setIsFlipped(false);
         }
@@ -415,13 +440,17 @@ export const Card: React.FC<CardProps> = ({
         // GPU Acceleration: Force hardware acceleration with translate3d
         transform: 'translate3d(0, 0, 0)',
         // Dynamic performance optimization: 
-        // Only hint will-change during active high-framerate operations to prevent blurring
-        willChange: (isDragging || (!isExpanded && canvasScale < 1)) ? 'transform' : 'auto',
+        // Hint will-change during active animations only — clears after settling to preserve text sharpness
+        willChange: (isDragging || isAnimating || (!isExpanded && canvasScale < 1)) ? 'transform' : 'auto',
+        // Performance: boxShadow via CSS transition instead of per-frame Motion interpolation
+        boxShadow: targetShadow,
+        transition: 'box-shadow 0.3s ease-out',
         transformStyle: 'preserve-3d', // Enable 3D context for sharper scaling
         cursor: isFlipped ? 'default' : (isDragging ? "grabbing" : (isExpanded ? "zoom-out" : "grab")),
         position: 'absolute', left: '50%', top: '50%',
         marginLeft: -width / 2, marginTop: -height / 2,
         touchAction: 'none',
+        borderRadius: CardPersona.tokens.layout.radius,
       }}
       onPointerDown={(e) => {
         e.stopPropagation();
@@ -430,7 +459,7 @@ export const Card: React.FC<CardProps> = ({
       onHoverStart={() => !isFlipped && setIsHovered(true)}
       onHoverEnd={() => !isFlipped && setIsHovered(false)}
       onDoubleClick={(e) => e.stopPropagation()}
-      animate={{ scale: targetScale, boxShadow: targetShadow }}
+      animate={{ scale: targetScale }}
       transition={CardPersona.physics.springs.scale}
       className="canvas-card select-none group relative transition-colors duration-300"
     >
@@ -466,7 +495,8 @@ export const Card: React.FC<CardProps> = ({
         definitionOverride={definitionOverride}
         onDefinitionClick={handleDefinitionClick}
         onSelectDefinition={handleSelectDefinition}
+        visualFeedback={visualFeedback}
       />
-    </motion.div>
+    </motion.div >
   );
 };

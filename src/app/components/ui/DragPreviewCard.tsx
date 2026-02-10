@@ -1,5 +1,5 @@
 import React from 'react';
-import { CardVisual } from '@/app/components/CardVisual';
+import { CardVisual } from '@/app/components/ui/CardVisual';
 
 interface DragPreviewCardProps {
   title: string;

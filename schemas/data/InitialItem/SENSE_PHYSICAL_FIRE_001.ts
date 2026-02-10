@@ -9,7 +9,7 @@ export const VISUAL_FIRE_PHYSICAL: VisualEntry = {
     "firstDiscoveredAt": 0
   },
   "payload": `import React from 'react';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 
 const FireTotem = ({ isActive = false }) => {
   // Variants for the flickering flame paths

@@ -15,7 +15,7 @@ export const SENSE_PHYSICAL_FIRE_001: SenseEntity = {
         ]
     },
     "frequency": { "value": 100, "meta": { "stability": 100.0 } },
-    "ontology": { "value": "PROCESS", "meta": { "stability": 100.0 } },
+    "ontology": { "value": "OBJECT", "meta": { "stability": 100.0 } },
     "meaning": {
         "en": { "value": "A rapid chemical reaction of a substance with oxygen, involving the production of heat and light.", "meta": { "stability": 100.0, "firstDiscoverer": "UNKNOWN", "firstDiscoveredAt": 0 } },
         "zh-CN": { "value": "物质燃烧过程中散发光、火焰和热的化学现象。", "meta": { "stability": 100.0, "firstDiscoverer": "UNKNOWN", "firstDiscoveredAt": 0 } },

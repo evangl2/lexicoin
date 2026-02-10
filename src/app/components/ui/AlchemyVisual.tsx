@@ -45,7 +45,7 @@ export const AlchemyVisual: React.FC<AlchemyVisualProps> = ({ element = '', isAc
             strokeWidth="1"
             strokeOpacity={0.3}
             filter="url(#glow)"
-            style={{ opacity: 1, transformOrigin: "50% 60%" }}
+            style={{ opacity: 1, transformOrigin: "50% 60%", willChange: "transform, stroke-opacity" }}
             animate={isActive ? { scale: [1, 1.05, 1], strokeOpacity: [0.3, 0.6, 0.3] } : { scale: 1, strokeOpacity: 0.3 }}
             transition={isActive ? { duration: 3, repeat: Infinity, ease: "easeInOut" } : { duration: 0.5 }}
           />
@@ -54,6 +54,7 @@ export const AlchemyVisual: React.FC<AlchemyVisualProps> = ({ element = '', isAc
 
           {/* Floating Core */}
           <motion.circle cx="50" cy="65" r="12" fill="#FF4500" opacity={0.8} filter="url(#glow)"
+            style={{ willChange: "transform" }}
             animate={isActive ? { scale: [0.9, 1.1, 0.9], y: [0, -5, 0] } : { scale: 1, y: 0 }}
             transition={isActive ? { duration: 2, repeat: Infinity, ease: "easeInOut" } : { duration: 0.5 }}
           />
@@ -79,6 +80,7 @@ export const AlchemyVisual: React.FC<AlchemyVisualProps> = ({ element = '', isAc
 
           {/* Ripples */}
           <motion.circle cx="50" cy="35" r="10" stroke="#00BFFF" strokeWidth="2" fill="none" opacity={0.8}
+            style={{ willChange: "transform, opacity, stroke-width" }}
             animate={isActive ? { r: [5, 25], opacity: [0.8, 0], strokeWidth: [2, 0.5] } : { r: 5, opacity: 0, strokeWidth: 2 }}
             transition={isActive ? { duration: 2.5, repeat: Infinity, ease: "easeOut" } : { duration: 0.5 }}
           />
@@ -106,12 +108,15 @@ export const AlchemyVisual: React.FC<AlchemyVisualProps> = ({ element = '', isAc
             stroke="url(#earthGrad)"
             strokeWidth="4"
             filter="url(#glow)"
+            style={{ transformOrigin: "50% 50%", willChange: "transform" }}
             animate={isActive ? { rotate: [0, 5, 0, -5, 0] } : { rotate: 0 }}
             transition={isActive ? { duration: 10, repeat: Infinity, ease: "linear" } : { duration: 0.5 }}
-            style={{ transformOrigin: "50% 50%" }}
           />
           {/* Crossbar */}
-          <motion.path d="M 15 50 L 85 50" stroke="#CD853F" strokeWidth="2" opacity={0.6}
+          <motion.path d="M 15 50 L 85 50" stroke="#CD853F"
+            strokeWidth="2"
+            opacity={0.6}
+            style={{ willChange: "opacity" }}
             animate={isActive ? { opacity: [0.4, 0.8, 0.4] } : { opacity: 0.6 }}
             transition={isActive ? { duration: 4, repeat: Infinity } : { duration: 0.5 }}
           />
@@ -141,6 +146,7 @@ export const AlchemyVisual: React.FC<AlchemyVisualProps> = ({ element = '', isAc
 
         {/* Orbiting Particle */}
         <motion.circle cx="50" cy="50" r="3" fill="#fff"
+          style={{ willChange: "transform" }}
           animate={isActive ? {
             cx: [50, 70, 50, 30, 50],
             cy: [30, 50, 70, 50, 30],

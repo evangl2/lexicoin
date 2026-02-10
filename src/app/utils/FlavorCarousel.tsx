@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { TieredText } from '@/app/components/ui/TieredText';
+import { TieredText } from '@/app/utils/TieredText';
 import type { FlavorContentItem } from '@/types/CardEntity';
 
 interface FlavorCarouselProps {

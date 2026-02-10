@@ -8,7 +8,7 @@ export const VISUAL_EARTH_ALCHEMICAL: VisualEntry = {
         "firstDiscoverer": "UNKNOWN",
         "firstDiscoveredAt": 0
     },
-    "payload": "import React from 'react';
+    "payload": `import React from 'react';
 import { motion } from 'motion/react';
 
 
@@ -132,5 +132,5 @@ animate = { isActive? "active": "dormant" }
 };
 
 
-export default EarthTotem; "
+export default EarthTotem; `
 };

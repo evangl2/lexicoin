@@ -2,7 +2,7 @@ import React from 'react';
 import { motion } from 'motion/react';
 import type { ContentItem } from '@/app/types/CardContent';
 import { useWheelStopPropagation } from '@/app/hooks/useWheelStopPropagation';
-import { DynamicText } from '@/app/components/ui/DynamicText';
+import { DynamicText } from '@/app/utils/DynamicText';
 import type { Language } from 'a:/lexicoin/lexicoin/schemas/schemas/SenseEntity.schema';
 
 export interface SelectionOverlayProps {

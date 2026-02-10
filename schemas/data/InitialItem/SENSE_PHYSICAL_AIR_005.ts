@@ -8,8 +8,8 @@ export const VISUAL_AIR_PHYSICAL: VisualEntry = {
         "firstDiscoverer": "UNKNOWN",
         "firstDiscoveredAt": 0
     },
-    "payload": "import React from 'react';
-import { motion } from 'framer-motion';
+    "payload": `import React from 'react';
+import { motion } from 'motion/react';
 
 
     const AirTotem = ({ isActive = false }) => {
@@ -108,7 +108,7 @@ import { motion } from 'framer-motion';
 {
     [1, 2, 3].map((i) => (
         <motion.path
-              key= {`stream-${i}`}
+              key= {\`stream-\${i}\`}
 variants = { flowVariants }
 custom = { i }
 animate = { isActive? "active": "dormant" }
@@ -121,7 +121,7 @@ style = {{
     rotate: i * 120,
         originX: "50px",
             originY: "50px",
-                transform: `translateY(${(i - 2) * 5}px)`
+                transform: \`translateY(\${(i - 2) * 5}px)\`
 }}
             />
           ))}
@@ -132,7 +132,7 @@ style = {{
 {
     [...Array(6)].map((_, i) => (
         <motion.circle
-            key= {`mol-${i}`}
+            key= {\`mol-\${i}\`}
 cx = { 30 + (i * 8) }
 cy = { 25 + (i * 10) % 50 }
 r = { 1.5 + (i % 2) }
@@ -147,13 +147,13 @@ animate = { isActive? "active": "dormant" }
 {/* Layer 4: Central Core Pressure Node */ }
 <motion.ellipse
           cx="50"
-cy = "50"
-rx = "15"
-ry = "15"
-fill = "none"
-stroke = "#F1F5F9"
-strokeWidth = "0.2"
-animate = { isActive? {
+        cy = "50"
+        rx = "15"
+        ry = "15"
+        fill = "none"
+        stroke = "#F1F5F9"
+        strokeWidth = "0.2"
+        animate = { isActive? {
     scale: [1, 1.1, 1],
         opacity: [0.1, 0.3, 0.1]
 } : { }}
@@ -165,5 +165,5 @@ transition = {{ duration: 4, repeat: Infinity }}
 };
 
 
-export default AirTotem; "
+export default AirTotem; `
 };
