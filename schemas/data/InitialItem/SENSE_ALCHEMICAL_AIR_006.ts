@@ -40,6 +40,16 @@ import { motion } from 'motion/react';
         };
 
 
+        const getStreamPath = (i) => {
+            const startX = 20 + i * 5;
+            const startY = 80 - i * 10;
+            const ctrlY = 40 - i * 5;
+            const endX = 80 - i * 5;
+            const endY = 20 + i * 5;
+            return \`M \${startX} \${startY} Q 50 \${ctrlY} \${endX} \${endY}\`;
+        };
+
+
         return (
             <div className= "flex items-center justify-center w-full h-full bg-transparent" >
             <svg
@@ -96,11 +106,11 @@ import { motion } from 'motion/react';
               custom = { i }
               variants = { streamVariants }
               animate = { isActive? "active": "dormant" }
-              d = {\`M \${ 20 + i * 5} \${ 80 - i * 10 } Q 50 \${ 40 - i * 5 } \${ 80 - i * 5 } \${ 20 + i * 5 } \`}
-        stroke = "#F0F9FF"
-        strokeWidth = "0.5"
-        strokeDasharray = "10 20"
-        fill = "none"
+              d={getStreamPath(i)}
+        stroke="#F0F9FF"
+        strokeWidth="0.5"
+        strokeDasharray="10 20"
+        fill="none"
             />
           ))}
 </g>

@@ -19,6 +19,9 @@ export async function initializeModules(): Promise<void> {
     logger.info('Initializing all modules...', undefined, 'ModuleInit');
 
     try {
+        // Open IndexedDB and run one-time localStorage migration
+        await storageManager.initialize();
+
         // Load persisted data
         const savedData = await storageManager.load();
 

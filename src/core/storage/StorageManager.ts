@@ -1,12 +1,15 @@
 /**
  * StorageManager - Sync & Persistence Module
- * 
- * Manages local data persistence with localStorage/IndexedDB
- * Provides interface for future cloud sync integration
+ *
+ * Manages local data persistence with IndexedDB via Dexie.js.
+ * Provides interface for future cloud sync integration.
+ *
+ * Upgraded from localStorage to IndexedDB for capacity and performance.
  */
 
 import { logger } from '@utils/logger';
 import { messageBus } from '@core/protocol/MessageBus';
+import { db } from './db';
 import type { PlayerState, Sense } from '../../types/index';
 
 interface StorageData {
@@ -20,17 +23,14 @@ type MigrationFunction = (data: any) => StorageData;
 
 class StorageManager {
     private static instance: StorageManager;
-    private readonly STORAGE_KEY = 'lexicoin_data';
-    private readonly TEMP_KEY = 'lexicoin_data_temp';
-    private readonly BACKUP_KEY = 'lexicoin_data_backup';
     private readonly VERSION = '0.2.0';
     private autoSaveEnabled: boolean = true;
+    private initialized: boolean = false;
     private migrations: Map<string, MigrationFunction> = new Map();
 
     private constructor() {
+        // Only synchronous setup here — no I/O until initialize() is called
         this.initializeMigrations();
-        this.setupAutoSave();
-        logger.info('StorageManager initialized', undefined, 'StorageManager');
     }
 
     static getInstance(): StorageManager {
@@ -41,13 +41,31 @@ class StorageManager {
     }
 
     /**
-     * Initialize migration functions
+     * Async initialization — must be called before any data operations.
+     * Opens IndexedDB, runs one-time localStorage migration, then enables auto-save.
+     */
+    async initialize(): Promise<void> {
+        if (this.initialized) return;
+
+        try {
+            await db.open();
+            await this.migrateFromLocalStorage();
+            this.setupAutoSave();
+            this.initialized = true;
+            logger.info('StorageManager initialized with IndexedDB', undefined, 'StorageManager');
+        } catch (error) {
+            logger.error('StorageManager initialization failed', error, 'StorageManager');
+            throw error;
+        }
+    }
+
+    /**
+     * Initialize data migration functions (version chain)
      */
     private initializeMigrations(): void {
         // Migration from 0.1.0 to 0.2.0
         this.migrations.set('0.1.0', (data: any): StorageData => {
             logger.info('Migrating data from 0.1.0 to 0.2.0', undefined, 'StorageManager');
-            // Add any necessary data transformations here
             return {
                 ...data,
                 version: '0.2.0',
@@ -56,15 +74,65 @@ class StorageManager {
     }
 
     /**
+     * One-time migration from localStorage → IndexedDB.
+     * Uses an in-transaction flag (_migration_done) to ensure idempotency.
+     * Clears localStorage immediately after successful migration.
+     */
+    private async migrateFromLocalStorage(): Promise<void> {
+        const migrationFlag = await db.gameData.get('_migration_done');
+        if (migrationFlag) return; // Already migrated
+
+        try {
+            // Read from localStorage (may be empty for new users)
+            const rawGame = localStorage.getItem('lexicoin_data');
+            const rawCanvas = localStorage.getItem('canvas-items');
+
+            // Nothing to migrate
+            if (!rawGame && !rawCanvas) {
+                // Still set the flag so we don't check every time
+                await db.gameData.put({ key: '_migration_done', version: '1.0' });
+                return;
+            }
+
+            // Write to IndexedDB in a single atomic transaction
+            await db.transaction('rw', [db.gameData, db.canvasPositions], async () => {
+                if (rawGame) {
+                    const parsed = JSON.parse(rawGame);
+                    await db.gameData.put({ key: 'main', ...parsed });
+                    logger.info('Migrated game data from localStorage', undefined, 'StorageManager');
+                }
+
+                if (rawCanvas) {
+                    const positions = JSON.parse(rawCanvas);
+                    if (Array.isArray(positions) && positions.length > 0) {
+                        await db.canvasPositions.bulkPut(positions);
+                        logger.info(`Migrated ${positions.length} canvas positions from localStorage`, undefined, 'StorageManager');
+                    }
+                }
+
+                // Mark migration complete (inside the same transaction)
+                await db.gameData.put({ key: '_migration_done', version: '1.0' });
+            });
+
+            // Transaction succeeded — now safe to clear localStorage
+            ['lexicoin_data', 'lexicoin_data_temp', 'lexicoin_data_backup', 'canvas-items']
+                .forEach(k => { try { localStorage.removeItem(k); } catch { /* ignore */ } });
+
+            logger.info('localStorage → IndexedDB migration completed and localStorage cleared', undefined, 'StorageManager');
+        } catch (error) {
+            // Migration failed — localStorage is preserved for next retry
+            logger.error('Migration from localStorage failed, will retry on next launch', error, 'StorageManager');
+        }
+    }
+
+    /**
      * Setup auto-save triggers via MessageBus
      */
     private setupAutoSave(): void {
         if (!this.autoSaveEnabled) return;
 
-        // Auto-save on sense changes
         messageBus.subscribe('SENSE_CREATED', async () => {
             logger.debug('Auto-saving after SENSE_CREATED', undefined, 'StorageManager');
-            // Actual save will be triggered by the module
         });
 
         messageBus.subscribe('SENSE_UPDATED', async () => {
@@ -77,7 +145,7 @@ class StorageManager {
     }
 
     /**
-     * Migrate data to current version
+     * Migrate data to current version (version chain)
      */
     private migrateData(data: any): StorageData {
         let currentData = data;
@@ -89,7 +157,6 @@ class StorageManager {
 
         logger.info(`Migrating data from ${dataVersion} to ${this.VERSION}`, undefined, 'StorageManager');
 
-        // Apply migrations in sequence
         const versions = ['0.1.0', '0.2.0'];
         const startIndex = versions.indexOf(dataVersion);
 
@@ -109,7 +176,7 @@ class StorageManager {
     }
 
     /**
-     * Save data to localStorage with atomic write
+     * Save data to IndexedDB with atomic backup + write in a single transaction
      */
     async save(data: Partial<StorageData>): Promise<void> {
         try {
@@ -121,31 +188,25 @@ class StorageManager {
                 version: this.VERSION,
             };
 
-            // Atomic write: write to temp, then rename
-            const serialized = JSON.stringify(merged);
+            await db.transaction('rw', db.gameData, async () => {
+                // Backup current data first
+                const current = await db.gameData.get('main');
+                if (current) {
+                    await db.gameData.put({ ...current, key: 'backup' });
+                }
+                // Write new data
+                await db.gameData.put({ key: 'main', ...merged });
+            });
 
-            // Backup current data
-            const current = localStorage.getItem(this.STORAGE_KEY);
-            if (current) {
-                localStorage.setItem(this.BACKUP_KEY, current);
-            }
-
-            // Write to temp location
-            localStorage.setItem(this.TEMP_KEY, serialized);
-
-            // Move temp to main (atomic operation in localStorage)
-            localStorage.setItem(this.STORAGE_KEY, serialized);
-            localStorage.removeItem(this.TEMP_KEY);
-
-            logger.debug('Data saved to localStorage (atomic)', merged, 'StorageManager');
+            logger.debug('Data saved to IndexedDB (atomic)', merged, 'StorageManager');
         } catch (error) {
             logger.error('Failed to save data', error, 'StorageManager');
 
             // Attempt to restore from backup
             try {
-                const backup = localStorage.getItem(this.BACKUP_KEY);
+                const backup = await db.gameData.get('backup');
                 if (backup) {
-                    localStorage.setItem(this.STORAGE_KEY, backup);
+                    await db.gameData.put({ ...backup, key: 'main' });
                     logger.info('Restored from backup after save failure', undefined, 'StorageManager');
                 }
             } catch (restoreError) {
@@ -157,17 +218,18 @@ class StorageManager {
     }
 
     /**
-     * Load data from localStorage with migration
+     * Load data from IndexedDB with migration
      */
     async load(): Promise<StorageData> {
         try {
-            const raw = localStorage.getItem(this.STORAGE_KEY);
-            if (!raw) {
+            const record = await db.gameData.get('main');
+            if (!record) {
                 logger.debug('No saved data found', undefined, 'StorageManager');
                 return { version: this.VERSION };
             }
 
-            const data = JSON.parse(raw);
+            // Extract StorageData fields (exclude the 'key' field)
+            const { key: _key, ...data } = record;
 
             // Apply migrations if needed
             const migratedData = this.migrateData(data);
@@ -177,17 +239,18 @@ class StorageManager {
                 await this.save(migratedData);
             }
 
-            logger.debug('Data loaded from localStorage', migratedData, 'StorageManager');
+            logger.debug('Data loaded from IndexedDB', migratedData, 'StorageManager');
             return migratedData;
         } catch (error) {
             logger.error('Failed to load data', error, 'StorageManager');
 
             // Try to restore from backup
             try {
-                const backup = localStorage.getItem(this.BACKUP_KEY);
+                const backup = await db.gameData.get('backup');
                 if (backup) {
                     logger.warn('Loading from backup after load failure', undefined, 'StorageManager');
-                    return JSON.parse(backup);
+                    const { key: _key, ...data } = backup;
+                    return data as StorageData;
                 }
             } catch (backupError) {
                 logger.error('Failed to load from backup', backupError, 'StorageManager');
@@ -202,9 +265,8 @@ class StorageManager {
      */
     async clear(): Promise<void> {
         try {
-            localStorage.removeItem(this.STORAGE_KEY);
-            localStorage.removeItem(this.TEMP_KEY);
-            localStorage.removeItem(this.BACKUP_KEY);
+            await db.gameData.clear();
+            await db.canvasPositions.clear();
             logger.info('Local data cleared', undefined, 'StorageManager');
         } catch (error) {
             logger.error('Failed to clear data', error, 'StorageManager');
@@ -255,7 +317,6 @@ class StorageManager {
      */
     async syncToCloud(): Promise<void> {
         logger.warn('Cloud sync not yet implemented', undefined, 'StorageManager');
-        // TODO: Implement Supabase sync
     }
 
     /**
@@ -263,10 +324,10 @@ class StorageManager {
      */
     async syncFromCloud(): Promise<void> {
         logger.warn('Cloud sync not yet implemented', undefined, 'StorageManager');
-        // TODO: Implement Supabase sync
     }
 }
 
 // Export singleton instance
 export const storageManager = StorageManager.getInstance();
+export type { StorageData };
 export default storageManager;

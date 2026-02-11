@@ -56,6 +56,14 @@ import { motion } from 'motion/react';
         };
 
 
+        const getStreamStyle = (i) => ({
+            rotate: i * 120,
+            originX: "50px",
+            originY: "50px",
+            transform: \`translateY(\${(i - 2) * 5}px)\`
+        });
+
+
         return (
             <div className= "w-full h-full flex items-center justify-center bg-transparent" >
             <svg
@@ -117,12 +125,7 @@ fill = "none"
 stroke = "url(#currentGrad)"
 strokeWidth = { 1 + i }
 filter = "url(#airBlur)"
-style = {{
-    rotate: i * 120,
-        originX: "50px",
-            originY: "50px",
-                transform: \`translateY(\${(i - 2) * 5}px)\`
-}}
+style = {getStreamStyle(i)}
             />
           ))}
 </motion.g>
