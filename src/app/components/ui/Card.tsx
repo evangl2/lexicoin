@@ -42,6 +42,8 @@ interface CardProps {
   width: number;
   height: number;
   canvasScale: number;
+  canvasX: MotionValue<number>;
+  canvasY: MotionValue<number>;
 
   // ========== Callbacks ==========
   onDragStart?: () => void;
@@ -51,6 +53,8 @@ interface CardProps {
   onDropItem?: (item: any) => void;
   isHidden?: boolean;
   groupFeedback?: { merge: string[], split: string[], timestamp: number } | null;
+  onFocus?: () => void;
+  onBlur?: () => void;
 }
 
 export const Card: React.FC<CardProps> = ({
@@ -63,12 +67,16 @@ export const Card: React.FC<CardProps> = ({
   width,
   height,
   canvasScale,
+  canvasX,
+  canvasY,
   onDragStart,
   onDragEnd,
   updatePosition,
   isHidden = false,
   onDropItem,
   groupFeedback,
+  onFocus,
+  onBlur,
 }) => {
   // ========== Variant Logic (Extracted) ==========
   const {
@@ -185,12 +193,15 @@ export const Card: React.FC<CardProps> = ({
         // Bug Fix: Explicitly reset isHovered because onListLeave might have been blocked while flipped
         setIsHovered(false);
         setIsExpanded(false);
-        setIsFlipped(false);
+        if (isFlipped) {
+          setIsFlipped(false);
+          onBlur?.();
+        }
       }
     };
     window.addEventListener('pointerdown', handleGlobalClick, { capture: true });
     return () => window.removeEventListener('pointerdown', handleGlobalClick, { capture: true });
-  }, [isExpanded, isFlipped]);
+  }, [isExpanded, isFlipped, onBlur]);
 
   // --- Selection Overlay Handlers ---
   const handleDefinitionClick = React.useCallback(() => {
@@ -258,6 +269,15 @@ export const Card: React.FC<CardProps> = ({
     return ((val - center) / center) * CardPersona.physics.inspection.tiltFactor;
   });
 
+  // Need a MotionValue version of canvasScale for useTransform
+  // We can't use the prop directly if it's a number.
+  // BUT: App.tsx passes `camera.scale` which IS a MotionValue.
+  // Let's rename the prop in interface to be clear.
+  // Refactoring note: `canvasScale` prop was `number`.
+  // We need the MotionValue to animate the center position smoothly.
+  const canvasScaleMotion = useMotionValue(canvasScale);
+  useEffect(() => { canvasScaleMotion.set(canvasScale); }, [canvasScale]);
+
   // Back face: no rotation at all. Front face: normal behavior
   const zeroRotation = useMotionValue(0);
   const displayRotateX = isFlipped ? zeroRotation : (isExpanded ? mouseRotateX : velocityRotateX);
@@ -299,6 +319,64 @@ export const Card: React.FC<CardProps> = ({
   const flipScaleX = useTransform(flipSpring, [0, 0.5, 1], [1, 0, 1]);
   const frontOpacity = useTransform(flipSpring, [0.45, 0.55], [1, 0]);
   const backOpacity = useTransform(flipSpring, [0.45, 0.55], [0, 1]);
+
+  // --- Centering Logic ---
+  // Invert the canvas camera transform to find the "center of screen" in world coordinates.
+  // Target = (ScreenCenter - CanvasOffset) / Scale
+  // But since we want to center the card itself, we also account for the card's dimensions.
+  const targetCenterX = useTransform([canvasX, canvasScaleMotion], (latest: number[]) => {
+    const cx = latest[0] || 0;
+    const s = latest[1] || 1;
+    // If window undefined, fallback
+    if (typeof window === 'undefined') return 0;
+    // We want the card center (x) to align with screen center
+    // Screen Center in World Space = (WindowW/2 - cx) / s
+    // But x is top-left based? No, Card x/y are center based (MotionValues).
+    // Wait, let's verify Card positioning.
+    // app/components/ui/Canvas.tsx: items are absolute.
+    // Card.tsx: style={{ x, y ... marginLeft: -width/2 ... }} -> So x/y IS the center.
+    // So checks out.
+    return (windowDim.w / 2 - cx) / (s || 1);
+  });
+
+  const targetCenterY = useTransform([canvasY, canvasScaleMotion], (latest: number[]) => {
+    const cy = latest[0] || 0;
+    const s = latest[1] || 1;
+    if (typeof window === 'undefined') return 0;
+    return (windowDim.h / 2 - cy) / (s || 1);
+  });
+
+  // Interpolate X/Y
+  // When not flipped (0): use 'x' / 'y' (the physics motion values)
+  // When flipped (1): use 'targetCenterX' / 'targetCenterY'
+  const displayX = useTransform([x, targetCenterX, flipSpring], (latest: number[]) => {
+    const currentX = latest[0] || 0;
+    const targetX = latest[1] || 0;
+    const f = latest[2] || 0;
+    return currentX + (targetX - currentX) * f;
+  });
+
+  const displayY = useTransform([y, targetCenterY, flipSpring], (latest: number[]) => {
+    const currentY = latest[0] || 0;
+    const targetY = latest[1] || 0;
+    const f = latest[2] || 0;
+    return currentY + (targetY - currentY) * f;
+  });
+
+  // Also interpolate Scale
+  // When flipped, we want it to look "normal size" on screen.
+  // ExpandedScale calculation above already tries to do "targetSize / (cardMaxDim * safeScale)".
+  // Let's verify `expandedScale`.
+  // getExpandedScale = targetSize / (Card * Scale).
+  // if we apply this scale to the card in world space:  (Card * Scale) * (target / (Card * Scale)) = target.
+  // So `expandedScale` is already calculating the "World Scale Factor" needed to look a certain size on screen.
+  // So we just need to use it.
+  // Wait, `targetScale` uses `isFlipped ? expandedScale : ...`
+  // So scaling is ALREADY handled correctly by the existing code?
+  // YES. `expandedScale` logic: `targetSize / (cardMaxDim * safeScale)`
+  // This compensates for `canvasScale`.
+  // So we just need to ensure `targetScale` is active.
+
 
   // --- Gesture ---
   const bind = useDrag(({ active, xy: [px, py], delta: [dx, dy], first, last }) => {
@@ -425,17 +503,20 @@ export const Card: React.FC<CardProps> = ({
         animatingTimerRef.current = setTimeout(() => setIsAnimating(false), 600);
 
         // Batched State Update:
+        // Batched State Update:
         if (!isFlipped) {
           setIsFlipped(true);
           setIsExpanded(true);
+          onFocus?.();
         } else {
           setIsFlipped(false);
+          onBlur?.();
         }
       }}
       style={{
-        x, y, width, height,
+        x: displayX, y: displayY, width, height,
         rotateX: displayRotateX, rotateY: displayRotateY, rotateZ: displayRotateZ,
-        zIndex,
+        zIndex: isFlipped ? 10000 : zIndex,
         opacity: isHidden ? 0 : 1, // Hide when proxy is active
         // GPU Acceleration: Force hardware acceleration with translate3d
         transform: 'translate3d(0, 0, 0)',

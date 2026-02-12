@@ -1,5 +1,6 @@
 import {
   useEffect,
+  useCallback,
 } from "react";
 import { DndProvider, useDrop } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
@@ -14,7 +15,6 @@ import { useMotionValue } from "motion/react";
 
 // Hooks
 import { useCanvasCamera } from "@/app/hooks/logic/useCanvasCamera";
-import { useAppUI } from "@/app/hooks/logic/useAppUI";
 import { useCardManager } from "@/app/hooks/logic/useCardManager";
 import { useCardGrouping } from "@/app/utils/mergeSplit/useCardGrouping";
 import { usePhysics } from "@/app/hooks/usePhysics";
@@ -23,10 +23,46 @@ import { usePhysics } from "@/app/hooks/usePhysics";
 import { DragLayer } from "@/app/components/ui/DragLayer";
 import { CanvasControl } from "@/app/components/ui/CanvasControl";
 
+// Store & Utils
+import { useGameStore } from "@/store/index";
+import { getLoc, mapLanguageCode } from "@/app/utils/localization";
+import { useState } from "react";
+
 
 function InnerApp() {
-  // 1. App State & Settings
-  const ui = useAppUI();
+  // 1. App State & Settings (Zustand Integration)
+  const learningLang = useGameStore(s => s.learningLang);
+  const systemLang = useGameStore(s => s.systemLang);
+  const setLearningLang = useGameStore(s => s.setLearningLang);
+  const setSystemLang = useGameStore(s => s.setSystemLang);
+
+  const isDeckOpen = useGameStore(s => s.deckState.isOpen);
+  const isConfigOpen = useGameStore(s => s.isConfigOpen);
+  const openDeck = useGameStore(s => s.openDeck);
+  const closeDeck = useGameStore(s => s.closeDeck);
+  const setConfigOpen = useGameStore(s => s.setConfigOpen);
+
+  // UI Logic (Migrated from useAppUI)
+  const toggleDeck = useCallback(() => {
+    if (!isDeckOpen) {
+      setConfigOpen(false);
+      openDeck('archive');
+    } else {
+      closeDeck();
+    }
+  }, [isDeckOpen, setConfigOpen, openDeck, closeDeck]);
+
+  const toggleConfig = useCallback(() => {
+    if (!isConfigOpen) {
+      closeDeck();
+    }
+    setConfigOpen(!isConfigOpen);
+  }, [isConfigOpen, closeDeck, setConfigOpen]);
+
+  const closeMenus = useCallback(() => {
+    closeDeck();
+    setConfigOpen(false);
+  }, [closeDeck, setConfigOpen]);
 
   // 2. Camera State
   const camera = useCanvasCamera();
@@ -38,7 +74,7 @@ function InnerApp() {
   const grouping = useCardGrouping({
     items: data.items,
     setItems: data.setItems,
-    learningLang: ui.learningLang
+    learningLang
   });
 
   // 5. Physics Engine
@@ -50,12 +86,10 @@ function InnerApp() {
       width: item.width,
       height: item.height,
     })),
-    null, // draggingId - We need to track this if we want to pause physics for dragged item
-    // For now, passing null means physics acts on all. 
-    // Optimization: Expose draggingId from Card interaction if needed.
+    null, // draggingId
   );
 
-  // --- Interaction Logic (To be potentially extracted if it grows) ---
+  // --- Interaction Logic ---
 
   // 1. Drop from Deck to Canvas (Placeholder)
   const [, drop] = useDrop(() => ({
@@ -69,7 +103,7 @@ function InnerApp() {
 
   // 2. Check Deck Collision (Canvas -> Deck)
   const checkDeckCollision = (id: string) => {
-    if (!ui.isDeckOpen) return;
+    if (!isDeckOpen) return;
 
     const targetItem = data.items.find((i: any) => i.cardData.rawSense.uid === id);
     if (!targetItem) return;
@@ -98,11 +132,25 @@ function InnerApp() {
     }
   };
 
+
+
+
   const handleItemDropOnCard = (droppedItem: StoredCard) => {
     console.log("Used item on card:", droppedItem.title);
     data.setPropItems(prev => prev.filter(i => i.id !== droppedItem.id));
   };
 
+
+  // --- Z-Index / Focus Management ---
+  const [focusedCardCount, setFocusedCardCount] = useState(0);
+
+  const handleCardFocus = useCallback(() => {
+    setFocusedCardCount(prev => prev + 1);
+  }, []);
+
+  const handleCardBlur = useCallback(() => {
+    setFocusedCardCount(prev => Math.max(0, prev - 1));
+  }, []);
 
   return (
     <div
@@ -110,101 +158,116 @@ function InnerApp() {
       className="w-full h-screen bg-black overflow-hidden relative font-sans text-zinc-200"
       onContextMenu={(e) => e.preventDefault()}
     >
-      <Canvas scale={camera.scale} x={camera.x} y={camera.y}>
-        {/* Render Active Items */}
-        {data.items.map((item: any) => (
-          <Card
-            key={item.cardData.rawSense.uid}
-            cardData={item.cardData}
-            variants={grouping.mergedVariants[item.cardData.uid] || []}
-            learningLanguage={ui.mapLanguageCode(ui.learningLang)}
-            systemLanguage={ui.mapLanguageCode(ui.systemLang)}
-            x={item.mx}
-            y={item.my}
-            width={item.width}
-            height={item.height}
-            canvasScale={camera.scaleState}
-            onDragStart={() => { /* setDraggingId(item.uid) if needed */ }}
-            onDragEnd={() => {
-              checkDeckCollision(item.cardData.rawSense.uid);
-              data.saveItems();
-            }}
-            updatePosition={() => { }}
-            onDelete={() => data.deleteItem(item.cardData.rawSense.uid)}
-            onDropItem={handleItemDropOnCard}
-            groupFeedback={grouping.groupFeedback}
-          />
-        ))}
+      <div
+        className="absolute inset-0 w-full h-full"
+        style={{
+          zIndex: focusedCardCount > 0 ? 60 : 0,
+          position: 'relative'
+        }}
+      >
+        <Canvas scale={camera.scale} x={camera.x} y={camera.y}>
+          {/* Render Active Items */}
+          {data.items.map((item: any) => (
+            <Card
+              key={item.cardData.rawSense.uid}
+              cardData={item.cardData}
+              variants={grouping.mergedVariants[item.cardData.uid] || []}
+              learningLanguage={mapLanguageCode(learningLang)}
+              systemLanguage={mapLanguageCode(systemLang)}
+              x={item.mx}
+              y={item.my}
+              width={item.width}
+              height={item.height}
+              canvasScale={camera.scaleState}
+              canvasX={camera.x}
+              canvasY={camera.y}
+              onDragStart={() => { /* setDraggingId(item.uid) if needed */ }}
+              onDragEnd={() => {
+                checkDeckCollision(item.cardData.rawSense.uid);
+                data.saveItems();
+              }}
+              updatePosition={() => { }}
+              onDelete={() => data.deleteItem(item.cardData.rawSense.uid)}
+              onDropItem={handleItemDropOnCard}
+              groupFeedback={grouping.groupFeedback}
+              onFocus={handleCardFocus}
+              onBlur={handleCardBlur}
+            />
+          ))}
 
-        {/* Render Exiting Items (Ghost Animations) */}
-        {grouping.exitingItems.map((item) => (
-          <Card
-            key={'exiting-' + item.cardData.rawSense.uid}
-            cardData={item.cardData}
-            variants={[]}
-            learningLanguage={ui.mapLanguageCode(ui.learningLang)}
-            systemLanguage={ui.mapLanguageCode(ui.systemLang)}
-            x={item.mx}
-            y={item.my}
-            width={item.width}
-            height={item.height}
-            canvasScale={camera.scaleState}
-            updatePosition={() => { }}
-            isHidden={false}
-            onDragStart={undefined}
-            onDragEnd={undefined}
-          />
-        ))}
+          {/* Render Exiting Items (Ghost Animations) */}
+          {grouping.exitingItems.map((item) => (
+            <Card
+              key={'exiting-' + item.cardData.rawSense.uid}
+              cardData={item.cardData}
+              variants={[]}
+              learningLanguage={mapLanguageCode(learningLang)}
+              systemLanguage={mapLanguageCode(systemLang)}
+              x={item.mx}
+              y={item.my}
+              width={item.width}
+              height={item.height}
+              canvasScale={camera.scaleState}
+              canvasX={camera.x}
+              canvasY={camera.y}
+              updatePosition={() => { }}
+              isHidden={false}
+              onDragStart={undefined}
+              onDragEnd={undefined}
+            />
+          ))}
 
-
-
-      </Canvas>
+        </Canvas>
+      </div>
 
       {/* Drag Preview Layer */}
       <DragLayer
         scaleState={camera.scaleState}
-        systemLang={ui.systemLang}
-        learningLang={ui.learningLang}
-        getLoc={ui.getLoc}
+        systemLang={systemLang}
+        learningLang={learningLang}
+        getLoc={getLoc}
       />
 
       {/* Menu Overlay */}
-      {ui.isConfigOpen && (
+      {isConfigOpen && (
         <div
           className="fixed inset-0 z-40 bg-transparent"
-          onClick={ui.closeMenus}
+          onClick={closeMenus}
         />
       )}
 
       {/* UI Controls */}
       <CanvasControl
         onCenter={camera.centerCamera}
-        systemLang={ui.systemLang}
-        getLoc={ui.getLoc}
+        systemLang={systemLang}
+        getLoc={getLoc}
       />
 
       {/* Bottom Dock */}
       <Dock
-        isDeckOpen={ui.isDeckOpen}
-        toggleDeck={ui.toggleDeck}
-        isConfigOpen={ui.isConfigOpen}
-        toggleConfig={ui.toggleConfig}
+        isDeckOpen={isDeckOpen}
+        toggleDeck={toggleDeck}
+        isConfigOpen={isConfigOpen}
+        toggleConfig={toggleConfig}
         deckItems={data.storedItems}
         propItems={data.propItems}
-        learningLang={ui.learningLang}
-        setLearningLang={ui.setLearningLang}
-        systemLang={ui.systemLang}
-        setSystemLang={ui.setSystemLang}
+        learningLang={learningLang}
+        setLearningLang={setLearningLang}
+        systemLang={systemLang}
+        setSystemLang={setSystemLang}
       />
     </div>
   );
 }
 
 export default function App() {
-  const ui = useAppUI();
+  // Zustand Audio Integration
+  const muted = useGameStore(s => s.audio.muted);
+  const volume = useGameStore(s => s.audio.volume);
+
   return (
     <PersonaProvider>
-      <AudioProvider isMuted={ui.isMuted} volume={ui.volume}>
+      <AudioProvider isMuted={muted} volume={volume}>
         <DndProvider backend={HTML5Backend}>
           <InnerApp />
         </DndProvider>

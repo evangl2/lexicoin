@@ -2,7 +2,7 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { MotionValue, motionValue } from "motion/react";
 import type { CardEntity } from "@/types/CardEntity";
 import { sensesToCards } from "@/pipelines/senseToCard";
-import { INITIAL_SENSES } from "@schemas/data/initialSenses";
+import { senseRepository } from "@core/storage/SenseRepository";
 import { StoredCard } from "@/app/components/ui/DeckRepository";
 import { db } from "@core/storage/db";
 import { logger } from "@utils/logger";
@@ -28,8 +28,9 @@ export const useCardManager = () => {
         let cancelled = false;
 
         const loadCards = async () => {
-            // GENERATE CARDS HERE TO ENSURE VISUAL REGISTRY IS READY
-            const generatedCards = sensesToCards(INITIAL_SENSES);
+            // Load SenseEntity data from IndexedDB (seeded by moduleInit)
+            const senses = await senseRepository.getAll();
+            const generatedCards = sensesToCards(senses);
 
             // Load stored positions from IndexedDB
             let positionMap = new Map<string, { x: number, y: number }>();

@@ -1,29 +1,23 @@
-import { visualRegistry } from '../registries/VisualRegistry';
-import { VISUAL_FIRE_ALCHEMICAL } from '../../../schemas/data/InitialItem/SENSE_ALCHEMICAL_FIRE_002';
-import { VISUAL_FIRE_PHYSICAL } from '../../../schemas/data/InitialItem/SENSE_PHYSICAL_FIRE_001';
-import { VISUAL_WATER_ALCHEMICAL } from '../../../schemas/data/InitialItem/SENSE_ALCHEMICAL_WATER_003';
-import { VISUAL_WATER_PHYSICAL } from '../../../schemas/data/InitialItem/SENSE_PHYSICAL_WATER_003';
-import { VISUAL_AIR_ALCHEMICAL } from '../../../schemas/data/InitialItem/SENSE_ALCHEMICAL_AIR_006';
-import { VISUAL_AIR_PHYSICAL } from '../../../schemas/data/InitialItem/SENSE_PHYSICAL_AIR_005';
-import { VISUAL_EARTH_ALCHEMICAL } from '../../../schemas/data/InitialItem/SENSE_ALCHEMICAL_EARTH_008';
-import { VISUAL_EARTH_PHYSICAL } from '../../../schemas/data/InitialItem/SENSE_PHYSICAL_EARTH_007';
+import { visualRepository } from '../storage/VisualRepository';
+import { ALL_INITIAL_VISUALS } from '@schemas/data/InitialItem';
+import { logger } from '@utils/logger';
 
 /**
  * Initialize Visuals
  * 
- * Registers static visual payloads into the VisualRegistry at application startup.
- * Future async/dynamic visual loading logic can also be triggered here.
+ * Seeds initial visual payloads into IndexedDB (no-op if already seeded),
+ * loads them into the in-memory VisualRegistry, and subscribes to
+ * MessageBus events for real-time AI-generated visual persistence.
  */
-export function initializeVisuals() {
-    // 1. Register static visuals
-    visualRegistry.register(VISUAL_FIRE_ALCHEMICAL);
-    visualRegistry.register(VISUAL_FIRE_PHYSICAL);
-    visualRegistry.register(VISUAL_WATER_ALCHEMICAL);
-    visualRegistry.register(VISUAL_WATER_PHYSICAL);
-    visualRegistry.register(VISUAL_AIR_ALCHEMICAL);
-    visualRegistry.register(VISUAL_AIR_PHYSICAL);
-    visualRegistry.register(VISUAL_EARTH_ALCHEMICAL);
-    visualRegistry.register(VISUAL_EARTH_PHYSICAL);
+export async function initializeVisuals(): Promise<void> {
+    // 1. Seed initial visuals into IndexedDB (idempotent)
+    await visualRepository.seed(ALL_INITIAL_VISUALS);
 
-    console.log('[InitializeVisuals] Visual registry populated with initial static data.');
+    // 2. Load all visuals from IndexedDB into in-memory VisualRegistry
+    await visualRepository.loadAllIntoRegistry();
+
+    // 3. Wire up real-time persistence for AI-generated visuals
+    visualRepository.initSubscriptions();
+
+    logger.debug('Visual pipeline initialized (IndexedDB → VisualRegistry)', undefined, 'InitializeVisuals');
 }

@@ -5,12 +5,14 @@
  */
 
 import { messageBus } from '@core/protocol/MessageBus';
-import { storageManager } from '@core/storage/StorageManager';
+// StorageManager removed - replaced by Zustand persist
+import { senseRepository } from '@core/storage/SenseRepository';
 import { platformAdapter } from '@core/platform/PlatformAdapter';
 import { levelModule } from '@modules/level/LevelModule';
 import { useGameStore } from '@store/index';
 import { logger } from '@utils/logger';
 import { initializeVisuals } from './initializeVisuals';
+import { INITIAL_SENSES } from '@schemas/data/initialSenses';
 
 /**
  * Initialize all modules and set up MessageBus subscriptions
@@ -19,23 +21,20 @@ export async function initializeModules(): Promise<void> {
     logger.info('Initializing all modules...', undefined, 'ModuleInit');
 
     try {
-        // Open IndexedDB and run one-time localStorage migration
-        await storageManager.initialize();
+        // Seed initial senses into IndexedDB (no-op if already seeded)
+        await senseRepository.seed(INITIAL_SENSES);
 
-        // Load persisted data
-        const savedData = await storageManager.load();
+        // Wire up real-time persistence for AI-generated senses
+        senseRepository.initSubscriptions();
 
-        // Initialize persona resonance from saved data
-        if (savedData.player) {
-            const store = useGameStore.getState();
-            store.updatePlayer(savedData.player);
-        }
+        // Note: Player state is automatically hydrated by Zustand persist middleware.
+        // We don't need to manually load and set it here anymore.
 
         // Set up MessageBus subscriptions for store synchronization
         setupMessageBusSubscriptions();
 
-        // Initialize Visual Registry
-        initializeVisuals();
+        // Initialize Visual Registry (async: seed + load from IndexedDB)
+        await initializeVisuals();
 
         // Mark modules as ready
         useGameStore.getState().setModulesReady(true);
@@ -110,22 +109,8 @@ function setupMessageBusSubscriptions(): void {
  * Save all module state to storage
  */
 export async function saveAllModuleState(): Promise<void> {
-    logger.info('Saving all module state...', undefined, 'ModuleInit');
-
-    try {
-        const store = useGameStore.getState();
-
-        // Gather all state to save
-        await storageManager.save({
-            player: store.player,
-            senses: store.senses,
-        });
-
-        logger.info('All module state saved successfully', undefined, 'ModuleInit');
-    } catch (error) {
-        logger.error('Failed to save module state', error, 'ModuleInit');
-        throw error;
-    }
+    logger.info('Saving all module state... (Auto-handled by persistence)', undefined, 'ModuleInit');
+    // Zustand persist handles auto-saving. Logic here is no longer needed.
 }
 
 /**

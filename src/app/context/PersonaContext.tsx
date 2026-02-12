@@ -21,6 +21,7 @@
  */
 
 import React, { createContext, useContext, useState, useMemo, ReactNode, useCallback } from 'react';
+import { useGameStore } from '@/store/index';
 import type {
     CardPersona,
     CanvasPersona,
@@ -70,7 +71,9 @@ export const PersonaProvider: React.FC<PersonaProviderProps> = ({
     children,
     initialSkin = DEFAULT_PERSONA_NAME
 }) => {
-    const [activeSkin, setActiveSkin] = useState(initialSkin);
+    // Migrate to Global Store
+    const activeSkin = useGameStore(s => s.activeSkin);
+    const setActiveSkinStore = useGameStore(s => s.setActiveSkin);
 
     // Get available skin list
     const availableSkins = useMemo(() => getAvailablePersonas(), []);
@@ -117,16 +120,16 @@ export const PersonaProvider: React.FC<PersonaProviderProps> = ({
     // Switch Skin
     const setSkin = useCallback((name: string) => {
         if (availableSkins.includes(name)) {
-            setActiveSkin(name);
+            setActiveSkinStore(name);
         } else {
             console.warn(`Persona "${name}" not found. Available: ${availableSkins.join(', ')}`);
         }
-    }, [availableSkins]);
+    }, [availableSkins, setActiveSkinStore]);
 
     // Reset to Default
     const resetToDefault = useCallback(() => {
-        setActiveSkin(DEFAULT_PERSONA_NAME);
-    }, []);
+        setActiveSkinStore(DEFAULT_PERSONA_NAME);
+    }, [setActiveSkinStore]);
 
     const value: PersonaContextValue = {
         ...mergedPersona,

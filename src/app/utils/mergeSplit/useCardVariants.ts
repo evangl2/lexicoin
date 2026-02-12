@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useGameStore } from '@/store/index';
 import type { CardEntity } from '@/types/CardEntity';
 import type { Language } from '@schemas/schemas/SenseEntity.schema';
 
@@ -8,14 +9,18 @@ interface UseCardVariantsProps {
 }
 
 export const useCardVariants = ({ cardData, variants }: UseCardVariantsProps) => {
-    // ========== State: Active Sense Identity ==========
-    // Default to the main card's UID (Anchor)
-    const [activeUid, setActiveUid] = useState<string>(cardData.uid);
+    // ========== State: Active Sense Identity (Persisted in Store) ==========
+    const activeVariants = useGameStore(s => s.activeVariants);
+    const setActiveVariant = useGameStore(s => s.setActiveVariant);
 
-    // Sync activeUid if cardData changes (e.g. if anchor changes externally)
-    useEffect(() => {
-        setActiveUid(cardData.uid);
-    }, [cardData.uid]);
+    // Get persisted active variant or default to cardData.uid
+    // Helper to avoiding re-renders: checking reference equality in store selector is better,
+    // but here we just read from the map.
+    const activeUid = activeVariants[cardData.uid] ?? cardData.uid;
+
+    const setActiveUid = (variantUid: string) => {
+        setActiveVariant(cardData.uid, variantUid);
+    };
 
     // ========== Computed: Sorted Variants & Current Data ==========
     // Combine anchor + variants and sort by frequency (High -> Low)

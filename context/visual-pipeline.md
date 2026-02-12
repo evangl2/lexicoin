@@ -1,101 +1,77 @@
-
-# Visual Pipeline System
+# Visual Pipeline System (IndexedDB Architecture)
 
 ## Overview
-The Visual Pipeline is responsible for identifying, extracting, and rendering dynamic visual content (usually React components with SVG animations) for specific `SenseEntities`. It follows a **Registry Pattern**, decoupling the semantic data from the visual presentation.
+The Visual Pipeline is responsible for identifying, extracting, and rendering dynamic visual content (usually React components with SVG animations) for specific `SenseEntities`.
+
+**Key Change:** The pipeline now uses **IndexedDB (Dexie.js)** as the source of truth for visual payloads, with an in-memory **synchronized cache (VisualRegistry)** for performance.
 
 ## Core Architecture
 
-### 1. The Registry (Source of Truth)
+### 1. Data Source: IndexedDB (`lexicoin_db`)
+- **Table**: `visuals` (Compound Key: `[uid+variantId]`)
+- **Type**: `VisualRecord { uid: string, variantId: string, data: VisualEntry }`
+- **Role**: Persistent storage for all visual payloads (including AI-generated ones).
+
+### 2. Repository Layer: `VisualRepository`
+- **File**: `src/core/storage/VisualRepository.ts`
+- **Role**: Handles all read/write operations to IndexedDB.
+- **Methods**:
+    - `seed(entries)`: Populates initial visuals (from `InitialItem/index.ts`).
+    - `loadAllIntoRegistry()`: Syncs all DB records into the in-memory Registry.
+    - `upsert(entry)`: Dual-write > Saves to DB **AND** registers in Registry.
+    - `initSubscriptions()`: Listens to `ASSET_LOADED` for AI updates.
+
+### 3. In-Memory Cache: `VisualRegistry` (Sync)
 - **File**: `src/core/registries/VisualRegistry.ts`
-- **Role**: A singleton that stores all available visual payloads.
-- **Key**: `UID` (e.g., `SENSE_ALCHEMICAL_FIRE_002`)
-- **Key (Variant)**: `id` (e.g., `default`, `highlighted`)
-- **Value**: `VisualEntry` (containing the code payload)
+- **Role**: Singleton Map for **synchronous, O(1)** lookups during render.
+- **Logic**: Updated exclusively by `VisualRepository`. Not intended for direct write access by other modules.
 
-### 2. The Initialization
+### 4. Initialization Pipeline
 - **File**: `src/core/init/initializeVisuals.ts`
-- **Role**: Bootstraps the registry with initial static visuals at application startup.
-- **Hook**: Called by `moduleInit.ts` during the app launch sequence.
+- **Flow** (Async):
+    1.  `VisualRepository.seed()`
+    2.  `VisualRepository.loadAllIntoRegistry()`
+    3.  `VisualRepository.initSubscriptions()`
+- **Result**: Visuals are ready in-memory before the first card render.
 
-### 3. The Extraction Pipeline
-- **File**: `src/pipelines/visualForCard.ts`
-- **Role**: Queries the Registry for a visual matching the Sense UID.
-- **Logic**:
-    1. Check Registry for `Sense.uid`.
-    2. If found, return `status: 'loaded'` and the payload.
-    3. If not found, return `status: 'loading'`.
+### 5. Extraction Pipeline: `visualForCard.ts`
+- **Logic**: Queries the in-memory `VisualRegistry` (unchanged).
+    - If found -> `status: 'loaded'` + payload.
+    - Else -> `status: 'loading'`.
 
-### 4. The Rendering Engine
+### 6. Dynamic Rendering: `DynamicVisual`
 - **File**: `src/app/utils/dynamicComponentLoader.ts`
 - **Role**: Compiles the TSX string payload at runtime using `sucrase`.
-- **Component**: `DynamicVisual.tsx` performs the rendering and handles errors/fallbacks.
+- **Component**: `DynamicVisual.tsx` performs the rendering.
 
-## Dependency Strategy (Robust Aliasing)
-
-To ensure stability across different AI models and library versions, we implement a **Dual-Alias Strategy** for animation libraries.
-
-### Problem
-- Older AI models and existing codebases often use `framer-motion` (v10/v11).
-- The latest standard is `motion/react` (v12+).
-- Dynamic runtime compilation (via `sucrase`) can sometimes struggle with deep path resolution (like `motion/react`) depending on the environment shim.
-
-### Solution
-We enforce a robust runtime environment in `dynamicComponentLoader.ts`:
-
-1.  **Scope Aliasing**: We map **both** `framer-motion` and `motion/react` import keys to the *same* underlying installed library (`motion` v12+).
-    ```typescript
-    const SCOPE = {
-        react: React,
-        'motion/react': Motion,    // Future-proof standard
-        'framer-motion': Motion,   // AI Compatibility Alias
-    };
-    ```
-
-2.  **Conservative Generation**: When generating new visual payloads (via AI or manual coding), prefer importing from `framer-motion`. This is the most widely recognized token and avoids potential path resolution issues in the lightweight runtime compiler.
+## Dependency Strategy
+We enforce a **Dual-Alias Strategy** (framer-motion / motion/react) to ensure compatibility with both older AI models and modern libraries. See `dynamicComponentLoader.ts` for the scope definition.
 
 ## Data Flow Diagram
 
 ```mermaid
 graph TD
-    A[App Start] -->|Initialize| B(VisualRegistry)
-    A -->|Initialize| C(Sense Store)
-    
-    D[External/AI Source] -->|Register| B
-    E[Static Files] -->|Register| B
-    
-    F[User Selects Card] --> G{Sense Pipeline}
-    G -->|Extract Info| H(CardEntity)
-    G -->|Query UID| B
-    B -->|Return Payload| H
-    
-    H -->|Render| I[CardVisual]
-    I -->|Payload| J[DynamicVisual]
-    J -->|Compile & Run| K[Screen]
+    subgraph Initialization
+    A[App Start] -->|initializeVisuals| B(VisualRepository)
+    B -->|1. Seed| C[(IndexedDB: visuals)]
+    B -->|2. Load All| C
+    C -->|3. Populate| D(VisualRegistry Cache)
+    end
+
+    subgraph AI Generation
+    E[AI Model] -->|ASSET_LOADED| F[MessageBus]
+    F -->|Subscribe| B
+    B -->|Upsert| C
+    B -->|Upsert| D
+    end
+
+    subgraph Rendering
+    G[Card Component] -->|visualForCard| H{Query Cache}
+    H -->|Read| D
+    D -->|Return Payload| I[DynamicVisual]
+    end
 ```
 
-## Usage Guide
-
-### Registering a New Visual (Manual/Static)
-1.  Define your visual file (e.g., `MyVisual.ts`) exporting a `VisualEntry` with the code payload.
-2.  Import it in `src/core/init/initializeVisuals.ts`.
-3.  Call `visualRegistry.register(MY_VISUAL)`.
-
-### Registering a Dynamic Visual (AI/Runtime)
-Simply access the registry singleton and register the new payload:
-```typescript
-import { visualRegistry } from '@core/registries/VisualRegistry';
-
-visualRegistry.register({
-    uid: 'SENSE_..._...',
-    id: 'default',
-    payload: '...code string...',
-    meta: { ... }
-});
-```
-
-### Debugging
-If a visual is not showing:
-1.  **Check Registry**: Log `VisualRegistry` content in console.
-2.  **Verify UID**: Ensure the `uid` matches exactly between the Sense and the Visual entry.
-3.  **Check Loader Logs**: `DynamicComponentLoader` now logs detailed compilation errors. Look for `[DynamicComponentLoader] Failed to compile...`.
+## Adding New Visuals
+1.  **Static**: Add to `schemas/data/InitialItem/`, update `InitialItem/index.ts` export.
+2.  **Dynamic/AI**: Send `ASSET_LOADED` message with `VisualEntry` payload. The system handles persistence automatically.
