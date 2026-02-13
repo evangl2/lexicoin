@@ -199,8 +199,8 @@ export const Card: React.FC<CardProps> = ({
         setIsExpanded(false);
         if (isFlipped) {
           setIsFlipped(false);
-          onBlur?.();
         }
+        onBlur?.();
       }
     };
     window.addEventListener('pointerdown', handleGlobalClick, { capture: true });
@@ -288,6 +288,44 @@ export const Card: React.FC<CardProps> = ({
   const displayRotateY = isFlipped ? zeroRotation : (isExpanded ? mouseRotateY : velocityRotateY);
   const displayRotateZ = isFlipped ? zeroRotation : (isExpanded ? zeroRotation : velocityRotateZ);
 
+  // --- Centering Logic ---
+  // Invert the canvas camera transform to find the "center of screen" in world coordinates.
+  // Target = (ScreenCenter - CanvasOffset) / Scale
+  const targetCenterX = useTransform([canvasX, canvasScaleMotion], (latest: number[]) => {
+    const cx = latest[0] || 0;
+    const s = latest[1] || 1;
+    if (typeof window === 'undefined') return 0;
+    return (windowDim.w / 2 - cx) / (s || 1);
+  });
+
+  const targetCenterY = useTransform([canvasY, canvasScaleMotion], (latest: number[]) => {
+    const cy = latest[0] || 0;
+    const s = latest[1] || 1;
+    if (typeof window === 'undefined') return 0;
+    return (windowDim.h / 2 - cy) / (s || 1);
+  });
+
+  // --- Unified Zoom Physics ---
+  const zoomSpring = useSpring(0, CardPersona.physics.springs.flip);
+  useEffect(() => {
+    zoomSpring.set((isExpanded || isFlipped) ? 1 : 0);
+  }, [isExpanded, isFlipped, zoomSpring]);
+
+  // Interpolate X/Y based on combined zoom state
+  const displayX = useTransform([x, targetCenterX, zoomSpring], (latest: number[]) => {
+    const currentX = latest[0] || 0;
+    const targetX = latest[1] || 0;
+    const z = latest[2] || 0;
+    return currentX + (targetX - currentX) * z;
+  });
+
+  const displayY = useTransform([y, targetCenterY, zoomSpring], (latest: number[]) => {
+    const currentY = latest[0] || 0;
+    const targetY = latest[1] || 0;
+    const z = latest[2] || 0;
+    return currentY + (targetY - currentY) * z;
+  });
+
   // --- Scale ---
   const getExpandedScale = () => {
     if (windowDim.w === 0) return 1.5;
@@ -298,8 +336,8 @@ export const Card: React.FC<CardProps> = ({
     return targetSize / (cardMaxDim * safeScale);
   };
   const expandedScale = getExpandedScale();
-  // Back face: always expanded scale, no hover effect. Front face: normal behavior
-  const targetScale = isFlipped ? expandedScale : (isExpanded ? expandedScale : isDragging ? 1.15 : isHovered ? 1.05 : 1);
+  // Combined zoom scale
+  const targetScale = (isExpanded || isFlipped) ? expandedScale : isDragging ? 1.15 : isHovered ? 1.05 : 1;
 
   // --- Parallax & Depth ---
   const bgParallaxX = useTransform(displayRotateY, [-20, 20], [15, -15]);
@@ -315,7 +353,6 @@ export const Card: React.FC<CardProps> = ({
       : isHovered
         ? CardPersona.tokens.shadows.hover
         : CardPersona.tokens.shadows.base;
-  const zIndex = isDragging ? 100 : (isExpanded ? 50 : (isHovered ? 10 : 1));
 
   // --- Flip ---
   const flipSpring = useSpring(0, CardPersona.physics.springs.flip);
@@ -324,94 +361,31 @@ export const Card: React.FC<CardProps> = ({
   const frontOpacity = useTransform(flipSpring, [0.45, 0.55], [1, 0]);
   const backOpacity = useTransform(flipSpring, [0.45, 0.55], [0, 1]);
 
-  // --- Centering Logic ---
-  // Invert the canvas camera transform to find the "center of screen" in world coordinates.
-  // Target = (ScreenCenter - CanvasOffset) / Scale
-  // But since we want to center the card itself, we also account for the card's dimensions.
-  const targetCenterX = useTransform([canvasX, canvasScaleMotion], (latest: number[]) => {
-    const cx = latest[0] || 0;
-    const s = latest[1] || 1;
-    // If window undefined, fallback
-    if (typeof window === 'undefined') return 0;
-    // We want the card center (x) to align with screen center
-    // Screen Center in World Space = (WindowW/2 - cx) / s
-    // But x is top-left based? No, Card x/y are center based (MotionValues).
-    // Wait, let's verify Card positioning.
-    // app/components/ui/Canvas.tsx: items are absolute.
-    // Card.tsx: style={{ x, y ... marginLeft: -width/2 ... }} -> So x/y IS the center.
-    // So checks out.
-    return (windowDim.w / 2 - cx) / (s || 1);
-  });
-
-  const targetCenterY = useTransform([canvasY, canvasScaleMotion], (latest: number[]) => {
-    const cy = latest[0] || 0;
-    const s = latest[1] || 1;
-    if (typeof window === 'undefined') return 0;
-    return (windowDim.h / 2 - cy) / (s || 1);
-  });
-
-  // Interpolate X/Y
-  // When not flipped (0): use 'x' / 'y' (the physics motion values)
-  // When flipped (1): use 'targetCenterX' / 'targetCenterY'
-  const displayX = useTransform([x, targetCenterX, flipSpring], (latest: number[]) => {
-    const currentX = latest[0] || 0;
-    const targetX = latest[1] || 0;
-    const f = latest[2] || 0;
-    return currentX + (targetX - currentX) * f;
-  });
-
-  const displayY = useTransform([y, targetCenterY, flipSpring], (latest: number[]) => {
-    const currentY = latest[0] || 0;
-    const targetY = latest[1] || 0;
-    const f = latest[2] || 0;
-    return currentY + (targetY - currentY) * f;
-  });
-
-  // Also interpolate Scale
-  // When flipped, we want it to look "normal size" on screen.
-  // ExpandedScale calculation above already tries to do "targetSize / (cardMaxDim * safeScale)".
-  // Let's verify `expandedScale`.
-  // getExpandedScale = targetSize / (Card * Scale).
-  // if we apply this scale to the card in world space:  (Card * Scale) * (target / (Card * Scale)) = target.
-  // So `expandedScale` is already calculating the "World Scale Factor" needed to look a certain size on screen.
-  // So we just need to use it.
-  // Wait, `targetScale` uses `isFlipped ? expandedScale : ...`
-  // So scaling is ALREADY handled correctly by the existing code?
-  // YES. `expandedScale` logic: `targetSize / (cardMaxDim * safeScale)`
-  // This compensates for `canvasScale`.
-  // So we just need to ensure `targetScale` is active.
 
 
   // --- Gesture ---
   const bind = useDrag(({ active, xy: [px, py], delta: [dx, dy], first, last }) => {
-    // Disable dragging when card is flipped to back face
+    // Disable dragging ONLY when fully flipped
     if (isFlipped) return;
 
     if (first) {
       setIsDragging(true);
-      // TTS: Speak word on drag start
       if (title) {
         tts.speak(title, learningLanguage);
       }
+
+      // POSITON SYNC: If we are dragging while zoomed, we "snap" the physics X/Y
+      // to the current visual center so it doesn't jump back when released.
       if (isExpanded) {
-        // Smart Snap
-        if (cardRef.current) {
-          const rect = cardRef.current.getBoundingClientRect();
-          const oldCenterX = rect.left + rect.width / 2;
-          const oldCenterY = rect.top + rect.height / 2;
+        // Sync physics values to visual center before exiting expansion
+        x.set(targetCenterX.get());
+        y.set(targetCenterY.get());
 
-          const targetDraggingScale = 1.15; // Match targetScale logic
-          const ratio = targetDraggingScale / expandedScale;
+        // Ensure manual update because we are high-jacking the jump
+        updatePosition(currentCardData.uid, targetCenterX.get(), targetCenterY.get());
 
-          // Calculate shift needed to keep visual point constant
-          const shiftScreenX = (px - oldCenterX) * (1 - ratio);
-          const shiftScreenY = (py - oldCenterY) * (1 - ratio);
-
-          const s = canvasScale || 1;
-          x.set(x.get() + shiftScreenX / s);
-          y.set(y.get() + shiftScreenY / s);
-        }
         setIsExpanded(false);
+        onBlur?.();
       }
       onDragStart?.();
     }
@@ -421,8 +395,6 @@ export const Card: React.FC<CardProps> = ({
       const nextX = x.get() + dx / scale;
       const nextY = y.get() + dy / scale;
 
-      // STEP 4: Collision Blocking & Snap
-      // Boundaries: 16000x10000 => -8000 to 8000, -5000 to 5000
       const WORLD_W = 16000;
       const WORLD_H = 10000;
       const minX = -(WORLD_W / 2) + width / 2;
@@ -430,19 +402,16 @@ export const Card: React.FC<CardProps> = ({
       const minY = -(WORLD_H / 2) + height / 2;
       const maxY = (WORLD_H / 2) - height / 2;
 
-      // Check distance to border for snapping (10px threshold)
       const snapThreshold = 10;
       let finalX = nextX;
       let finalY = nextY;
 
-      // Snap logic
       if (Math.abs(finalX - minX) < snapThreshold) finalX = minX;
       else if (Math.abs(finalX - maxX) < snapThreshold) finalX = maxX;
 
       if (Math.abs(finalY - minY) < snapThreshold) finalY = minY;
       else if (Math.abs(finalY - maxY) < snapThreshold) finalY = maxY;
 
-      // Hard Clamp
       finalX = Math.min(Math.max(finalX, minX), maxX);
       finalY = Math.min(Math.max(finalY, minY), maxY);
 
@@ -459,8 +428,10 @@ export const Card: React.FC<CardProps> = ({
   const handlers = bind();
 
   // Active state for animations
-  // Add: active when variants overlay is open
   const isActive = isHovered || isDragging || isExpanded || isOver || isOverlayOpen;
+
+  // Base z-index logic (local layering)
+  const baseZIndex = isDragging ? 100 : (isHovered ? 10 : 1);
 
   return (
     <motion.div
@@ -469,30 +440,27 @@ export const Card: React.FC<CardProps> = ({
         cardRef.current = node;
         drop(node);
       }}
-      {...((isFlipped ? {} : handlers) as any)} // CRITICAL FIX: Only apply drag handlers on front face
+      {...((isFlipped ? {} : handlers) as any)}
       onClick={(e) => {
         if (isDragging) return;
-        // Ensure only left click triggers this logic to prevent conflict with context menu
         if (e.button !== 0) return;
 
-        // Back face: always expanded, clicks handled by selection boxes
-        // No zoom toggle on back face - use right-click to flip back to front
         if (isFlipped) {
           const target = e.target as HTMLElement;
-          // Back face content clicks are handled by selection boxes
-          if (target.closest('.back-face-content')) {
-            return;
-          }
-          // Clicking background area on back face does nothing
-          // User should right-click to flip back to front
+          if (target.closest('.back-face-content')) return;
           return;
         }
 
-        // Front face: toggle expansion
         const nextState = !isExpanded;
         setIsExpanded(nextState);
 
-        // TTS: Speak word on expand
+        // Notify app of focus change for Dock shrinking
+        if (nextState) {
+          onFocus?.();
+        } else {
+          onBlur?.();
+        }
+
         if (nextState && title) {
           tts.speak(title, learningLanguage);
         }
@@ -501,43 +469,39 @@ export const Card: React.FC<CardProps> = ({
         e.preventDefault();
         e.stopPropagation();
 
-        // Enable GPU hint for the duration of the animation
         setIsAnimating(true);
         if (animatingTimerRef.current) clearTimeout(animatingTimerRef.current);
         animatingTimerRef.current = setTimeout(() => setIsAnimating(false), 600);
 
-        // Batched State Update:
-        // Batched State Update:
         if (!isFlipped) {
           setIsFlipped(true);
           setIsExpanded(true);
           onFocus?.();
         } else {
           setIsFlipped(false);
-          onBlur?.();
+          if (!isExpanded) {
+            onBlur?.();
+          }
         }
       }}
       style={{
         x: displayX, y: displayY, width, height,
         rotateX: displayRotateX, rotateY: displayRotateY, rotateZ: displayRotateZ,
-        zIndex: isFlipped ? 10000 : zIndex,
-        opacity: isHidden ? 0 : 1, // Hide when proxy is active
-        // GPU Acceleration: Force hardware acceleration with translate3d
+        zIndex: isExpanded || isFlipped ? 500 : baseZIndex, // Modest boost, Dock will shrink
+        opacity: isHidden ? 0 : 1,
         transform: 'translate3d(0, 0, 0)',
-        // Dynamic performance optimization: 
-        // Hint will-change during active animations only — clears after settling to preserve text sharpness
         willChange: (isDragging || isAnimating || externalScale || (!isExpanded && canvasScale < 1)) ? 'transform' : 'auto',
-        // Performance: boxShadow via CSS transition instead of per-frame Motion interpolation
         boxShadow: targetShadow,
         transition: 'box-shadow 0.3s ease-out',
-        transformStyle: 'preserve-3d', // Enable 3D context for sharper scaling
+        transformStyle: 'preserve-3d',
         cursor: isFlipped ? 'default' : (isDragging ? "grabbing" : (isExpanded ? "zoom-out" : "grab")),
         position: 'absolute', left: '50%', top: '50%',
         marginLeft: -width / 2, marginTop: -height / 2,
         touchAction: 'none',
         borderRadius: CardPersona.tokens.layout.radius,
-        ...(externalScale ? { scale: externalScale } : {}), // Only apply external scale if provided
+        ...(externalScale ? { scale: externalScale } : {}),
       }}
+
       onPointerDown={(e) => {
         e.stopPropagation();
         if (!isFlipped && handlers?.onPointerDown) handlers.onPointerDown(e);
@@ -545,7 +509,6 @@ export const Card: React.FC<CardProps> = ({
       onHoverStart={() => !isFlipped && setIsHovered(true)}
       onHoverEnd={() => !isFlipped && setIsHovered(false)}
       onDoubleClick={(e) => e.stopPropagation()}
-      // If externalScale is provided, disable internal scale animation to avoid conflict
       animate={externalScale ? undefined : { scale: targetScale }}
       transition={CardPersona.physics.springs.scale}
       className="canvas-card select-none group relative transition-colors duration-300"

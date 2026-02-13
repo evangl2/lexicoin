@@ -182,8 +182,8 @@ function InnerApp() {
       <div
         className="absolute inset-0 w-full h-full"
         style={{
-          zIndex: focusedCardCount > 0 ? 60 : 0,
-          position: 'relative'
+          position: 'relative',
+          zIndex: 0
         }}
       >
         <Canvas scale={camera.scale} x={camera.x} y={camera.y}>
@@ -278,7 +278,9 @@ function InnerApp() {
         setLearningLang={setLearningLang}
         systemLang={systemLang}
         setSystemLang={setSystemLang}
+        isZoomed={focusedCardCount > 0}
       />
+
     </div>
   );
 }

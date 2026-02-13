@@ -19,6 +19,7 @@ interface DockProps {
    setLearningLang?: (val: string) => void;
    systemLang?: string;
    setSystemLang?: (val: string) => void;
+   isZoomed?: boolean;
 }
 
 // Localization Helper
@@ -45,7 +46,8 @@ export const Dock: React.FC<DockProps> = ({
    learningLang = 'ENGLISH',
    setLearningLang = () => { },
    systemLang = 'ENGLISH',
-   setSystemLang = () => { }
+   setSystemLang = () => { },
+   isZoomed = false
 }) => {
    const interfacePersona = useInterfacePersona();
    const [activeId, setActiveId] = useState<number>(1); // Default active: Canvas
@@ -115,8 +117,8 @@ export const Dock: React.FC<DockProps> = ({
    return (
       // Outer Container (Global Bottom Offset: 48px)
       <div
-         className="fixed inset-x-0 z-50 flex justify-center pointer-events-none select-none"
-         style={{ bottom: interfacePersona.dock.layout.bottomPosition }}
+         className="fixed inset-x-0 z-[500] flex justify-center pointer-events-none select-none transition-all duration-500 ease-out"
+         style={{ bottom: `calc(${interfacePersona.dock.layout.bottomPosition} * ${isZoomed ? 0.5 : 1})` }}
       >
 
          {/* Deck Repository Overlay */}
@@ -146,10 +148,12 @@ export const Dock: React.FC<DockProps> = ({
 
          {/* Inner Container: Handles Scaling and Layout */}
          <div
-            className="relative flex flex-col items-center justify-end transition-transform duration-200 ease-out"
+            className="relative flex flex-col items-center justify-end transition-all duration-500 ease-out"
             style={{
-               transform: `scale(${scale})`,
-               transformOrigin: 'bottom center'
+               transform: `scale(${scale * (isZoomed ? 0.75 : 1)})`,
+               opacity: isZoomed ? 0.4 : 1,
+               transformOrigin: 'bottom center',
+               filter: isZoomed ? 'blur(2px)' : 'none'
             }}
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
