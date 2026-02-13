@@ -8,7 +8,6 @@ import { HTML5Backend } from "react-dnd-html5-backend";
 import { Canvas } from "@/app/components/ui/Canvas";
 import { Card } from "@/app/components/ui/Card";
 import { Dock } from "@/app/components/ui/Dock";
-import { StoredCard } from "@/app/components/ui/DeckRepository";
 import { PersonaProvider } from "@/app/context/PersonaContext";
 import { AudioProvider } from "@/app/context/AudioContext";
 import { useMotionValue } from "motion/react";
@@ -41,6 +40,8 @@ function InnerApp() {
   const openDeck = useGameStore(s => s.openDeck);
   const closeDeck = useGameStore(s => s.closeDeck);
   const setConfigOpen = useGameStore(s => s.setConfigOpen);
+
+  const [draggingId, setDraggingId] = useState<string | null>(null);
 
   // UI Logic (Migrated from useAppUI)
   const toggleDeck = useCallback(() => {
@@ -86,26 +87,44 @@ function InnerApp() {
       width: item.width,
       height: item.height,
     })),
-    null, // draggingId
+    draggingId,
   );
 
   // --- Interaction Logic ---
 
-  // 1. Drop from Deck to Canvas (Placeholder)
+  // Drop from Repository to Canvas (via Dock double-click, handled by retrieveCard)
+  // Note: react-dnd drop zone kept for future drag-from-repo support
   const [, drop] = useDrop(() => ({
     accept: ['CARD'],
-    drop: (_item: StoredCard, monitor) => {
+    drop: (item: { uid: string, width: number, height: number }, monitor) => {
+      if (monitor.didDrop()) return;
+
       const clientOffset = monitor.getClientOffset();
-      if (!clientOffset) return;
-      console.warn('Deck -> Canvas drag not yet implemented for CardEntity');
+      if (!clientOffset || !item.uid) return;
+
+      const cx = camera.x.get();
+      const cy = camera.y.get();
+      const s = camera.scale.get();
+
+      // Transform screen coordinates to canvas coordinates
+      // formula: canvas_pos = (screen_pos - camera_pos) / scale
+      const dropX = (clientOffset.x - cx) / s;
+      const dropY = (clientOffset.y - cy) / s;
+
+      // Center the card on the cursor
+      // Note: item.width/height are in canvas units (unscaled)
+      const x = dropX - (item.width / 2);
+      const y = dropY - (item.height / 2);
+
+      data.retrieveCard(item.uid, x, y);
     },
   }));
 
-  // 2. Check Deck Collision (Canvas -> Deck)
+  // 2. Check Deck Collision (Canvas -> Repository)
   const checkDeckCollision = (id: string) => {
     if (!isDeckOpen) return;
 
-    const targetItem = data.items.find((i: any) => i.cardData.rawSense.uid === id);
+    const targetItem = data.canvasItems.find((i: any) => i.cardData.rawSense.uid === id);
     if (!targetItem) return;
 
     const cx = camera.x.get();
@@ -127,18 +146,20 @@ function InnerApp() {
     const deckXEnd = deckXStart + deckWidth;
 
     if (screenY > topEdgeY && screenY < bottomEdgeY && screenX > deckXStart && screenX < deckXEnd) {
-      console.warn('Canvas -> Deck drag check triggered');
-      data.deleteItem(id);
+      data.storeCard(id);
     }
   };
 
 
 
 
-  const handleItemDropOnCard = (droppedItem: StoredCard) => {
-    console.log("Used item on card:", droppedItem.title);
-    data.setPropItems(prev => prev.filter(i => i.id !== droppedItem.id));
-  };
+  // Handle card retrieval from repository
+  const handleRetrieveCard = useCallback((uid: string) => {
+    // Place card near center with slight random offset
+    const x = (Math.random() - 0.5) * 400;
+    const y = (Math.random() - 0.5) * 300;
+    data.retrieveCard(uid, x, y);
+  }, [data]);
 
 
   // --- Z-Index / Focus Management ---
@@ -166,8 +187,8 @@ function InnerApp() {
         }}
       >
         <Canvas scale={camera.scale} x={camera.x} y={camera.y}>
-          {/* Render Active Items */}
-          {data.items.map((item: any) => (
+          {/* Render Active Canvas Items */}
+          {data.canvasItems.map((item: any) => (
             <Card
               key={item.cardData.rawSense.uid}
               cardData={item.cardData}
@@ -181,14 +202,14 @@ function InnerApp() {
               canvasScale={camera.scaleState}
               canvasX={camera.x}
               canvasY={camera.y}
-              onDragStart={() => { /* setDraggingId(item.uid) if needed */ }}
+              onDragStart={() => setDraggingId(item.cardData.rawSense.uid)}
               onDragEnd={() => {
                 checkDeckCollision(item.cardData.rawSense.uid);
                 data.saveItems();
+                setDraggingId(null);
               }}
               updatePosition={() => { }}
               onDelete={() => data.deleteItem(item.cardData.rawSense.uid)}
-              onDropItem={handleItemDropOnCard}
               groupFeedback={grouping.groupFeedback}
               onFocus={handleCardFocus}
               onBlur={handleCardBlur}
@@ -214,6 +235,7 @@ function InnerApp() {
               isHidden={false}
               onDragStart={undefined}
               onDragEnd={undefined}
+              externalScale={item.scale}
             />
           ))}
 
@@ -249,8 +271,9 @@ function InnerApp() {
         toggleDeck={toggleDeck}
         isConfigOpen={isConfigOpen}
         toggleConfig={toggleConfig}
-        deckItems={data.storedItems}
-        propItems={data.propItems}
+        repositoryItems={data.repositoryItems}
+        onRetrieve={(uid) => data.retrieveCard(uid, window.innerWidth / 2, window.innerHeight / 2)}
+        onStore={data.storeCard}
         learningLang={learningLang}
         setLearningLang={setLearningLang}
         systemLang={systemLang}

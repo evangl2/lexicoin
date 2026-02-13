@@ -1,5 +1,6 @@
-import React from 'react';
+import { CompactCardVisual } from '@/app/components/ui/CompactCardVisual';
 import { CardVisual } from '@/app/components/ui/CardVisual';
+import { useMotionValue } from 'motion/react';
 
 interface DragPreviewCardProps {
   title: string;
@@ -29,6 +30,42 @@ export const DragPreviewCard: React.FC<DragPreviewCardProps> = ({
   layoutMode = 'default',
   persona,
 }) => {
+  const commonProps = {
+    learningData: {
+      word: title || '',
+      pronunciation: '',
+      pos: partOfSpeech as any,
+      level: difficultyLevel as any,
+      definition: '',
+      flavorContents: []
+    },
+    systemData: {
+      word: title || '',
+      pronunciation: '',
+      pos: partOfSpeech as any,
+      level: difficultyLevel as any,
+      definition: '',
+      flavorContents: []
+    },
+    senseInfo: {
+      ontology: 'OBJECT' as any,
+      frequency: 50,
+      fingerprint: { items: [] },
+      personas: [],
+      durability: durability
+    },
+    visual: {
+      status: 'idle' as const,
+      payload: ''
+    },
+    learningLanguage: learningLanguage as any,
+    systemLanguage: systemLanguage as any,
+    persona: persona
+  };
+
+  // Explicitly disable physics/glare
+  const zero = useMotionValue(0);
+
   return (
     <div
       style={{
@@ -39,46 +76,27 @@ export const DragPreviewCard: React.FC<DragPreviewCardProps> = ({
       }}
       className="relative select-none pointer-events-none"
     >
-      <CardVisual
-        learningData={{
-          word: title || '',
-          pronunciation: '',
-          pos: partOfSpeech as any,
-          level: difficultyLevel as any,
-          definition: '',
-          flavorContents: []
-        }}
-        systemData={{
-          word: title || '',
-          pronunciation: '',
-          pos: partOfSpeech as any,
-          level: difficultyLevel as any,
-          definition: '',
-          flavorContents: []
-        }}
-        senseInfo={{
-          ontology: 'OBJECT',
-          frequency: 50,
-          fingerprint: { items: [] },
-          personas: [],
-          durability: durability
-        }}
-        visual={{
-          status: 'idle',
-          payload: ''
-        }}
-        learningLanguage={learningLanguage as any}
-        systemLanguage={systemLanguage as any}
-        layoutMode={layoutMode}
-        persona={persona}
-        // Force front face visible
-        frontOpacity={1}
-        backOpacity={0}
-        flipScaleX={1}
-        // Disable interactions
-        isActive={false}
-        isOver={false}
-      />
+      {layoutMode === 'compact' ? (
+        <CompactCardVisual
+          {...commonProps}
+          visual={commonProps.visual as any}
+          width={width}
+          height={height}
+        />
+      ) : (
+        <CardVisual
+          {...commonProps}
+          isActive={false}
+          isOver={false}
+          frontOpacity={1}
+          backOpacity={0}
+          flipScaleX={1}
+          // Force disable physics
+          smoothXVelocity={zero}
+          smoothYVelocity={zero}
+          displayRotateY={zero}
+        />
+      )}
     </div>
   );
 };

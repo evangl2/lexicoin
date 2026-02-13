@@ -45,6 +45,9 @@ interface CardProps {
   canvasX: MotionValue<number>;
   canvasY: MotionValue<number>;
 
+  // Optional: Override scale for global animations (e.g. merge absorb)
+  externalScale?: MotionValue<number>;
+
   // ========== Callbacks ==========
   onDragStart?: () => void;
   onDragEnd?: () => void;
@@ -77,6 +80,7 @@ export const Card: React.FC<CardProps> = ({
   groupFeedback,
   onFocus,
   onBlur,
+  externalScale, // Destructure new prop
 }) => {
   // ========== Variant Logic (Extracted) ==========
   const {
@@ -522,7 +526,7 @@ export const Card: React.FC<CardProps> = ({
         transform: 'translate3d(0, 0, 0)',
         // Dynamic performance optimization: 
         // Hint will-change during active animations only — clears after settling to preserve text sharpness
-        willChange: (isDragging || isAnimating || (!isExpanded && canvasScale < 1)) ? 'transform' : 'auto',
+        willChange: (isDragging || isAnimating || externalScale || (!isExpanded && canvasScale < 1)) ? 'transform' : 'auto',
         // Performance: boxShadow via CSS transition instead of per-frame Motion interpolation
         boxShadow: targetShadow,
         transition: 'box-shadow 0.3s ease-out',
@@ -532,6 +536,7 @@ export const Card: React.FC<CardProps> = ({
         marginLeft: -width / 2, marginTop: -height / 2,
         touchAction: 'none',
         borderRadius: CardPersona.tokens.layout.radius,
+        ...(externalScale ? { scale: externalScale } : {}), // Only apply external scale if provided
       }}
       onPointerDown={(e) => {
         e.stopPropagation();
@@ -540,7 +545,8 @@ export const Card: React.FC<CardProps> = ({
       onHoverStart={() => !isFlipped && setIsHovered(true)}
       onHoverEnd={() => !isFlipped && setIsHovered(false)}
       onDoubleClick={(e) => e.stopPropagation()}
-      animate={{ scale: targetScale }}
+      // If externalScale is provided, disable internal scale animation to avoid conflict
+      animate={externalScale ? undefined : { scale: targetScale }}
       transition={CardPersona.physics.springs.scale}
       className="canvas-card select-none group relative transition-colors duration-300"
     >

@@ -313,7 +313,8 @@ export const CardVisual = React.memo<CardVisualProps>(({
   const backPointerEvents = currentBackOpacity > 0.5 ? 'auto' : 'none';
 
   // ========== Layout Configuration ==========
-  const isCompact = layoutMode === 'compact';
+  // Compact mode is now handled by CompactCardVisual.tsx
+  // This component handles the standard "detailed" card view.
 
   // ========== Display Text Preparation ==========
   // Note: pronunciation may be undefined for some words
@@ -323,7 +324,7 @@ export const CardVisual = React.memo<CardVisualProps>(({
 
   const renderHeader = () => (
     <>
-      {!isCompact && !Persona.visuals.ScrapLabel && (
+      {!Persona.visuals.ScrapLabel && (
         <div className="absolute inset-x-6 bottom-2 top-3 bg-black/20 border-b border-t rounded-sm -z-10 opacity-60"
           style={{
             borderColor: Persona.tokens.colors.borderSubtle,
@@ -332,8 +333,8 @@ export const CardVisual = React.memo<CardVisualProps>(({
         />
       )}
 
-      <div className={`flex flex-col items-center justify-center ${isCompact ? '' : 'w-full'} relative z-10 ${isCompact ? '' : '-mt-1'}`}>
-        {!isCompact && !Persona.visuals.ScrapLabel && (
+      <div className={`flex flex-col items-center justify-center w-full relative z-10 -mt-1`}>
+        {!Persona.visuals.ScrapLabel && (
           <div className="absolute -top-4 w-[1px] h-5 bg-gradient-to-b from-transparent" style={{ '--tw-gradient-to': Persona.definitions.colors.goldBase } as any} />
         )}
 
@@ -342,7 +343,7 @@ export const CardVisual = React.memo<CardVisualProps>(({
             {level}
           </Persona.visuals.ScrapLabel>
         ) : (
-          <span className={`${isCompact ? 'text-2xl drop-shadow-[0_2px_10px_rgba(240,208,130,0.4)]' : 'text-xl drop-shadow-[0_0_12px_rgba(240,208,130,0.4)]'} font-bold tracking-[0.2em]`}
+          <span className={`text-xl drop-shadow-[0_0_12px_rgba(240,208,130,0.4)] font-bold tracking-[0.2em]`}
             style={{
               fontFamily: Persona.tokens.typography.label.family,
               color: Persona.tokens.colors.textHighlight,
@@ -361,7 +362,7 @@ export const CardVisual = React.memo<CardVisualProps>(({
 
   const renderText = () => (
     <div className="flex flex-col items-center justify-end w-full h-full pb-0 relative z-40">
-      {displayPhonetic && !isCompact && (
+      {displayPhonetic && (
         <div className="mb-0.5 w-full text-center">
           <span className="font-serif text-[10px] tracking-[0.2em] opacity-50 mix-blend-plus-lighter inline-block"
             style={{ color: Persona.tokens.colors.goldBright || Persona.tokens.colors.textHighlight }}>
@@ -370,12 +371,12 @@ export const CardVisual = React.memo<CardVisualProps>(({
         </div>
       )}
 
-      <div className={`flex ${isCompact ? 'flex-col' : 'items-baseline'} justify-center mb-1 w-full text-center relative z-10`}>
+      <div className={`flex items-baseline justify-center mb-1 w-full text-center relative z-10`}>
 
 
         <div className="flex flex-col itemscenter justify-center gap-2.5 px-4 mb-1.5">
           {/* Main title: Learning language word */}
-          <h2 className={`leading-tight capitalize pb-[0.1em] ${getTitleClass(word, isCompact)}`}
+          <h2 className={`leading-tight capitalize pb-[0.1em] ${getTitleClass(word, false)}`}
             style={{
               fontFamily: Persona.tokens.typography.label.family,
               backgroundImage: Persona.definitions.gradients.goldText || Persona.tokens.typography.label.gradient,
@@ -450,83 +451,33 @@ export const CardVisual = React.memo<CardVisualProps>(({
           <Persona.visuals.Corners />
 
           {/* --- CONTENT LAYOUT --- */}
-          {isCompact ? (
-            // COMPACT MODE LAYOUT
-            <div className="relative z-30 w-full h-full flex flex-col px-4 pt-4 pb-3">
-              <div className="flex justify-center items-center w-full relative z-30 mb-0 shrink-0 h-[15%]">
-                {renderHeader()}
-              </div>
-              <div className="flex-1 relative flex items-center justify-center w-full min-h-0">
-                {/* MEMOIZED VISUAL */}
-                <div className="absolute inset-0 z-10 flex items-center justify-center opacity-60 mix-blend-screen scale-110" style={{ perspective: '1000px' }}>
-                  <MemoizedCardVisual
-                    isCompact={isCompact}
-                    visualPayload={visual.payload}
-                    isActive={isActive}
-                    fallbackWord={word}
-                    Persona={Persona}
-                    bgParallaxX={bgParallaxX}
-                    bgParallaxY={bgParallaxY}
-                    fgParallaxX={fgParallaxX}
-                    fgParallaxY={fgParallaxY}
-                    durability={durability}
-                  />
-                </div>
-                <div className="relative z-40 flex flex-col items-center justify-center drop-shadow-[0_4px_8px_rgba(0,0,0,0.9)] w-full">
-                  {renderText()}
-                </div>
-              </div>
-
-              {/* COMPACT DURABILITY BAR */}
-              {Persona.visuals.DurabilityBar ? (
-                <div className="w-full relative z-50 mt-auto shrink-0 flex justify-center transform scale-y-[3] origin-bottom">
-                  <Persona.visuals.DurabilityBar progress={durability} />
-                </div>
-              ) : (
-                <div className="w-full h-[6px] relative z-50 mt-auto shrink-0 bg-black/40 rounded-full overflow-hidden border flex justify-center"
-                  style={{ borderColor: `${Persona.tokens.colors.goldMetallic}4D` }}>
-                  <motion.div
-                    initial={{ width: 0 }}
-                    animate={{ width: `${durability}%` }}
-                    transition={{ duration: 0.5, ease: "easeOut" }}
-                    className="h-full opacity-90"
-                    style={{
-                      background: `linear-gradient(to right, ${Persona.tokens.colors.goldMetallic}, ${Persona.tokens.colors.goldBright || '#fff'}, ${Persona.tokens.colors.goldMetallic})`,
-                      boxShadow: `0 0 8px ${Persona.tokens.colors.goldMetallic}`
-                    }}
-                  />
-                </div>
-              )}
+          {/* STANDARD MODE LAYOUT */}
+          <>
+            <div className={`relative z-30 w-full h-[15%] flex items-center justify-center px-5 pt-3`}>
+              {renderHeader()}
             </div>
-          ) : (
-            // STANDARD MODE LAYOUT
-            <>
-              <div className={`relative z-30 w-full h-[15%] flex items-center justify-center px-5 pt-3`}>
-                {renderHeader()}
+            <div className="relative z-20 w-full h-[55%] flex items-center justify-center px-4 pt-0 pb-0 -translate-y-2" style={{ perspective: '1000px' }}>
+              {/* MEMOIZED VISUAL */}
+              <MemoizedCardVisual
+                isCompact={false}
+                visualPayload={visual.payload}
+                isActive={isActive}
+                fallbackWord={word}
+                Persona={Persona}
+                bgParallaxX={bgParallaxX}
+                bgParallaxY={bgParallaxY}
+                fgParallaxX={fgParallaxX}
+                fgParallaxY={fgParallaxY}
+                durability={durability}
+              />
+              <div className="absolute -bottom-5 w-full px-12 opacity-80">
+                <Persona.visuals.Divider />
               </div>
-              <div className="relative z-20 w-full h-[55%] flex items-center justify-center px-4 pt-0 pb-0 -translate-y-2" style={{ perspective: '1000px' }}>
-                {/* MEMOIZED VISUAL */}
-                <MemoizedCardVisual
-                  isCompact={isCompact}
-                  visualPayload={visual.payload}
-                  isActive={isActive}
-                  fallbackWord={word}
-                  Persona={Persona}
-                  bgParallaxX={bgParallaxX}
-                  bgParallaxY={bgParallaxY}
-                  fgParallaxX={fgParallaxX}
-                  fgParallaxY={fgParallaxY}
-                  durability={durability}
-                />
-                <div className="absolute -bottom-5 w-full px-12 opacity-80">
-                  <Persona.visuals.Divider />
-                </div>
-              </div>
-              <div className="relative z-30 h-[30%] flex flex-col items-center justify-start px-4 pt-0 text-center">
-                {renderText()}
-              </div>
-            </>
-          )}
+            </div>
+            <div className="relative z-30 h-[30%] flex flex-col items-center justify-start px-4 pt-0 text-center">
+              {renderText()}
+            </div>
+          </>
 
           <div className="absolute inset-0 opacity-[0.04] pointer-events-none z-10 mix-blend-overlay"
             style={{ backgroundImage: Persona.definitions.assets.noiseTexture || 'none' }}

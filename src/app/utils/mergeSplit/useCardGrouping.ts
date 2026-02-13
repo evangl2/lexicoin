@@ -93,9 +93,13 @@ export const useCardGrouping = ({ items, setItems, learningLang }: UseCardGroupi
         const newItems: CardItem[] = [];
         const newMergedVariants: Record<string, CardEntity[]> = {};
 
-        // Track positions of existing anchors to preserve them or use as spawn points
+        // Track positions and LOCATIONS of existing anchors to preserve state
         const anchorPositions = new Map<string, { x: number, y: number }>();
-        items.forEach(i => anchorPositions.set(i.cardData.uid, { x: i.mx.get(), y: i.my.get() }));
+        const anchorLocations = new Map<string, string>(); // 'canvas' | 'repository'
+        items.forEach(i => {
+            anchorPositions.set(i.cardData.uid, { x: i.mx.get(), y: i.my.get() });
+            anchorLocations.set(i.cardData.uid, i.location);
+        });
         const currentItems = [...items]; // Snapshot for lookups
 
         // Process each group
@@ -117,30 +121,33 @@ export const useCardGrouping = ({ items, setItems, learningLang }: UseCardGroupi
                 newMergedVariants[anchor.uid] = variants;
             }
 
-            // Determine Anchor Position
+            // Determine Anchor Position & Location
             let targetX: number = 0; // Default values
             let targetY: number = 0;
+            // Persistence Option A: Anchor Dominance
+            // If Anchor existed, keep its location. Else default to canvas (or inherit if spawning)
+            let targetLocation: any = 'canvas';
 
             // Case A: Anchor was already an Anchor
             if (anchorPositions.has(anchor.uid)) {
                 const pos = anchorPositions.get(anchor.uid)!;
                 targetX = pos.x;
                 targetY = pos.y;
+                targetLocation = anchorLocations.get(anchor.uid) || 'canvas';
             }
             // Case B: Anchor was a Variant (Split or Promotion)
             else {
                 // Try to find the position of the OLD Anchor this card belonged to
-                // We look through 'items' to find who held this card as a variant
-                // NOTE: We need the PREVIOUS mergedVariants state here, which is 'mergedVariants' from closure
-                // We also need to find which item held it.
-
+                // We look through 'currentItems' (snapshot) to find who held this card
                 const oldAnchorItem = currentItems.find(i => {
-                    const v = mergedVariants[i.cardData.uid];
+                    const v = prevMergedVariants?.[i.cardData.uid]; // Use prev merged variants
                     return v && v.some((vc: CardEntity) => vc.uid === anchor.uid);
                 });
 
                 if (oldAnchorItem) {
-                    // Spawning from Old Anchor
+                    // Spawning from Old Anchor -> Inherit Location
+                    targetLocation = oldAnchorItem.location;
+
                     const spawnX = oldAnchorItem.mx.get();
                     const spawnY = oldAnchorItem.my.get();
 
@@ -161,7 +168,9 @@ export const useCardGrouping = ({ items, setItems, learningLang }: UseCardGroupi
                         width: 250,
                         height: 350,
                         mx: motionValue(startX),
-                        my: motionValue(startY)
+                        my: motionValue(startY),
+                        scale: motionValue(1),
+                        location: targetLocation
                     });
                     return; // Skip default push
                 } else {
@@ -177,7 +186,9 @@ export const useCardGrouping = ({ items, setItems, learningLang }: UseCardGroupi
                 width: 250,
                 height: 350,
                 mx: motionValue(targetX),
-                my: motionValue(targetY)
+                my: motionValue(targetY),
+                scale: motionValue(1),
+                location: targetLocation
             });
         });
 
@@ -212,15 +223,37 @@ export const useCardGrouping = ({ items, setItems, learningLang }: UseCardGroupi
                 // Yes, it merged. Animate it to the target anchor.
                 const startX = oldItem.mx.get();
                 const startY = oldItem.my.get();
-                const targetX = targetAnchorItem.mx.get();
-                const targetY = targetAnchorItem.my.get();
+                let targetX = targetAnchorItem.mx.get();
+                let targetY = targetAnchorItem.my.get();
+
+                // UX: If target is in Repository, animate to Dock (Bottom Center)
+                // BUT only if the source item was on Canvas.
+                // If source was already in Repository, it should just disappear/merge silently.
+                if (targetAnchorItem.location === 'repository') {
+                    if (oldItem.location === 'repository') {
+                        // Skip animation for Repo -> Repo merge
+                        return;
+                    }
+                    // Optimize: Target random position within Dock area (Center +/- 250px)
+                    // This creates a "pile up" effect instead of a single point
+                    const dockSpread = 500;
+                    const randomOffsetX = (Math.random() - 0.5) * dockSpread;
+                    targetX = (window.innerWidth / 2) + randomOffsetX;
+                    targetY = window.innerHeight - 80;
+                }
 
                 // Use existing motion values if possible, or create new ones? 
                 // We reuse the oldItem's motion values to preserve momentum/state if needed,
                 // but simple animate is enough.
 
-                animate(oldItem.mx, targetX, { type: "spring", stiffness: 200, damping: 20 });
-                animate(oldItem.my, targetY, { type: "spring", stiffness: 200, damping: 20 });
+                // Slower Physics (approx 50% slower): Stiffness 90, Damping 20
+                const slowSpring = { type: "spring" as const, stiffness: 90, damping: 20 };
+
+                animate(oldItem.mx, targetX, slowSpring);
+                animate(oldItem.my, targetY, slowSpring);
+                // Global UI Animation: Shrink to 10% while absorbing
+                // This is independent of Persona
+                animate(oldItem.scale, 0.1, slowSpring);
 
                 exiting.push(oldItem);
             }

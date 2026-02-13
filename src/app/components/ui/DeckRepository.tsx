@@ -1,49 +1,37 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { useDrag } from 'react-dnd';
-import { getEmptyImage } from 'react-dnd-html5-backend';
+import React, { useState, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Box, Sparkles, ArrowDownAZ, ArrowUpAZ, SlidersHorizontal } from 'lucide-react';
+import { useDrag, useDrop } from 'react-dnd';
+import { getEmptyImage } from 'react-dnd-html5-backend';
+import { X, Box, ArrowDownAZ, ArrowUpAZ, SlidersHorizontal } from 'lucide-react';
 import { DefaultCardPersona as CardPersona } from '@/app/components/persona/default/Card.persona.default';
 import { DefaultInterfacePersona as InterfacePersona } from '@/app/components/persona/default/Interface.persona.default';
-import { CardVisual } from '@/app/components/ui/CardVisual';
-import { PropVisual } from '@/app/components/ui/PropVisual';
-
-export interface StoredCard {
-    id: string;
-    title: string;
-    image: string;
-    type?: 'CARD' | 'ITEM';
-    pos?: string;
-    difficulty?: number;
-    durability?: number;
-    count?: number;
-}
+import { CompactCardVisual } from '@/app/components/ui/CompactCardVisual';
+import type { CardItem } from '@/app/hooks/logic/useCardManager';
+import type { Language } from 'a:/lexicoin/lexicoin/schemas/schemas/SenseEntity.schema';
+import { mapLanguageCode } from '@/app/utils/localization';
 
 interface DeckRepositoryProps {
     isOpen: boolean;
     onClose: () => void;
-    items: StoredCard[];
-    propItems?: StoredCard[];
-    onDropToCanvas?: (item: StoredCard, offset: { x: number, y: number }) => void;
+    items: CardItem[];
+    onRetrieve?: (uid: string) => void;
+    onStore?: (uid: string) => void;
     systemLanguage?: string;
     learningLanguage?: string;
 }
 
 type SortDir = 'asc' | 'desc';
-type CardSortKey = 'title' | 'pos' | 'difficulty' | 'durability';
-type PropSortKey = 'title' | 'count';
+type SortKey = 'word' | 'pos' | 'level' | 'durability';
 
 // Localization Helper
 const getLoc = (key: string, lang: string = 'ENGLISH') => {
     const isZh = lang === '简体中文';
     const dict: Record<string, { en: string; zh: string }> = {
-        'CARDS': { en: 'CARDS', zh: '卡组' },
-        'PROPS': { en: 'PROPS', zh: '道具' },
+        'REPOSITORY': { en: 'REPOSITORY', zh: '仓库' },
         'By Name': { en: 'By Name', zh: '按名称' },
         'By Type': { en: 'By Type', zh: '按类型' },
         'By Level': { en: 'By Level', zh: '按等级' },
         'By Durability': { en: 'By Durability', zh: '按耐久' },
-        'By Quantity': { en: 'By Quantity', zh: '按数量' },
         'Empty Vessel': { en: 'Empty Vessel', zh: '空容器' },
     };
     return isZh ? (dict[key]?.zh || key) : (dict[key]?.en || key);
@@ -53,53 +41,54 @@ export const DeckRepository: React.FC<DeckRepositoryProps> = ({
     isOpen,
     onClose,
     items,
-    propItems = [],
+    onRetrieve,
+    onStore,
     systemLanguage = 'ENGLISH',
     learningLanguage = 'ENGLISH'
 }) => {
-    const [activeTab, setActiveTab] = useState<'CARDS' | 'ITEMS'>('CARDS');
     const scrollContainerRef = useRef<HTMLDivElement>(null);
+    const [sortKey, setSortKey] = useState<SortKey>('word');
+    const [sortDir, setSortDir] = useState<SortDir>('asc');
 
-    // Sorting State
-    const [cardSortKey, setCardSortKey] = useState<CardSortKey>('title');
-    const [cardSortDir, setCardSortDir] = useState<SortDir>('asc');
-
-    const [propSortKey, setPropSortKey] = useState<PropSortKey>('title');
-    const [propSortDir, setPropSortDir] = useState<SortDir>('asc');
+    // Resolve language code for display data lookup
+    const langCode = mapLanguageCode(learningLanguage) as Language;
 
     // Sort Logic
     const sortedItems = useMemo(() => {
-        if (activeTab === 'CARDS') {
-            const list = [...items];
-            list.sort((a, b) => {
-                let valA: any = a[cardSortKey];
-                let valB: any = b[cardSortKey];
+        const list = [...items];
+        list.sort((a, b) => {
+            const aData = a.cardData.displayData[langCode];
+            const bData = b.cardData.displayData[langCode];
+            const aInfo = a.cardData.senseInfo;
+            const bInfo = b.cardData.senseInfo;
 
-                // Handle undefined defaults
-                if (valA === undefined) valA = cardSortKey === 'title' ? '' : 0;
-                if (valB === undefined) valB = cardSortKey === 'title' ? '' : 0;
+            let valA: string | number;
+            let valB: string | number;
 
-                if (typeof valA === 'string') return valA.localeCompare(valB as string);
-                return (valA as number) - (valB as number);
-            });
-            if (cardSortDir === 'desc') list.reverse();
-            return list;
-        } else {
-            const list = [...propItems];
-            list.sort((a, b) => {
-                let valA: any = a[propSortKey];
-                let valB: any = b[propSortKey];
-
-                if (valA === undefined) valA = propSortKey === 'title' ? '' : 0;
-                if (valB === undefined) valB = propSortKey === 'title' ? '' : 0;
-
-                if (typeof valA === 'string') return valA.localeCompare(valB as string);
-                return (valA as number) - (valB as number);
-            });
-            if (propSortDir === 'desc') list.reverse();
-            return list;
-        }
-    }, [items, propItems, activeTab, cardSortKey, cardSortDir, propSortKey, propSortDir]);
+            switch (sortKey) {
+                case 'word':
+                    valA = aData?.word || '';
+                    valB = bData?.word || '';
+                    return (valA as string).localeCompare(valB as string);
+                case 'pos':
+                    valA = aData?.pos || '';
+                    valB = bData?.pos || '';
+                    return (valA as string).localeCompare(valB as string);
+                case 'level':
+                    valA = aData?.level || 'A1';
+                    valB = bData?.level || 'A1';
+                    return (valA as string).localeCompare(valB as string);
+                case 'durability':
+                    valA = aInfo?.durability ?? 100;
+                    valB = bInfo?.durability ?? 100;
+                    return (valA as number) - (valB as number);
+                default:
+                    return 0;
+            }
+        });
+        if (sortDir === 'desc') list.reverse();
+        return list;
+    }, [items, sortKey, sortDir, langCode]);
 
     // Horizontal scroll via vertical mouse wheel
     const handleWheel = (e: React.WheelEvent) => {
@@ -108,18 +97,29 @@ export const DeckRepository: React.FC<DeckRepositoryProps> = ({
         }
     };
 
-    const toggleSortDir = () => {
-        if (activeTab === 'CARDS') setCardSortDir(prev => prev === 'asc' ? 'desc' : 'asc');
-        else setPropSortDir(prev => prev === 'asc' ? 'desc' : 'asc');
-    };
+    const toggleSortDir = () => setSortDir(prev => prev === 'asc' ? 'desc' : 'asc');
+
+    // Drop target for storing cards
+    const [{ isOver }, drop] = useDrop(() => ({
+        accept: 'CARD',
+        drop: (item: { uid: string }) => {
+            if (item.uid) {
+                onStore?.(item.uid);
+            }
+        },
+        collect: (monitor) => ({
+            isOver: monitor.isOver(),
+        }),
+    }), [onStore]);
 
     return (
         <AnimatePresence>
             {isOpen && (
                 <motion.div
-                    initial={{ y: 200, opacity: 0 }}
+                    ref={drop}
+                    initial={{ y: '100%', opacity: 0 }}
                     animate={{ y: 0, opacity: 1 }}
-                    exit={{ y: 200, opacity: 0 }}
+                    exit={{ y: '100%', opacity: 0 }}
                     transition={{ type: "spring", stiffness: 300, damping: 30 }}
                     className="absolute bottom-0 left-1/2 -translate-x-1/2 z-40"
                     style={{
@@ -136,7 +136,7 @@ export const DeckRepository: React.FC<DeckRepositoryProps> = ({
                             boxShadow: InterfacePersona.tokens.shadows.panel
                         }}>
 
-                        {/* Header / Tabs - Dark Void Metal with Alchemy Array */}
+                        {/* Header */}
                         <div className="relative shrink-0 flex items-center justify-between px-6 z-20 overflow-hidden border-b shadow-2xl"
                             style={{
                                 height: InterfacePersona.tokens.layout.tabHeight,
@@ -152,37 +152,31 @@ export const DeckRepository: React.FC<DeckRepositoryProps> = ({
                             <div className="absolute top-0 left-0 right-0 h-[1px]" style={{ backgroundColor: InterfacePersona.tokens.colors.borderFaint }} />
                             <div className="absolute bottom-0 left-0 right-0 h-[1px]" style={{ backgroundColor: InterfacePersona.tokens.colors.borderFaint }} />
 
-
                             {/* --- CONTENT LAYER --- */}
                             <div className="relative z-10 flex items-center justify-between w-full h-full">
 
-                                {/* LEFT: Tabs */}
-                                <div className="flex items-center gap-6">
-                                    <TabButton
-                                        active={activeTab === 'CARDS'}
-                                        onClick={() => setActiveTab('CARDS')}
-                                        label={getLoc('CARDS', systemLanguage)}
-                                        icon={Box}
-                                    />
-
-                                    {/* Glowing Divider */}
-                                    <div className="w-[1px] h-6 bg-gradient-to-b from-transparent to-transparent"
+                                {/* LEFT: Title */}
+                                <div className="flex items-center gap-2">
+                                    <Box size={14} style={{ color: InterfacePersona.tokens.colors.highlight }} />
+                                    <span className="text-[10px] tracking-[0.2em] font-bold uppercase"
                                         style={{
-                                            backgroundImage: `linear-gradient(to bottom, transparent, ${InterfacePersona.tokens.colors.borderBase}, transparent)`
-                                        }} />
-
-                                    <TabButton
-                                        active={activeTab === 'ITEMS'}
-                                        onClick={() => setActiveTab('ITEMS')}
-                                        label={getLoc('PROPS', systemLanguage)}
-                                        icon={Sparkles}
-                                    />
+                                            fontFamily: InterfacePersona.tokens.typography.label.family,
+                                            color: InterfacePersona.tokens.colors.highlight
+                                        }}>
+                                        {getLoc('REPOSITORY', systemLanguage)}
+                                    </span>
+                                    {items.length > 0 && (
+                                        <span className="text-[9px] tracking-wider opacity-60"
+                                            style={{ color: InterfacePersona.tokens.colors.textLabel }}>
+                                            ({items.length})
+                                        </span>
+                                    )}
                                 </div>
 
                                 {/* RIGHT: Controls */}
                                 <div className="flex items-center gap-4">
 
-                                    {/* Sort Controls - Dark Glass / Metal */}
+                                    {/* Sort Controls */}
                                     <div className="flex items-center gap-0 backdrop-blur-sm rounded-sm border overflow-hidden group/sort transition-colors"
                                         style={{
                                             backgroundColor: 'rgba(0,0,0,0.4)',
@@ -190,32 +184,21 @@ export const DeckRepository: React.FC<DeckRepositoryProps> = ({
                                             boxShadow: '0 0 10px rgba(0,0,0,0.5)'
                                         }}>
                                         <div className="relative flex items-center gap-2 px-3 py-1.5 transition-colors border-r"
-                                            style={{
-                                                borderColor: InterfacePersona.tokens.colors.borderFaint
-                                            }}>
+                                            style={{ borderColor: InterfacePersona.tokens.colors.borderFaint }}>
                                             <SlidersHorizontal size={12} className="group-hover/sort:text-[#D4AF37] transition-colors" style={{ color: InterfacePersona.tokens.colors.textLabel }} />
                                             <select
                                                 className="bg-transparent text-[10px] font-bold uppercase tracking-wider outline-none cursor-pointer border-none p-0 w-24 appearance-none relative z-10 transition-colors"
-                                                value={activeTab === 'CARDS' ? cardSortKey : propSortKey}
-                                                onChange={(e) => activeTab === 'CARDS' ? setCardSortKey(e.target.value as CardSortKey) : setPropSortKey(e.target.value as PropSortKey)}
+                                                value={sortKey}
+                                                onChange={(e) => setSortKey(e.target.value as SortKey)}
                                                 style={{
                                                     fontFamily: InterfacePersona.tokens.typography.label.family,
                                                     color: InterfacePersona.tokens.colors.textLabel
                                                 }}
                                             >
-                                                {activeTab === 'CARDS' ? (
-                                                    <>
-                                                        <option className="bg-[#1a1a1a]" value="title">{getLoc('By Name', systemLanguage)}</option>
-                                                        <option className="bg-[#1a1a1a]" value="pos">{getLoc('By Type', systemLanguage)}</option>
-                                                        <option className="bg-[#1a1a1a]" value="difficulty">{getLoc('By Level', systemLanguage)}</option>
-                                                        <option className="bg-[#1a1a1a]" value="durability">{getLoc('By Durability', systemLanguage)}</option>
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <option className="bg-[#1a1a1a]" value="title">{getLoc('By Name', systemLanguage)}</option>
-                                                        <option className="bg-[#1a1a1a]" value="count">{getLoc('By Quantity', systemLanguage)}</option>
-                                                    </>
-                                                )}
+                                                <option className="bg-[#1a1a1a]" value="word">{getLoc('By Name', systemLanguage)}</option>
+                                                <option className="bg-[#1a1a1a]" value="pos">{getLoc('By Type', systemLanguage)}</option>
+                                                <option className="bg-[#1a1a1a]" value="level">{getLoc('By Level', systemLanguage)}</option>
+                                                <option className="bg-[#1a1a1a]" value="durability">{getLoc('By Durability', systemLanguage)}</option>
                                             </select>
                                         </div>
 
@@ -225,11 +208,11 @@ export const DeckRepository: React.FC<DeckRepositoryProps> = ({
                                             title="Toggle Order"
                                             style={{ color: InterfacePersona.tokens.colors.textLabel }}
                                         >
-                                            {(activeTab === 'CARDS' ? cardSortDir : propSortDir) === 'asc' ? <ArrowDownAZ size={14} /> : <ArrowUpAZ size={14} />}
+                                            {sortDir === 'asc' ? <ArrowDownAZ size={14} /> : <ArrowUpAZ size={14} />}
                                         </button>
                                     </div>
 
-                                    {/* Close Button - Glowing Rune */}
+                                    {/* Close Button */}
                                     <button
                                         onClick={onClose}
                                         className="group flex items-center justify-center w-8 h-8 rounded-full border bg-[#0a0a0a] hover:border-[#D4AF37] hover:shadow-[0_0_10px_#D4AF37] active:scale-95 transition-all"
@@ -285,14 +268,12 @@ export const DeckRepository: React.FC<DeckRepositoryProps> = ({
                             ) : (
                                 <div className="flex items-center gap-6 w-max h-full px-4">
                                     {sortedItems.map(item => (
-                                        activeTab === 'ITEMS'
-                                            ? <RepoItem key={item.id} item={item} />
-                                            : <RepoCard
-                                                key={item.id}
-                                                item={item}
-                                                systemLanguage={systemLanguage}
-                                                learningLanguage={learningLanguage}
-                                            />
+                                        <RepoCard
+                                            key={item.cardData.uid}
+                                            item={item}
+                                            langCode={langCode}
+                                            onRetrieve={onRetrieve}
+                                        />
                                     ))}
                                 </div>
                             )}
@@ -309,175 +290,82 @@ export const DeckRepository: React.FC<DeckRepositoryProps> = ({
     );
 };
 
-const TabButton: React.FC<{ active: boolean; onClick: () => void; label: string; icon: any }> = ({ active, onClick, label, icon: Icon }) => (
-    <button
-        onClick={onClick}
-        className={`
-            flex items-center gap-2 px-4 py-1.5 rounded-sm transition-all text-[10px] tracking-[0.2em] font-bold relative overflow-hidden group
-        `}
-        style={{
-            fontFamily: InterfacePersona.tokens.typography.label.family,
-            color: active ? '#0a0a0a' : InterfacePersona.tokens.colors.borderBase,
-            backgroundColor: active ? InterfacePersona.tokens.colors.highlight : 'transparent',
-            borderColor: active ? InterfacePersona.tokens.colors.highlight : InterfacePersona.tokens.colors.borderFaint,
-            borderWidth: '1px',
-            borderStyle: 'solid',
-            boxShadow: active ? InterfacePersona.tokens.shadows.glowGoldSoft : 'none'
-        }}
-    >
-        <Icon size={12} className={active ? "text-black" : ""} />
-        {label}
-
-        {/* Shine effect on hover */}
-        {!active && <div className="absolute inset-0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 bg-gradient-to-r from-transparent via-white/10 to-transparent" />}
-    </button>
-);
-
-// --- PROP ITEM COMPONENT ---
-const RepoItem: React.FC<{ item: StoredCard }> = ({ item }) => {
-    // Props are smaller icons
-    const SIZE = 100;
-    const [isHovered, setIsHovered] = useState(false);
-
-    const [{ isDragging }, drag, preview] = useDrag(() => ({
-        type: 'ITEM', // Distinct type from CARD
-        item: {
-            ...item,
-            type: 'ITEM',
-            sourceWidth: SIZE,
-            sourceHeight: SIZE
-        },
-        collect: (monitor) => ({
-            isDragging: monitor.isDragging(),
-        }),
-    }));
-
-    useEffect(() => {
-        preview(getEmptyImage(), { captureDraggingState: true });
-    }, [preview]);
-
-    return (
-        <div
-            ref={drag}
-            className={`flex-shrink-0 cursor-grab active:cursor-grabbing relative transition-opacity ${isDragging ? 'opacity-20' : 'opacity-100'}`}
-            style={{ width: SIZE, height: SIZE }}
-            onMouseEnter={() => setIsHovered(true)}
-            onMouseLeave={() => setIsHovered(false)}
-        >
-            <PropVisual
-                title={item.title}
-                size={SIZE}
-                isHovered={isHovered}
-            />
-
-            {/* Quantity Badge */}
-            {item.count !== undefined && (
-                <div className="absolute -top-1 -right-1 text-black text-[10px] font-bold px-1.5 rounded-full border border-black shadow-lg z-20"
-                    style={{ backgroundColor: InterfacePersona.tokens.colors.highlight }}>
-                    x{item.count}
-                </div>
-            )}
-        </div>
-    );
-};
-
 // --- CARD COMPONENT ---
 interface RepoCardProps {
-    item: StoredCard;
-    systemLanguage: string;
-    learningLanguage: string;
+    item: CardItem;
+    langCode: Language;
+    onRetrieve?: (uid: string) => void;
 }
 
-const RepoCard: React.FC<RepoCardProps> = ({ item, systemLanguage, learningLanguage }) => {
-    // Target Scale: 1/4 area means 0.5 dimensions.
+const RepoCard: React.FC<RepoCardProps> = ({ item, langCode, onRetrieve }) => {
     const SCALE = 0.5;
     const ORIGINAL_WIDTH = 250;
     const ORIGINAL_HEIGHT = 350;
 
+    const ACTUAL_WIDTH = ORIGINAL_WIDTH * SCALE;
+    const ACTUAL_HEIGHT = ORIGINAL_HEIGHT * SCALE;
+
+    const learningData = item.cardData.displayData[langCode];
+
+
+
     const [{ isDragging }, drag, preview] = useDrag(() => ({
         type: 'CARD',
         item: {
-            ...item,
-            type: 'CARD',
-            sourceWidth: ORIGINAL_WIDTH * SCALE,
-            sourceHeight: ORIGINAL_HEIGHT * SCALE
+            uid: item.cardData.rawSense.uid,
+            width: ACTUAL_WIDTH,
+            height: ACTUAL_HEIGHT,
+            sourceWidth: ACTUAL_WIDTH,
+            sourceHeight: ACTUAL_HEIGHT,
+            title: learningData?.word || item.cardData.uid,
+            difficulty: learningData?.level || 'A1',
+            pos: learningData?.pos || 'n.',
+            durability: item.cardData.senseInfo.durability
         },
         collect: (monitor) => ({
             isDragging: monitor.isDragging(),
         }),
-    }));
+    }), [item.cardData.rawSense.uid, ACTUAL_WIDTH, ACTUAL_HEIGHT, learningData]);
 
-    useEffect(() => {
+    React.useEffect(() => {
         preview(getEmptyImage(), { captureDraggingState: true });
     }, [preview]);
-
-    // Metadata logic
-    const difficultyLevel = item.difficulty ? `A${item.difficulty}` : "A1";
-    const partOfSpeech = item.pos || "n.";
-    const durability = item.durability || 100;
 
     return (
         <div
             ref={drag}
-            className={`flex-shrink-0 cursor-grab active:cursor-grabbing relative transition-opacity ${isDragging ? 'opacity-20' : 'opacity-100'}`}
-            style={{ width: ORIGINAL_WIDTH * SCALE, height: ORIGINAL_HEIGHT * SCALE }}
+            className={`flex-shrink-0 cursor-pointer relative group ${isDragging ? 'opacity-50' : ''}`}
+            style={{ width: ACTUAL_WIDTH, height: ACTUAL_HEIGHT }}
+            title="Drag to canvas"
         >
             <div
-                className="origin-top-left relative rounded-[11px] overflow-hidden"
+                className="origin-top-left relative overflow-hidden transition-transform duration-200 group-hover:scale-105"
                 style={{
-                    width: ORIGINAL_WIDTH,
-                    height: ORIGINAL_HEIGHT,
-                    transform: `scale(${SCALE})`,
+                    width: '100%',
+                    height: '100%',
                     boxShadow: CardPersona.tokens.shadows.base,
+                    borderRadius: CardPersona.tokens.layout.radius,
                 }}
             >
-                <CardVisual
-                    learningData={{
-                        word: item.title || '',
+                <CompactCardVisual
+                    learningData={learningData || {
+                        word: item.cardData.uid,
                         pronunciation: '',
-                        pos: (item.pos || 'n.') as any,
-                        level: (item.difficulty ? `A${item.difficulty}` : 'A1') as any,
+                        pos: 'n.' as any,
+                        level: 'A1' as any,
                         definition: '',
                         flavorContents: []
                     }}
-                    systemData={{
-                        word: item.title || '',
-                        pronunciation: '',
-                        pos: (item.pos || 'n.') as any,
-                        level: (item.difficulty ? `A${item.difficulty}` : 'A1') as any,
-                        definition: '',
-                        flavorContents: []
-                    }}
-                    senseInfo={{
-                        ontology: 'OBJECT',
-                        frequency: 50,
-                        fingerprint: { items: [] },
-                        personas: [],
-                        durability: item.durability || 100
-                    }}
-                    visual={{
-                        status: 'idle',
-                        payload: ''
-                    }}
-                    systemLanguage={systemLanguage as any}
-                    learningLanguage={learningLanguage as any}
+                    senseInfo={item.cardData.senseInfo}
+                    visual={item.cardData.visual}
+                    persona={CardPersona}
+                    width={ACTUAL_WIDTH}
+                    height={ACTUAL_HEIGHT}
                     isActive={false}
-
-                    // Static Visual State
-                    flipScaleX={1}
-                    frontOpacity={1}
-                    backOpacity={0}
-
-                    bgParallaxX={0}
-                    bgParallaxY={0}
-                    fgParallaxX={0}
-                    fgParallaxY={0}
-
-                    layoutMode="compact"
                 />
 
                 {/* Hover Overlay */}
-                <div className="absolute inset-0 bg-white/0 hover:bg-white/5 transition-colors duration-200 pointer-events-auto" />
+                <div className="absolute inset-0 bg-white/0 hover:bg-white/5 transition-colors duration-200 pointer-events-auto rounded-[inherit]" />
             </div>
         </div>
     );

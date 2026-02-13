@@ -2,6 +2,7 @@ import React from 'react';
 import { useDragLayer } from 'react-dnd';
 import { DragPreviewCard } from "@/app/components/ui/DragPreviewCard";
 import { PropVisual } from "@/app/components/ui/PropVisual";
+import { DefaultCardPersona as CardPersona } from '@/app/components/persona/default/Card.persona.default';
 
 interface DragLayerProps {
     scaleState: number;
@@ -69,6 +70,7 @@ export const DragLayer: React.FC<DragLayerProps> = ({ scaleState, systemLang, le
                         partOfSpeech={item.pos || "n."}
                         durability={item.durability || 100}
                         layoutMode={scaleState < 0.6 ? 'compact' : 'default'}
+                        persona={CardPersona}
                     />
                 )}
             </div>

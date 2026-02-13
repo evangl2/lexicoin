@@ -1,18 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { Layers, LayoutTemplate, Target, Library, Settings, LucideIcon } from 'lucide-react';
-import { DeckRepository, StoredCard } from './DeckRepository';
+import { DeckRepository } from './DeckRepository';
 import { ConfigMenu } from './ConfigMenu';
 import { useInterfacePersona } from '@/app/context/PersonaContext';
 import { Slot } from '@/app/components/persona/slots';
+import type { CardItem } from '@/app/hooks/logic/useCardManager';
 
 interface DockProps {
    isDeckOpen?: boolean;
    toggleDeck?: () => void;
    isConfigOpen?: boolean;
    toggleConfig?: () => void;
-   deckItems?: StoredCard[];
-   propItems?: StoredCard[];
+   repositoryItems?: CardItem[];
+   onRetrieve?: (uid: string) => void;
+   onStore?: (uid: string) => void;
    learningLang?: string;
    setLearningLang?: (val: string) => void;
    systemLang?: string;
@@ -37,8 +39,9 @@ export const Dock: React.FC<DockProps> = ({
    toggleDeck,
    isConfigOpen = false,
    toggleConfig,
-   deckItems = [],
-   propItems = [],
+   repositoryItems = [],
+   onRetrieve,
+   onStore,
    learningLang = 'ENGLISH',
    setLearningLang = () => { },
    systemLang = 'ENGLISH',
@@ -121,8 +124,9 @@ export const Dock: React.FC<DockProps> = ({
             <DeckRepository
                isOpen={isDeckOpen}
                onClose={() => toggleDeck?.()}
-               items={deckItems}
-               propItems={propItems}
+               items={repositoryItems}
+               onRetrieve={onRetrieve}
+               onStore={onStore}
                systemLanguage={systemLang}
                learningLanguage={learningLang}
             />

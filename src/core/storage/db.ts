@@ -21,11 +21,14 @@ export interface GameDataRecord {
     lastSyncAt?: number;
 }
 
-/** Per-card canvas position */
+/** Per-card canvas position & location */
+export type CardLocation = 'canvas' | 'repository';
+
 export interface CanvasPositionRecord {
     uid: string;
     x: number;
     y: number;
+    location: CardLocation;
 }
 
 /** SenseEntity persisted in IndexedDB — single source of truth for card data */
@@ -64,6 +67,13 @@ db.version(2).stores({
 db.version(3).stores({
     gameData: 'key',
     canvasPositions: 'uid',
+    senses: 'uid',
+    visuals: '[uid+variantId], uid',
+});
+
+db.version(4).stores({
+    gameData: 'key',
+    canvasPositions: 'uid, location',
     senses: 'uid',
     visuals: '[uid+variantId], uid',
 });
