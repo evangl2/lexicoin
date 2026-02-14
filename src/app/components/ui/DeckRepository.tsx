@@ -2,26 +2,40 @@ import React, { useState, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useDrag, useDrop } from 'react-dnd';
 import { getEmptyImage } from 'react-dnd-html5-backend';
-import { X, Box, ArrowDownAZ, ArrowUpAZ, SlidersHorizontal } from 'lucide-react';
+import { X, Box, ArrowDownAZ, ArrowUpAZ, SlidersHorizontal, Library, Hexagon, LayoutGrid, Image as ImageIcon, AlignJustify } from 'lucide-react';
 import { DefaultCardPersona as CardPersona } from '@/app/components/persona/default/Card.persona.default';
 import { DefaultInterfacePersona as InterfacePersona } from '@/app/components/persona/default/Interface.persona.default';
-import { CompactCardVisual } from '@/app/components/ui/CompactCardVisual';
+import { CompactCardVisual, CompactMode } from '@/app/components/ui/CompactCardVisual';
+import { PropVisual } from '@/app/components/ui/PropVisual';
 import type { CardItem } from '@/app/hooks/logic/useCardManager';
 import type { Language } from 'a:/lexicoin/lexicoin/schemas/schemas/SenseEntity.schema';
 import { mapLanguageCode } from '@/app/utils/localization';
+import { useCardVariants } from '@/app/utils/mergeSplit/useCardVariants';
+import type { CardEntity } from '@/types/CardEntity';
+
+export interface PropItem {
+    id: string;
+    title: string;
+    description?: string;
+    image?: string;
+    // Add other prop-specific fields as needed
+}
 
 interface DeckRepositoryProps {
     isOpen: boolean;
     onClose: () => void;
     items: CardItem[];
+    propItems?: PropItem[]; // New optional prop items
     onRetrieve?: (uid: string) => void;
     onStore?: (uid: string) => void;
     systemLanguage?: string;
     learningLanguage?: string;
+    mergedVariants?: Record<string, CardEntity[]>;
 }
 
 type SortDir = 'asc' | 'desc';
 type SortKey = 'word' | 'pos' | 'level' | 'durability';
+type RepoTab = 'words' | 'props';
 
 // Localization Helper
 const getLoc = (key: string, lang: string = 'ENGLISH') => {
@@ -33,6 +47,8 @@ const getLoc = (key: string, lang: string = 'ENGLISH') => {
         'By Level': { en: 'By Level', zh: '按等级' },
         'By Durability': { en: 'By Durability', zh: '按耐久' },
         'Empty Vessel': { en: 'Empty Vessel', zh: '空容器' },
+        'WORDS': { en: 'WORDS', zh: '词语' },
+        'PROPS': { en: 'PROPS', zh: '道具' },
     };
     return isZh ? (dict[key]?.zh || key) : (dict[key]?.en || key);
 };
@@ -41,14 +57,18 @@ export const DeckRepository: React.FC<DeckRepositoryProps> = ({
     isOpen,
     onClose,
     items,
+    propItems = [],
     onRetrieve,
     onStore,
     systemLanguage = 'ENGLISH',
-    learningLanguage = 'ENGLISH'
+    learningLanguage = 'ENGLISH',
+    mergedVariants = {}
 }) => {
     const scrollContainerRef = useRef<HTMLDivElement>(null);
+    const [activeTab, setActiveTab] = useState<RepoTab>('words');
     const [sortKey, setSortKey] = useState<SortKey>('word');
     const [sortDir, setSortDir] = useState<SortDir>('asc');
+    const [cardMode, setCardMode] = useState<CompactMode>('repository');
 
     // Resolve language code for display data lookup
     const langCode = mapLanguageCode(learningLanguage) as Language;
@@ -123,160 +143,219 @@ export const DeckRepository: React.FC<DeckRepositoryProps> = ({
                     transition={{ type: "spring", stiffness: 300, damping: 30 }}
                     className="absolute bottom-0 left-1/2 -translate-x-1/2 z-40"
                     style={{
-                        width: InterfacePersona.tokens.layout.menuWidth,
+                        width: InterfacePersona.tokens.layout.menuWidth, // Use Interface Persona width
                         height: InterfacePersona.tokens.layout.menuHeight,
                         fontFamily: InterfacePersona.tokens.typography.label.family
                     }}
                 >
                     {/* Glass Panel */}
-                    <div className="w-full h-full backdrop-blur-xl border rounded-2xl overflow-hidden flex flex-col relative"
+                    <div className="w-full h-full backdrop-blur-xl border rounded-2xl overflow-hidden flex flex-row relative"
                         style={{
                             backgroundColor: InterfacePersona.tokens.colors.bgGlass,
                             borderColor: InterfacePersona.tokens.colors.borderBase,
                             boxShadow: InterfacePersona.tokens.shadows.panel
                         }}>
 
-                        {/* Header */}
-                        <div className="relative shrink-0 flex items-center justify-between px-6 z-20 overflow-hidden border-b shadow-2xl"
+                        {/* --- NEW SIDEBAR NAVIGATION --- */}
+                        <div className="w-16 h-full flex flex-col items-center py-4 gap-4 border-r relative z-20"
                             style={{
-                                height: InterfacePersona.tokens.layout.tabHeight,
                                 backgroundColor: InterfacePersona.tokens.colors.bgDeep,
                                 borderColor: InterfacePersona.tokens.colors.borderBase
                             }}>
 
-                            <InterfacePersona.visuals.BackgroundVisuals />
-                            <InterfacePersona.visuals.AlchemyGeometricOverlay />
-                            <InterfacePersona.visuals.SymmetryLines />
+                            {/* Decorative Top Line */}
+                            <div className="w-[1px] h-8 bg-gradient-to-b from-transparent to-[#D4AF37]/50 mb-2" />
 
-                            {/* Horizontal Guides */}
-                            <div className="absolute top-0 left-0 right-0 h-[1px]" style={{ backgroundColor: InterfacePersona.tokens.colors.borderFaint }} />
-                            <div className="absolute bottom-0 left-0 right-0 h-[1px]" style={{ backgroundColor: InterfacePersona.tokens.colors.borderFaint }} />
+                            {/* Words Tab */}
+                            <RepoTabButton
+                                isActive={activeTab === 'words'}
+                                onClick={() => setActiveTab('words')}
+                                icon={Library}
+                                label={getLoc('WORDS', systemLanguage)}
+                                count={items.length}
+                            />
 
-                            {/* --- CONTENT LAYER --- */}
-                            <div className="relative z-10 flex items-center justify-between w-full h-full">
+                            {/* Props Tab */}
+                            <RepoTabButton
+                                isActive={activeTab === 'props'}
+                                onClick={() => setActiveTab('props')}
+                                icon={Hexagon}
+                                label={getLoc('PROPS', systemLanguage)}
+                                count={propItems.length}
+                            />
 
-                                {/* LEFT: Title */}
-                                <div className="flex items-center gap-2">
+                            <div className="flex-1" />
+                        </div>
+
+                        {/* --- MAIN CONTENT AREA --- */}
+                        <div className="flex-1 flex flex-col relative w-full overflow-hidden">
+                            {/* Header */}
+                            <div className="relative shrink-0 flex items-center justify-between px-6 z-20 overflow-hidden border-b shadow-2xl"
+                                style={{
+                                    height: InterfacePersona.tokens.layout.tabHeight,
+                                    backgroundColor: InterfacePersona.tokens.colors.bgDeep,
+                                    borderColor: InterfacePersona.tokens.colors.borderBase
+                                }}>
+
+                                <InterfacePersona.visuals.BackgroundVisuals />
+                                <InterfacePersona.visuals.AlchemyGeometricOverlay />
+                                <InterfacePersona.visuals.SymmetryLines />
+
+                                {/* Horizontal Guides */}
+                                <div className="absolute top-0 left-0 right-0 h-[1px]" style={{ backgroundColor: InterfacePersona.tokens.colors.borderFaint }} />
+                                <div className="absolute bottom-0 left-0 right-0 h-[1px]" style={{ backgroundColor: InterfacePersona.tokens.colors.borderFaint }} />
+
+                                {/* Content Title */}
+                                <div className="relative z-10 flex items-center gap-2">
                                     <Box size={14} style={{ color: InterfacePersona.tokens.colors.highlight }} />
                                     <span className="text-[10px] tracking-[0.2em] font-bold uppercase"
                                         style={{
                                             fontFamily: InterfacePersona.tokens.typography.label.family,
                                             color: InterfacePersona.tokens.colors.highlight
                                         }}>
-                                        {getLoc('REPOSITORY', systemLanguage)}
+                                        {activeTab === 'words' ? getLoc('REPOSITORY', systemLanguage) : getLoc('PROPS', systemLanguage)}
                                     </span>
-                                    {items.length > 0 && (
-                                        <span className="text-[9px] tracking-wider opacity-60"
-                                            style={{ color: InterfacePersona.tokens.colors.textLabel }}>
-                                            ({items.length})
-                                        </span>
-                                    )}
                                 </div>
 
-                                {/* RIGHT: Controls */}
-                                <div className="flex items-center gap-4">
-
-                                    {/* Sort Controls */}
-                                    <div className="flex items-center gap-0 backdrop-blur-sm rounded-sm border overflow-hidden group/sort transition-colors"
-                                        style={{
-                                            backgroundColor: 'rgba(0,0,0,0.4)',
-                                            borderColor: InterfacePersona.tokens.colors.borderFaint,
-                                            boxShadow: '0 0 10px rgba(0,0,0,0.5)'
-                                        }}>
-                                        <div className="relative flex items-center gap-2 px-3 py-1.5 transition-colors border-r"
-                                            style={{ borderColor: InterfacePersona.tokens.colors.borderFaint }}>
-                                            <SlidersHorizontal size={12} className="group-hover/sort:text-[#D4AF37] transition-colors" style={{ color: InterfacePersona.tokens.colors.textLabel }} />
-                                            <select
-                                                className="bg-transparent text-[10px] font-bold uppercase tracking-wider outline-none cursor-pointer border-none p-0 w-24 appearance-none relative z-10 transition-colors"
-                                                value={sortKey}
-                                                onChange={(e) => setSortKey(e.target.value as SortKey)}
-                                                style={{
-                                                    fontFamily: InterfacePersona.tokens.typography.label.family,
-                                                    color: InterfacePersona.tokens.colors.textLabel
-                                                }}
-                                            >
-                                                <option className="bg-[#1a1a1a]" value="word">{getLoc('By Name', systemLanguage)}</option>
-                                                <option className="bg-[#1a1a1a]" value="pos">{getLoc('By Type', systemLanguage)}</option>
-                                                <option className="bg-[#1a1a1a]" value="level">{getLoc('By Level', systemLanguage)}</option>
-                                                <option className="bg-[#1a1a1a]" value="durability">{getLoc('By Durability', systemLanguage)}</option>
-                                            </select>
+                                {/* Controls (Only show for Words for now) */}
+                                {activeTab === 'words' && (
+                                    <div className="relative z-10 flex items-center gap-4">
+                                        {/* View Mode Toggles */}
+                                        <div className="flex items-center gap-1 bg-black/40 rounded-lg p-1 border border-white/10">
+                                            <RepoModeButton
+                                                isActive={cardMode === 'repository'}
+                                                onClick={() => setCardMode('repository')}
+                                                icon={LayoutGrid}
+                                                title="Cards"
+                                            />
+                                            <RepoModeButton
+                                                isActive={cardMode === 'icon'}
+                                                onClick={() => setCardMode('icon')}
+                                                icon={ImageIcon}
+                                                title="Icons"
+                                            />
+                                            <RepoModeButton
+                                                isActive={cardMode === 'word'}
+                                                onClick={() => setCardMode('word')}
+                                                icon={AlignJustify}
+                                                title="List"
+                                            />
                                         </div>
 
-                                        <button
-                                            onClick={toggleSortDir}
-                                            className="w-8 h-full flex items-center justify-center transition-all"
-                                            title="Toggle Order"
-                                            style={{ color: InterfacePersona.tokens.colors.textLabel }}
-                                        >
-                                            {sortDir === 'asc' ? <ArrowDownAZ size={14} /> : <ArrowUpAZ size={14} />}
-                                        </button>
-                                    </div>
+                                        <div className="w-[1px] h-4 bg-white/10" />
 
-                                    {/* Close Button */}
-                                    <button
-                                        onClick={onClose}
-                                        className="group flex items-center justify-center w-8 h-8 rounded-full border bg-[#0a0a0a] hover:border-[#D4AF37] hover:shadow-[0_0_10px_#D4AF37] active:scale-95 transition-all"
-                                        style={{ borderColor: InterfacePersona.tokens.colors.borderBase }}
-                                    >
-                                        <X size={14} className="group-hover:text-[#D4AF37] transition-colors" style={{ color: InterfacePersona.tokens.colors.textLabel }} />
-                                    </button>
-                                </div>
+                                        <div className="flex items-center gap-0 backdrop-blur-sm rounded-sm border overflow-hidden group/sort transition-colors"
+                                            style={{
+                                                backgroundColor: 'rgba(0,0,0,0.4)',
+                                                borderColor: InterfacePersona.tokens.colors.borderFaint,
+                                                boxShadow: '0 0 10px rgba(0,0,0,0.5)'
+                                            }}>
+                                            <div className="relative flex items-center gap-2 px-3 py-1.5 transition-colors border-r"
+                                                style={{ borderColor: InterfacePersona.tokens.colors.borderFaint }}>
+                                                <SlidersHorizontal size={12} className="group-hover/sort:text-[#D4AF37] transition-colors" style={{ color: InterfacePersona.tokens.colors.textLabel }} />
+                                                <select
+                                                    className="bg-transparent text-[10px] font-bold uppercase tracking-wider outline-none cursor-pointer border-none p-0 w-24 appearance-none relative z-10 transition-colors"
+                                                    value={sortKey}
+                                                    onChange={(e) => setSortKey(e.target.value as SortKey)}
+                                                    style={{
+                                                        fontFamily: InterfacePersona.tokens.typography.label.family,
+                                                        color: InterfacePersona.tokens.colors.textLabel
+                                                    }}
+                                                >
+                                                    <option className="bg-[#1a1a1a]" value="word">{getLoc('By Name', systemLanguage)}</option>
+                                                    <option className="bg-[#1a1a1a]" value="pos">{getLoc('By Type', systemLanguage)}</option>
+                                                    <option className="bg-[#1a1a1a]" value="level">{getLoc('By Level', systemLanguage)}</option>
+                                                    <option className="bg-[#1a1a1a]" value="durability">{getLoc('By Durability', systemLanguage)}</option>
+                                                </select>
+                                            </div>
+
+                                            <button
+                                                onClick={toggleSortDir}
+                                                className="w-8 h-full flex items-center justify-center transition-all"
+                                                title="Toggle Order"
+                                                style={{ color: InterfacePersona.tokens.colors.textLabel }}
+                                            >
+                                                {sortDir === 'asc' ? <ArrowDownAZ size={14} /> : <ArrowUpAZ size={14} />}
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
-                        </div>
 
-                        {/* Scroll Area - One Row Horizontal Scroll */}
-                        <div
-                            ref={scrollContainerRef}
-                            onWheel={handleWheel}
-                            className="flex-1 p-6 overflow-x-auto overflow-y-hidden custom-scrollbar relative z-10 
-                               [&::-webkit-scrollbar]:h-2
-                               [&::-webkit-scrollbar-track]:bg-[#0a0a0a] 
-                               [&::-webkit-scrollbar-track]:border-t 
-                               [&::-webkit-scrollbar-track]:border-[#D4AF37]/10
-                               [&::-webkit-scrollbar-thumb]:bg-gradient-to-r 
-                               [&::-webkit-scrollbar-thumb]:from-[#D4AF37]/40 
-                               [&::-webkit-scrollbar-thumb]:via-[#F0D082]/60 
-                               [&::-webkit-scrollbar-thumb]:to-[#D4AF37]/40 
-                               [&::-webkit-scrollbar-thumb]:rounded-full 
-                               [&::-webkit-scrollbar-thumb]:border 
-                               [&::-webkit-scrollbar-thumb]:border-[#000]/50
-                               hover:[&::-webkit-scrollbar-thumb]:bg-[#D4AF37]"
-                        >
-                            {/* Background Textures Layer */}
-                            <div className="fixed inset-0 pointer-events-none z-[-1] opacity-10 mix-blend-screen"
-                                style={{
-                                    backgroundImage: CardPersona.definitions.assets.backPattern,
-                                    backgroundSize: "200px 100px",
-                                    backgroundRepeat: "repeat"
-                                }}
-                            />
-                            <div className="fixed inset-0 pointer-events-none z-[-1] opacity-20"
-                                style={{
-                                    background: InterfacePersona.definitions.gradients.goldRadialSubtle
-                                }}
-                            />
+                            {/* Scroll Area */}
+                            <div
+                                ref={scrollContainerRef}
+                                onWheel={handleWheel}
+                                className="flex-1 p-6 overflow-x-auto overflow-y-hidden custom-scrollbar relative z-10 
+                                   [&::-webkit-scrollbar]:h-2
+                                   [&::-webkit-scrollbar-track]:bg-[#0a0a0a] 
+                                   [&::-webkit-scrollbar-track]:border-t 
+                                   [&::-webkit-scrollbar-track]:border-[#D4AF37]/10
+                                   [&::-webkit-scrollbar-thumb]:bg-gradient-to-r 
+                                   [&::-webkit-scrollbar-thumb]:from-[#D4AF37]/40 
+                                   [&::-webkit-scrollbar-thumb]:via-[#F0D082]/60 
+                                   [&::-webkit-scrollbar-thumb]:to-[#D4AF37]/40 
+                                   [&::-webkit-scrollbar-thumb]:rounded-full 
+                                   [&::-webkit-scrollbar-thumb]:border 
+                                   [&::-webkit-scrollbar-thumb]:border-[#000]/50
+                                   hover:[&::-webkit-scrollbar-thumb]:bg-[#D4AF37]"
+                            >
+                                {/* Background Textures Layer */}
+                                <div className="fixed inset-0 pointer-events-none z-[-1] opacity-10 mix-blend-screen"
+                                    style={{
+                                        backgroundImage: CardPersona.definitions.assets.backPattern,
+                                        backgroundSize: "200px 100px",
+                                        backgroundRepeat: "repeat"
+                                    }}
+                                />
+                                <div className="fixed inset-0 pointer-events-none z-[-1] opacity-20"
+                                    style={{
+                                        background: InterfacePersona.definitions.gradients.goldRadialSubtle
+                                    }}
+                                />
 
-                            {sortedItems.length === 0 ? (
-                                <div className="w-full h-full flex flex-col items-center justify-center gap-2"
-                                    style={{ color: InterfacePersona.tokens.colors.borderBase }}>
-                                    <div className="w-12 h-12 rounded-full border flex items-center justify-center"
-                                        style={{ borderColor: InterfacePersona.tokens.colors.borderFaint }}>
-                                        <Box className="opacity-20" />
-                                    </div>
-                                    <span className="text-xs tracking-[0.2em] uppercase font-serif">{getLoc('Empty Vessel', systemLanguage)}</span>
-                                </div>
-                            ) : (
-                                <div className="flex items-center gap-6 w-max h-full px-4">
-                                    {sortedItems.map(item => (
-                                        <RepoCard
-                                            key={item.cardData.uid}
-                                            item={item}
-                                            langCode={langCode}
-                                            onRetrieve={onRetrieve}
-                                        />
-                                    ))}
-                                </div>
-                            )}
+                                {/* View Switcher */}
+                                {activeTab === 'words' ? (
+                                    sortedItems.length === 0 ? (
+                                        <EmptyState systemLanguage={systemLanguage} />
+                                    ) : (
+                                        <div
+                                            className={`w-max h-full px-4 ${cardMode === 'word'
+                                                ? 'grid grid-rows-[auto_auto_auto] grid-flow-col gap-x-4 gap-y-4 content-center'
+                                                : cardMode === 'icon'
+                                                    ? 'grid grid-rows-[auto_auto] grid-flow-col gap-x-4 gap-y-6 content-center'
+                                                    : 'flex items-center gap-6'
+                                                }`}
+                                        >
+                                            {sortedItems.map(item => (
+                                                <RepoCard
+                                                    key={item.cardData.uid}
+                                                    item={item}
+                                                    langCode={langCode}
+                                                    mode={cardMode}
+                                                    onRetrieve={onRetrieve}
+                                                    variants={mergedVariants[item.cardData.uid] || []}
+                                                />
+                                            ))}
+                                        </div>
+                                    )
+                                ) : (
+                                    // Props View
+                                    propItems.length === 0 ? (
+                                        <EmptyState systemLanguage={systemLanguage} label="No Props" />
+                                    ) : (
+                                        <div className="flex items-center gap-6 w-max h-full px-4">
+                                            {propItems.map(item => (
+                                                <RepoProp
+                                                    key={item.id}
+                                                    id={item.id}
+                                                    title={item.title}
+                                                />
+                                            ))}
+                                        </div>
+                                    )
+                                )}
+                            </div>
                         </div>
 
                         <InterfacePersona.visuals.DecorativeCorners />
@@ -290,42 +369,82 @@ export const DeckRepository: React.FC<DeckRepositoryProps> = ({
     );
 };
 
-// --- CARD COMPONENT ---
-interface RepoCardProps {
-    item: CardItem;
-    langCode: Language;
-    onRetrieve?: (uid: string) => void;
+// --- SUB-COMPONENTS ---
+
+const RepoModeButton: React.FC<{ isActive: boolean; onClick: () => void; icon: React.ElementType; title: string }> = ({ isActive, onClick, icon: Icon, title }) => (
+    <button
+        onClick={onClick}
+        className={`p-1.5 rounded-md transition-all ${isActive ? 'bg-[#D4AF37]/20 text-[#D4AF37]' : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/5'}`}
+        title={title}
+    >
+        <Icon size={14} />
+    </button>
+);
+
+const EmptyState: React.FC<{ systemLanguage?: string, label?: string }> = ({ systemLanguage, label }) => (
+    <div className="w-full h-full flex flex-col items-center justify-center gap-2"
+        style={{ color: InterfacePersona.tokens.colors.borderBase }}>
+        <div className="w-12 h-12 rounded-full border flex items-center justify-center"
+            style={{ borderColor: InterfacePersona.tokens.colors.borderFaint }}>
+            <Box className="opacity-20" />
+        </div>
+        <span className="text-xs tracking-[0.2em] uppercase font-serif">{label || getLoc('Empty Vessel', systemLanguage)}</span>
+    </div>
+);
+
+interface RepoTabButtonProps {
+    isActive: boolean;
+    onClick: () => void;
+    icon: React.ElementType;
+    label: string;
+    count: number;
 }
 
-const RepoCard: React.FC<RepoCardProps> = ({ item, langCode, onRetrieve }) => {
-    const SCALE = 0.5;
-    const ORIGINAL_WIDTH = 250;
-    const ORIGINAL_HEIGHT = 350;
+const RepoTabButton: React.FC<RepoTabButtonProps> = ({ isActive, onClick, icon: Icon, label, count }) => (
+    <button
+        onClick={onClick}
+        className={`group relative flex flex-col items-center justify-center w-10 h-10 rounded-lg transition-all duration-300
+            ${isActive ? 'bg-[#D4AF37]/10' : 'hover:bg-white/5'}
+        `}
+        title={label}
+    >
+        <div className={`absolute left-0 w-[2px] h-0 bg-[#D4AF37] transition-all duration-300 rounded-r-full
+            ${isActive ? 'h-full opacity-100' : 'h-0 opacity-0'}
+        `} />
 
-    const ACTUAL_WIDTH = ORIGINAL_WIDTH * SCALE;
-    const ACTUAL_HEIGHT = ORIGINAL_HEIGHT * SCALE;
+        <Icon
+            size={18}
+            className={`transition-colors duration-300 ${isActive ? 'text-[#D4AF37]' : 'text-zinc-500 group-hover:text-zinc-300'}`}
+        />
 
-    const learningData = item.cardData.displayData[langCode];
+        {/* Count Badge */}
+        {count > 0 && (
+            <div className="absolute -top-1 -right-1 min-w-[14px] h-[14px] bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-full flex items-center justify-center">
+                <span className="text-[8px] text-[#D4AF37] px-1 font-mono">{count}</span>
+            </div>
+        )}
+    </button>
+);
 
+interface RepoPropProps {
+    id: string;
+    title: string;
+}
 
-
+const RepoProp: React.FC<RepoPropProps> = ({ id, title }) => {
+    const [isHovered, setIsHovered] = useState(false);
     const [{ isDragging }, drag, preview] = useDrag(() => ({
-        type: 'CARD',
+        type: 'ITEM',
         item: {
-            uid: item.cardData.rawSense.uid,
-            width: ACTUAL_WIDTH,
-            height: ACTUAL_HEIGHT,
-            sourceWidth: ACTUAL_WIDTH,
-            sourceHeight: ACTUAL_HEIGHT,
-            title: learningData?.word || item.cardData.uid,
-            difficulty: learningData?.level || 'A1',
-            pos: learningData?.pos || 'n.',
-            durability: item.cardData.senseInfo.durability
+            title: title,
+            type: 'ITEM',
+            sourceWidth: 100,
+            sourceHeight: 100
         },
         collect: (monitor) => ({
             isDragging: monitor.isDragging(),
         }),
-    }), [item.cardData.rawSense.uid, ACTUAL_WIDTH, ACTUAL_HEIGHT, learningData]);
+    }), [id, title]);
 
     React.useEffect(() => {
         preview(getEmptyImage(), { captureDraggingState: true });
@@ -335,7 +454,79 @@ const RepoCard: React.FC<RepoCardProps> = ({ item, langCode, onRetrieve }) => {
         <div
             ref={drag}
             className={`flex-shrink-0 cursor-pointer relative group ${isDragging ? 'opacity-50' : ''}`}
-            style={{ width: ACTUAL_WIDTH, height: ACTUAL_HEIGHT }}
+            title={title}
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
+        >
+            <PropVisual
+                title={title}
+                size={100}
+                className="group-hover:scale-105 transition-transform"
+                isHovered={isHovered}
+            />
+            {/* Hover Glow */}
+            <div className="absolute inset-0 bg-[#D4AF37]/5 opacity-0 group-hover:opacity-100 rounded-full transition-opacity duration-300 blur-xl -z-10" />
+        </div>
+    );
+}
+
+// --- CARD COMPONENT ---
+interface RepoCardProps {
+    item: CardItem;
+    langCode: Language;
+    mode: CompactMode;
+    onRetrieve?: (uid: string) => void;
+    variants?: CardEntity[];
+}
+
+const RepoCard: React.FC<RepoCardProps> = ({ item, langCode, mode, onRetrieve, variants = [] }) => {
+    // Determine sizing based on mode
+    let width = 125;
+    let height = 175;
+
+    if (mode === 'icon') {
+        width = 80;
+        height = 80;
+    } else if (mode === 'word') {
+        width = 140;
+        height = 40;
+    }
+
+    // Use Persistent Active Variant Logic
+    const { currentCardData } = useCardVariants({
+        cardData: item.cardData,
+        variants
+    });
+
+    const learningData = currentCardData.displayData[langCode];
+
+    const [{ isDragging }, drag, preview] = useDrag(() => ({
+        type: 'CARD',
+        item: {
+            uid: item.cardData.rawSense.uid, // Keeps Anchor UID for retrieval? Yes, retrieveCard handles it.
+            width: width, // Use dynamic width
+            height: height, // Use dynamic height
+            sourceWidth: width,
+            sourceHeight: height,
+            title: learningData?.word || currentCardData.uid,
+            difficulty: learningData?.level || 'A1',
+            pos: learningData?.pos || 'n.',
+            durability: currentCardData.senseInfo.durability
+        },
+        collect: (monitor) => ({
+            isDragging: monitor.isDragging(),
+        }),
+    }), [item.cardData.uid, width, height, learningData, currentCardData]);
+
+    React.useEffect(() => {
+        preview(getEmptyImage(), { captureDraggingState: true });
+    }, [preview]);
+
+    return (
+        <div
+            ref={drag}
+            className={`flex-shrink-0 cursor-pointer relative group ${isDragging ? 'opacity-50' : ''}`}
+            style={{ width, height }}
             title="Drag to canvas"
         >
             <div
@@ -343,24 +534,16 @@ const RepoCard: React.FC<RepoCardProps> = ({ item, langCode, onRetrieve }) => {
                 style={{
                     width: '100%',
                     height: '100%',
-                    boxShadow: CardPersona.tokens.shadows.base,
-                    borderRadius: CardPersona.tokens.layout.radius,
+                    boxShadow: mode === 'word' ? 'none' : CardPersona.tokens.shadows.base,
+                    borderRadius: mode === 'word' ? '4px' : CardPersona.tokens.layout.radius,
                 }}
             >
                 <CompactCardVisual
-                    learningData={learningData || {
-                        word: item.cardData.uid,
-                        pronunciation: '',
-                        pos: 'n.' as any,
-                        level: 'A1' as any,
-                        definition: '',
-                        flavorContents: []
-                    }}
-                    senseInfo={item.cardData.senseInfo}
-                    visual={item.cardData.visual}
+                    mode={mode}
+                    learningData={currentCardData.displayData[langCode]!}
+                    senseInfo={currentCardData.senseInfo}
+                    visual={currentCardData.visual}
                     persona={CardPersona}
-                    width={ACTUAL_WIDTH}
-                    height={ACTUAL_HEIGHT}
                     isActive={false}
                 />
 

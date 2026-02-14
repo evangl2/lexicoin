@@ -167,7 +167,8 @@ function InnerApp() {
 
   const handleCardFocus = useCallback(() => {
     setFocusedCardCount(prev => prev + 1);
-  }, []);
+    if (isDeckOpen) closeDeck();
+  }, [isDeckOpen, closeDeck]);
 
   const handleCardBlur = useCallback(() => {
     setFocusedCardCount(prev => Math.max(0, prev - 1));
@@ -184,6 +185,13 @@ function InnerApp() {
         style={{
           position: 'relative',
           zIndex: 0
+        }}
+        onPointerDown={(e) => {
+          // Use onPointerDown to capture interaction start (more responsive than click)
+          // and to ensure we catch it even if drag starts? 
+          // Standard click is safer for "interaction" vs "drag".
+          // But user said "Click Canvas".
+          if (isDeckOpen) closeDeck();
         }}
       >
         <Canvas scale={camera.scale} x={camera.x} y={camera.y}>
@@ -279,6 +287,7 @@ function InnerApp() {
         systemLang={systemLang}
         setSystemLang={setSystemLang}
         isZoomed={focusedCardCount > 0}
+        mergedVariants={grouping.mergedVariants}
       />
 
     </div>

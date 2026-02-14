@@ -78,10 +78,11 @@ export const DragPreviewCard: React.FC<DragPreviewCardProps> = ({
     >
       {layoutMode === 'compact' ? (
         <CompactCardVisual
-          {...commonProps}
+          mode="repository"
+          learningData={commonProps.learningData}
+          senseInfo={commonProps.senseInfo as any}
           visual={commonProps.visual as any}
-          width={width}
-          height={height}
+          persona={commonProps.persona}
         />
       ) : (
         <CardVisual

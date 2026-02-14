@@ -1,105 +1,101 @@
 # 仓库系统 (Repository System) 技术文档
 
-**当前版本**: 1.1 (Deep Integration)
-**最后更新**: 2026-02-13
+**当前版本**: 2.0 (Dual-Domain Architecture)
+**最后更新**: 2026-02-14
 
 ## 1. 架构概览 (Architecture Overview)
 
-仓库系统实现了 Lexicoin 的“双域架构”：**活跃域 (Canvas)** 与 **非活跃域 (Repository)**。该系统通过统一的数据流管理卡片的生命周期，并处理复杂的跨域交互。
+仓库系统实现了 Lexicoin 的“双域架构”：**活跃域 (Canvas)** 与 **非活跃域 (Repository)**。该系统通过统一的数据流管理卡片的生命周期，并处理复杂的跨域交互。版本 2.0 引入了侧边栏导航、多种视图模式以及与道具系统的集成。
 
 ### 核心设计原则
 *   **单一事实来源 (SSOT)**: 所有的卡片数据（无论在画布还是仓库）均由 `useCardManager` 统一管理。
 *   **零冲突物理**: 仅在 `location === 'canvas'` 的卡片参与物理碰撞模拟。
 *   **平滑过渡**: 跨域移动（存入/取出）伴随着状态感知型动画。
+*   **模态视图**: 提供多种紧凑视图以适应不同的检索需求。
 
 ---
 
-## 2. 数据结构与状态管理
+## 2. UI 结构与布局 (UI Structure)
 
-### 2.1 扩展的卡片模型 (`useCardManager.ts`)
-`CardItem` 接口增加了 `location` 字段，用于在内存中标识卡片所属域。
+### 2.1 主容器 (`DeckRepository.tsx`)
+仓库 UI 采用 **Flexbox + Grid** 的混合布局，分为左右两个区域：
+
+1.  **侧边栏 (Sidebar)**:
+    *   **导航**: 提供 "WORDS" (词语) 和 "PROPS" (道具) 两个 Tab 切换。
+    *   **视觉风格**: 采用深色背景 (`bgDeep`) 和金色高亮 (`#D4AF37`)，符合 Alchemy 风格。
+
+2.  **内容区域 (Content Area)**:
+    *   **头部 (Header)**: 包含当前 Tab 标题、视图切换按钮 (Cards/Icons/List) 以及排序控件。
+    *   **滚动区 (Scroll Area)**: 水平滚动的容器，支持鼠标滚轮垂直滚动转换为水平滚动。
+
+### 2.2 视图模式 (View Modes)
+为了适应不同数量级的卡片管理，系统提供了三种视图模式，通过 `cardMode` 状态管理：
+
+| 模式 | 标识 | 描述 | 布局特性 | 尺寸 |
+| :--- | :--- | :--- | :--- | :--- |
+| **Cards** | `repository` | 标准微缩卡片，展示完整信息（视觉、单词、等级、耐久）。 | 单行水平排列 | 125x175px |
+| **Icons** | `icon` | 仅展示视觉图像和耐久度，适合快速浏览视觉。 | **双行** Grid (`grid-rows-[auto_auto]`)，紧凑排列 | 80x80px |
+| **List** | `word` | 仅展示单词和简略信息，适合大量文本检索。 | **三行** Grid (`grid-rows-[auto_auto_auto]`)，紧凑排列 | 140x40px |
+
+### 2.3 自动交互 (Auto-Interaction)
+*   **自动关闭**: 仓库不再设有关闭按钮。当用户点击画布空白处 (`canvas-wrapper` onPointerDown) 或聚焦某个卡片 (`handleCardFocus`) 时，仓库会自动折叠。
+*   **拖拽支持**: `RepoCard` 和 `RepoProp` 均实现了 `Draggable`，支持直接从仓库拖拽至画布。
+
+---
+
+## 3. 数据结构与状态管理
+
+### 3.1 扩展的卡片模型 (`useCardManager.ts`)
+`CardItem` 接口增加了 `location` 字段，标识卡片所属域。
 
 ```typescript
 export interface CardItem {
     cardData: CardEntity;
-    mx: MotionValue<number>;  // 坐标系统 (Canvas Units)
-    my: MotionValue<number>;
-    scale: MotionValue<number>; // 全局 UI 缩放 (用于吸收动画)
+    mx: MotionValue<number>;  // Canvas 坐标 X
+    my: MotionValue<number>;  // Canvas 坐标 Y
+    scale: MotionValue<number>; // 全局 UI 缩放
     location: 'canvas' | 'repository'; 
 }
 ```
 
-### 2.2 派生数据流
-在 `useCardManager` 中，我们利用 `useMemo` 将原始 `items` 数组拆分为两个响应式列表：
-*   `canvasItems`: 传递给 `App.tsx` 进行 2D 物理与混合渲染。
-*   `repositoryItems`: 传递给 `Dock.tsx` -> `DeckRepository.tsx` 进行 UI 列表展示。
+### 3.2 数据流向
+*   **Words**: `items` (CardItem[]) 从 `useCardManager` -> `Dock` -> `DeckRepository`.
+*   **Props**: `propItems` (PropItem[]) 从 `Dock` -> `DeckRepository`.
+*   **Variants**: `mergedVariants` 从 `App` -> `Dock` -> `DeckRepository`，用于在仓库中正确显示变体卡片的状态。
 
 ---
 
-## 3. 跨域交互流程 (Cross-Domain Flow)
+## 4. 跨域交互流程 (Cross-Domain Flow)
 
-### 3.1 存入流程 (Canvas → Repository)
-这是一个多阶段处理过程：
+### 4.1 存入流程 (Canvas → Repository)
+1.  **物理检测**: 拖拽过程中，系统将卡片坐标转换为屏幕坐标，检测是否进入 Dock 触发区。
+2.  **状态变更**: 触发 `onStore(uid)`。
+    *   更新 `items` 状态，将 `location` 设为 `repository`。
+    *   更新 IndexedDB 中的位置记录。
+3.  **视觉反馈**: 卡片缩小并飞入 Dock，随后从画布渲染树中移除。
 
-1.  **物理检测 (`App.tsx#checkDeckCollision`)**:
-    在拖拽过程中，系统将卡片的 `mx/my` (Canvas 坐标) 转换为屏幕空间坐标，判断其中心是否进入 Dock 触发区。
-2.  **状态变更 (`storeCard`)**:
-    一旦触发，调用 `data.storeCard(uid)`。该操作执行两件事：
-    *   **内存同步**: 更新 `items` 状态。
-    *   **持久化**: 立即更新 IndexedDB 中的 `canvasPositions` 表。
-3.  **视觉反馈**:
-    由于 `useCardGrouping` 检测到活跃卡片减少，它会将该卡片放入 `exitingItems` 队列。此时 `App.tsx` 会渲染这些“幽灵卡片”执行缩放至 10% 的飞向 Dock 动画，随后从渲染树中销毁。
-
-### 3.2 提取流程 (Repository → Canvas)
-提取操作需要解决“动量重置”问题：
-
-```typescript
-// useCardManager.ts 中的提取核心逻辑
-const retrieveCard = (uid, x, y) => {
-    // 关键点：必须创建新的 MotionValue 实例
-    // 否则旧的运动惯性（如从旧位置飞来的速度）会导致严重的视觉变形/抖动
-    const newMx = motionValue(x);
-    const newMy = motionValue(y);
-
-    return { ...item, mx: newMx, my: newMy, location: 'canvas' };
-};
-```
-*   **拖拽支持**: 使用 `react-dnd` 实现了从仓库面板直接拖拽到画布，通过 `InnerApp` 的 `drop` 监听器计算放下点的 Canvas 坐标坐标。
+### 4.2 提取流程 (Repository → Canvas)
+1.  **拖拽启动**: 用户从仓库列表中拖拽 `RepoCard`。
+2.  **放置检测**: `React-DnD` 监听 Drop 事件。
+3.  **动量重置**: 调用 `retrieveCard(uid, x, y)`。
+    *   **关键**: 必须创建新的 `MotionValue` 实例，以重置旧的运动惯性，防止视觉跳变。
+    *   状态更新为 `location: 'canvas'`。
 
 ---
 
-## 4. 语义重组逻辑 (Grouping & Inheritance)
-
-仓库系统深度集成在 `useCardGrouping.ts` 的拆分/合并逻辑中。
-
-### 4.1 继承原则 (Inheritance Rules)
-当切换语言触发卡片自动重组时，位置属性遵循以下逻辑：
-*   **合并 (Merge)**: 非锚点卡片会被吸收。新组合的“锚点卡片”继承其原始的 `location`。
-*   **拆分 (Split)**: 当一个含义复杂的卡片在另一语言中被拆分时，所有产生的“子卡片”自动继承父级卡片的 `location`。
-    *   *示例*: 如果 English "Spring" 在仓库中，切换到中文后拆分出的“春天”和“弹簧”都会默认留在仓库中。
-
-### 4.2 语义感知型动画
-在 `useCardGrouping` 的 `diff` 阶段：
-*   **Canvas -> Repo Merge**: 执行完整的“吸收动画”（飞向 Dock + 缩放）。
-*   **Repo -> Repo Merge**: 视为内部整理，不触发画布上的位移效果，直接在 UI 列表内呈现变化。
-
----
-
-## 5. UI 展现与性能 (Presentation & Performance)
+## 5. 渲染与性能 (Rendering & Performance)
 
 ### 5.1 微型视觉组件 (`CompactCardVisual.tsx`)
-为了在仓库列表中高效展示，我们定制了轻量化的视觉组件，去除了复杂的视差和多层堆叠，仅保留核心语义标识。
+针对不同视图模式的渲染优化：
+*   **Props**:
+    *   `mode='repository'`: 渲染完整微缩图，包含背景、水印、层级标签。
+    *   `mode='icon'`: 移除背景和文字，仅渲染 SVG 视觉核心 (`DynamicVisual`)。
+    *   `mode='word'`: 移除大部分视觉元素，仅保留 `TieredText` 和耐久度条。
 
-### 5.2 排序算法
-`DeckRepository.tsx` 内部维持了排序逻辑。支持：
-*   `word`: 字符串归一化后的字母顺序。
-*   `pos`: 词性优先级的枚举排序。
-*   `level`: A1->C2 的阶梯排序。
-*   `durability`: 获取 `senseInfo` 中的实时耐久度。
-
-### 5.3 渲染性能
-*   **渲染隔离**: 通过在 `App.tsx` 中分离 `canvasItems` 和 `exitingItems` 的渲染，确保大量存入卡片时，由于内存中卡片总数减少，画布的物理计算压力线性下降。
-*   **GPU 加速**: `Card.tsx` 在接收到全局动画 `scale` 参数时，会自动开启 `will-change: transform`。
+### 5.2 布局性能
+*   **CSS Grid**: Icon 和 List 模式使用 CSS Grid (`grid-flow-col`) 实现高效的多行流式布局，避免了复杂的 JavaScript 计算。
+*   **Virtualization (潜在)**: 目前使用原生滚动，若卡片数量超过 500+，建议引入虚拟滚动 (Virtual Scroller)。
 
 ---
-*文档更新于 2026-02-13 | 深度关联 `useCardManager` & `useCardGrouping` 实现逻辑*
+
+*文档更新于 2026-02-14 | 适配 Repository 2.0 特性*

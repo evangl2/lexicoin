@@ -1,221 +1,209 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { motion } from 'motion/react';
 import type { LanguageDisplayData, SenseInfo, VisualData } from '@/types/CardEntity';
-import type { Language } from 'a:/lexicoin/lexicoin/schemas/schemas/SenseEntity.schema';
 import { DynamicVisual } from '@/app/components/ui/DynamicVisual';
+import { TieredText } from '@/app/utils/TieredText';
 
-// Breakpoints for "Smart Scaling"
-// > 180px: Normal (Detail)
-// 100px - 180px: Small (Compact)
-// < 100px: Tiny (Iconic)
+/**
+ * CompactMode variants:
+ * - 'repository': Miniature version of the standard card.
+ * - 'icon': Square visual thumbnail with durability.
+ * - 'word': Long bar showing word and durability.
+ */
+export type CompactMode = 'repository' | 'icon' | 'word';
 
 export interface CompactCardVisualProps {
-    /**
-     * Learning language display data
-     */
+    mode: CompactMode;
     learningData: LanguageDisplayData;
-
-    /**
-     * Semantic metadata
-     */
     senseInfo: SenseInfo;
-
-    /**
-     * Visual asset data
-     */
     visual: VisualData;
-
-    /**
-     * The Persona object (Skin)
-     * CRITICAL: We strictly reuse components from this object.
-     */
     persona: any;
-
-    /**
-     * Forced width for scaling calculations.
-     * If not provided, assumes "Small" context by default or requires external sizing.
-     * Used to determine layout mode (Normal/Small/Tiny).
-     */
-    width?: number;
-    height?: number;
-
-    /**
-     * Optional interactivity
-     */
     isActive?: boolean;
 }
 
-export const CompactCardVisual = React.memo<CompactCardVisualProps>(({
+export const CompactCardVisual: React.FC<CompactCardVisualProps> = React.memo(({
+    mode,
     learningData,
     senseInfo,
     visual,
     persona: Persona,
-    width = 150, // Default to "Small" if not specified
     isActive = false,
 }) => {
     const { word, level } = learningData;
     const { durability, ontology } = senseInfo;
 
-    // --- 1. DETERMINE LAYOUT MODE ---
-    const layoutMode = useMemo(() => {
-        if (width < 100) return 'TINY';
-        if (width < 180) return 'SMALL';
-        return 'NORMAL';
-    }, [width]);
-
-    // --- 2. SCALE FACTORS ---
-    // We use these to scale specific elements without changing their layout flow too much
-    const contentScale = layoutMode === 'TINY' ? 0.8 : 1;
-
-    // --- 3. DYNAMIC COMPONENT RESOLUTION ---
-    // Fallback to default visuals if persona doesn't have them (though it should)
-    const Background = Persona.visuals.Background || (() => <div className="bg-gray-800" />);
+    // --- COMPONENT REUSE (Strictly from Persona) ---
+    const Background = Persona.visuals.Background;
     const TextureOverlay = Persona.visuals.TextureOverlay;
     const Corners = Persona.visuals.Corners;
-    const ScrapLabel = Persona.visuals.ScrapLabel; // Usually holds level/difficulty
-    const DurabilityBar = Persona.visuals.DurabilityBar; // The fancy bar
+    const ScrapLabel = Persona.visuals.ScrapLabel;
+    const DurabilityBar = Persona.visuals.DurabilityBar;
 
-    // --- 4. RENDER ---
-    return (
-        <div
-            className="relative w-full h-full overflow-hidden isolate select-none"
-            style={{
-                borderRadius: Persona.tokens.layout.radius,
-                // Use Persona background color as base
-                backgroundColor: Persona.tokens.colors.bgFront,
-                // High-fidelity border reuse
-                boxShadow: `inset 0 0 0 1px ${Persona.tokens.colors.borderOuter}`,
-            }}
-        >
-            {/* ================= BACKGROUND LAYER ================= */}
-            {/* Direct Component Reuse: Background */}
-            <div className="absolute inset-0 z-0 pointer-events-none">
-                <Background />
+    // --- RENDER HELPERS ---
+
+    // 1. Repository Mode: Full detailed miniature
+    const renderRepository = () => (
+        <div className="relative w-full h-full flex flex-col p-2 isolate">
+            {/* Visual background watermark */}
+            <div className="absolute inset-0 z-0 opacity-40 mix-blend-luminosity overflow-hidden pointer-events-none">
+                <div className="absolute inset-0 flex items-center justify-center scale-105 -translate-y-[5%]">
+                    <DynamicVisual code={visual.payload} fallbackElement={word} isActive={false} />
+                </div>
             </div>
 
-            {/* Direct Component Reuse: Texture */}
-            {TextureOverlay && (
-                <div className="absolute inset-0 z-0 opacity-50 mix-blend-overlay pointer-events-none">
-                    <TextureOverlay />
-                </div>
-            )}
-
-            {/* Direct Component Reuse: Corners */}
-            {/* We scale corners down slightly in tiny mode to avoid crowding */}
-            {Corners && (
-                <div className="absolute inset-0 z-50 pointer-events-none" style={{ transform: layoutMode === 'TINY' ? 'scale(0.7)' : 'none' }}>
-                    <Corners />
-                </div>
-            )}
-
-            {/* ================= VISUAL LAYER ================= */}
-            {/* 
-         In Compact Mode, the visual is a static "Ambience" or "Thumbnail".
-         We force disable animations and use mix-blend modes to blend it with the card.
-         Position: Centered, covering most of the card.
-      */}
-            {layoutMode !== 'TINY' && (
-                <div
-                    className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none overflow-hidden"
-                    style={{
-                        opacity: 0.8,
-                        // Blend mode helps integration (looks like a watermark/projection)
-                        mixBlendMode: 'luminosity',
-                        transform: 'scale(1.2) translateY(-10%)', // Slight zoom to fill
-                    }}
-                >
-                    <DynamicVisual
-                        code={visual.payload}
-                        fallbackElement={word}
-                        isActive={false} // Force Static
-                    // We might need to pass specific flags to DynamicVisual to force non-animated SVG keyframes if supported
-                    />
-                </div>
-            )}
-
-            {/* ================= CONTENT LAYER ================= */}
-            <div className="absolute inset-0 z-20 flex flex-col items-center justify-between p-2">
-
-                {/* TOP: Header / Level */}
-                <div className="w-full flex justify-between items-start">
-                    {/* Difficulty Badge - Hide in Tiny mode unless critical? Keep for now but scale. */}
-                    {layoutMode !== 'TINY' && ScrapLabel && (
-                        <div style={{ transform: 'scale(0.7) translate(-20%, -20%)', transformOrigin: 'top left' }}>
-                            <ScrapLabel>{level}</ScrapLabel>
-                        </div>
-                    )}
-
-                    {/* Ontology Badge - Only in Normal mode */}
-                    {layoutMode === 'NORMAL' && (
-                        <div
-                            className="text-[8px] uppercase tracking-widest font-bold opacity-70 border px-1 rounded-full bg-black/20 backdrop-blur-sm"
+            {/* Header: Difficulty (ScrapLabel) */}
+            <div className="relative z-30 flex justify-end items-start w-full">
+                {ScrapLabel ? (
+                    <div className="drop-shadow-lg p-1">
+                        <ScrapLabel>{level}</ScrapLabel>
+                    </div>
+                ) : (
+                    <div className="p-1 drop-shadow-md">
+                        <span
+                            className="text-xs font-bold tracking-widest"
                             style={{
+                                fontFamily: Persona.tokens.typography.label.family,
+                                color: Persona.tokens.colors.textHighlight,
+                                background: Persona.tokens.typography.label.gradient,
+                                WebkitBackgroundClip: Persona.tokens.typography.label.gradient ? 'text' : undefined,
+                                WebkitTextFillColor: Persona.tokens.typography.label.gradient ? 'transparent' : undefined,
+                            }}
+                        >
+                            {level}
+                        </span>
+                    </div>
+                )}
+            </div>
+
+            {/* Center: Main Word (Dynamic Tiered Text) */}
+            <div className="flex-1 flex flex-col items-center justify-center relative z-20 pointer-events-none w-full px-1">
+                <TieredText
+                    text={word}
+                    style={{
+                        fontFamily: Persona.tokens.typography.label.family,
+                        color: Persona.tokens.colors.textHighlight,
+                        // gradient handled by TieredText prop or style? TieredText supports gradient prop.
+                        // But here we use backgroundImage for text clip. TieredText supports style override.
+                        backgroundImage: Persona.tokens.typography.label.gradient,
+                        WebkitBackgroundClip: Persona.tokens.typography.label.gradient ? 'text' : undefined,
+                        WebkitTextFillColor: Persona.tokens.typography.label.gradient ? 'transparent' : undefined,
+                        textShadow: `0 2px 10px ${Persona.tokens.colors.bgDeep}`,
+                    }}
+                />
+            </div>
+
+            {/* Footer: Durability & Ontology */}
+            <div className="relative z-20 mt-auto flex flex-col gap-1.5 w-full">
+                {ontology && (
+                    <div className="flex justify-start">
+                        <span
+                            className="text-[8px] uppercase tracking-widest font-bold px-1.5 py-0.5 rounded-full border"
+                            style={{
+                                backgroundColor: Persona.tokens.colors.bgDeep,
                                 borderColor: Persona.tokens.colors.borderSubtle,
-                                color: Persona.tokens.colors.textLabel,
+                                color: Persona.tokens.colors.textSecondary,
                                 fontFamily: Persona.tokens.typography.label.family,
                             }}
                         >
                             {ontology}
-                        </div>
-                    )}
-                </div>
+                        </span>
+                    </div>
+                )}
+                {DurabilityBar && (
+                    <div className="w-full transform scale-y-[1.5] origin-bottom opacity-90">
+                        <DurabilityBar progress={durability} />
+                    </div>
+                )}
+            </div>
+        </div>
+    );
 
-                {/* CENTER: Word */}
-                {/* The most important element. Always visible. */}
-                <div className="absolute inset-0 flex items-center justify-center z-30 pointer-events-none">
-                    <h2
-                        className="text-center font-black leading-none drop-shadow-md pb-[0.2em]"
-                        style={{
-                            fontFamily: Persona.tokens.typography.label.family,
-                            color: Persona.tokens.colors.textHighlight,
-                            // Smart Typography Sizing based on container width
-                            fontSize: width * 0.18, // 18% of container width approx
-                            // Clip background to text if gradient provided
-                            backgroundImage: Persona.tokens.typography.label.gradient,
-                            WebkitBackgroundClip: Persona.tokens.typography.label.gradient ? 'text' : undefined,
-                            WebkitTextFillColor: Persona.tokens.typography.label.gradient ? 'transparent' : undefined,
-                            // Add a glow for readability over visual
-                            textShadow: `0 2px 10px ${Persona.tokens.colors.bgDeep}`,
-                        }}
-                    >
-                        {word}
-                    </h2>
-                </div>
-
-                {/* BOTTOM: Durability */}
-                {/* Direct Component Reuse: DurabilityBar */}
-                <div className="w-full mt-auto relative z-40">
-                    {layoutMode !== 'TINY' && DurabilityBar ? (
-                        <div style={{
-                            transform: 'scaleY(0.8)',
-                            transformOrigin: 'bottom',
-                            opacity: 0.9
-                        }}>
-                            <DurabilityBar progress={durability} />
-                        </div>
-                    ) : (
-                        // Fallback for Tiny mode or missing component: simple line
-                        layoutMode !== 'TINY' && (
-                            <div className="w-full h-1 bg-black/50 rounded-full overflow-hidden">
-                                <div
-                                    className="h-full"
-                                    style={{
-                                        width: `${durability}%`,
-                                        backgroundColor: Persona.tokens.colors.goldMetallic
-                                    }}
-                                />
-                            </div>
-                        )
-                    )}
+    // 2. Icon Mode: Square visual only
+    const renderIcon = () => (
+        <div className="relative w-full h-full flex flex-col isolate">
+            {/* SVG Image - static but colorful */}
+            <div className="absolute inset-0 z-10 flex items-center justify-center p-2">
+                {/* We use standard blend modes but keep opacity high to maintain color */}
+                <div className="w-full h-full scale-125">
+                    <DynamicVisual code={visual.payload} fallbackElement={word} isActive={false} />
                 </div>
             </div>
+            {/* Durability at bottom */}
+            <div className="absolute bottom-1 left-1 right-1 z-20">
+                {DurabilityBar && (
+                    <div className="w-full transform scale-y-[1.5] origin-bottom opacity-80">
+                        <DurabilityBar progress={durability} />
+                    </div>
+                )}
+            </div>
+        </div>
+    );
 
-            {/* ================= INTERACTION OVERLAY ================= */}
-            {/* Highlight border on active/hover */}
-            {isActive && (
+    // 3. Word Mode: Horizontal Bar
+    // 3. Word Mode: Horizontal Bar
+    const renderWord = () => (
+        <div className="relative w-full h-full flex items-center justify-center isolate group">
+            {/* Word Centered (Dynamic Tiered Text) */}
+            <div className="relative z-20 flex items-center justify-center px-2 pb-1 w-full h-full">
+                <TieredText
+                    text={word}
+                    style={{
+                        fontFamily: Persona.tokens.typography.label.family,
+                        color: Persona.tokens.colors.textHighlight,
+                        backgroundImage: Persona.tokens.typography.label.gradient,
+                        WebkitBackgroundClip: Persona.tokens.typography.label.gradient ? 'text' : undefined,
+                        WebkitTextFillColor: Persona.tokens.typography.label.gradient ? 'transparent' : undefined,
+                    }}
+                />
+            </div>
+
+            {/* Durability at Absolute Bottom (Full Width) */}
+            <div className="absolute bottom-0 left-0 right-0 h-[4px] z-30 opacity-80 group-hover:opacity-100 transition-opacity">
+                {DurabilityBar && (
+                    <div className="w-full h-full">
+                        <DurabilityBar progress={durability} />
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+
+    return (
+        <div
+            className="relative w-full h-full overflow-hidden select-none"
+            style={{
+                borderRadius: mode === 'word' ? '6px' : Persona.tokens.layout.radius,
+                backgroundColor: Persona.tokens.colors.bgFront,
+                boxShadow: mode === 'word' ? 'none' : `inset 0 0 0 ${Persona.tokens.layout.borderThin || '1px'} ${Persona.tokens.colors.borderOuter}`,
+                border: mode === 'word' ? `${Persona.tokens.layout.borderThin || '1px'} solid ${Persona.tokens.colors.borderSubtle}` : 'none',
+            }}
+        >
+            {/* --- UNDERLAY LAYERS --- */}
+            {mode === 'repository' && Background && (
+                <div className="absolute inset-0 z-0 pointer-events-none">
+                    <Background />
+                </div>
+            )}
+            {mode === 'repository' && TextureOverlay && (
+                <div className="absolute inset-0 z-0 opacity-40 mix-blend-overlay pointer-events-none">
+                    <TextureOverlay />
+                </div>
+            )}
+
+
+            {/* --- MAIN MODE RENDER --- */}
+            {mode === 'repository' && renderRepository()}
+            {mode === 'icon' && renderIcon()}
+            {mode === 'word' && renderWord()}
+
+            {/* Active/Hover Highlight */}
+            {(isActive) && (
                 <div
-                    className="absolute inset-0 z-50 pointer-events-none border-2 rounded-[inherit]"
-                    style={{ borderColor: Persona.tokens.colors.highlight }}
+                    className="absolute inset-0 z-[60] pointer-events-none border-2 rounded-[inherit] ring-4 ring-offset-0 animate-pulse"
+                    style={{
+                        borderColor: Persona.tokens.colors.highlight,
+                        boxShadow: `0 0 15px ${Persona.tokens.colors.highlight}, inset 0 0 5px ${Persona.tokens.colors.highlight}`
+                    }}
                 />
             )}
         </div>

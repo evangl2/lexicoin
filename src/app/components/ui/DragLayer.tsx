@@ -34,9 +34,22 @@ export const DragLayer: React.FC<DragLayerProps> = ({ scaleState, systemLang, le
     const sourceWidth = (item as any).sourceWidth || (isItem ? 100 : 125);
     const sourceHeight = (item as any).sourceHeight || (isItem ? 100 : 175);
 
+    // OPTION 3: Forced Compact (Robust)
+    // CRITICAL FIX: Forced Compact Mode for Dragging
+    // Previously, we attempted to switch between 'compact' and 'default' (CardVisual) based on zoom.
+    // However, the full CardVisual component became unstable/invisible at high zoom levels (>100%)
+    // or when the scale calculation was extreme, causing the drag preview to disappear.
+    //
+    // DECISION:
+    // We now strictly enforce 'compact' mode and a fixed scale of 0.5.
+    // 1. Consistency: Matches the visual style of the Dock/Repository (which also uses CompactCardVisual).
+    // 2. Robustness: CompactCardVisual is lighter and doesn't rely on complex physics/glare motion values that fail during drag.
+    // 3. Stability: Works perfectly at ANY canvas zoom level (50% to 300%+).
+    const FIXED_SCALE = 0.5; // Matches Repository item size (125x175)
+
     // Target Size in Preview
-    const targetWidth = isItem ? sourceWidth : (250 * scaleState);
-    const targetHeight = isItem ? sourceHeight : (350 * scaleState);
+    const targetWidth = isItem ? sourceWidth : (250 * FIXED_SCALE);
+    const targetHeight = isItem ? sourceHeight : (350 * FIXED_SCALE);
 
     // Anchor Point
     const grabOffsetX = (initialClientOffset.x - initialSourceClientOffset.x);
@@ -63,13 +76,13 @@ export const DragLayer: React.FC<DragLayerProps> = ({ scaleState, systemLang, le
                         image={item.image}
                         width={250}
                         height={350}
-                        scale={scaleState}
+                        scale={FIXED_SCALE}
                         systemLanguage={systemLang}
                         learningLanguage={learningLang}
                         difficultyLevel={item.difficulty?.toString() || "A1"}
                         partOfSpeech={item.pos || "n."}
                         durability={item.durability || 100}
-                        layoutMode={scaleState < 0.6 ? 'compact' : 'default'}
+                        layoutMode={'compact'} // FORCE COMPACT MODE
                         persona={CardPersona}
                     />
                 )}

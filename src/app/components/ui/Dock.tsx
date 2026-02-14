@@ -20,6 +20,7 @@ interface DockProps {
    systemLang?: string;
    setSystemLang?: (val: string) => void;
    isZoomed?: boolean;
+   mergedVariants?: Record<string, import('@/types/CardEntity').CardEntity[]>;
 }
 
 // Localization Helper
@@ -47,7 +48,8 @@ export const Dock: React.FC<DockProps> = ({
    setLearningLang = () => { },
    systemLang = 'ENGLISH',
    setSystemLang = () => { },
-   isZoomed = false
+   isZoomed = false,
+   mergedVariants = {}
 }) => {
    const interfacePersona = useInterfacePersona();
    const [activeId, setActiveId] = useState<number>(1); // Default active: Canvas
@@ -127,10 +129,12 @@ export const Dock: React.FC<DockProps> = ({
                isOpen={isDeckOpen}
                onClose={() => toggleDeck?.()}
                items={repositoryItems}
+               propItems={[]} // Placeholder for now
                onRetrieve={onRetrieve}
                onStore={onStore}
                systemLanguage={systemLang}
                learningLanguage={learningLang}
+               mergedVariants={mergedVariants}
             />
          </div>
 
