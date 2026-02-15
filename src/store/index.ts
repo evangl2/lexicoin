@@ -10,6 +10,7 @@ import type {
     CanvasView,
     DragState,
     Notification,
+    LocalizedText,
     Sense,
     UUID,
     PersonaType,
@@ -43,7 +44,7 @@ interface GameStore extends ConfigState, CardState {
 
     // Notifications
     notifications: Notification[];
-    addNotification: (message: string, type?: Notification['type'], duration?: number) => void;
+    addNotification: (message: string | LocalizedText, type?: Notification['type'], duration?: number) => void;
     removeNotification: (id: UUID) => void;
 
     // Senses (cached from SenseModule)
@@ -206,10 +207,14 @@ export const useGameStore = create<GameStore>()(
             // Notifications
             notifications: [],
             addNotification: (message, type = 'INFO', duration = 3000) => {
+                const localizedMessage: LocalizedText = typeof message === 'string'
+                    ? { en: message, zh: message }
+                    : message;
+
                 const notification: Notification = {
                     id: generateId(),
                     type,
-                    message: { en: message, zh: message }, // TODO: Proper localization
+                    message: localizedMessage,
                     duration,
                     createdAt: Date.now(),
                 };
