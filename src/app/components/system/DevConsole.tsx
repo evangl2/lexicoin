@@ -23,6 +23,66 @@ import './DevConsole.css';
 
 type TabType = 'messages' | 'state' | 'telemetry' | 'inject' | 'logs';
 
+const StateInspector: React.FC = () => {
+    // Get all store state - moved here to prevent re-renders in main console
+    const store = useGameStore();
+
+    return (
+        <div className="tab-content">
+            <div className="state-inspector">
+                <section className="state-section">
+                    <h4>🎮 Player State</h4>
+                    <pre>{JSON.stringify(store.player, null, 2)}</pre>
+                </section>
+
+                <section className="state-section">
+                    <h4>🎭 Persona State</h4>
+                    <div className="state-grid">
+                        <div>Active: {store.activePersona || 'None'}</div>
+                        <div>Resonance: {JSON.stringify(store.personaResonance, null, 2)}</div>
+                    </div>
+                </section>
+
+                <section className="state-section">
+                    <h4>🎒 Inventory ({store.inventory.length})</h4>
+                    <pre>{JSON.stringify(store.inventory, null, 2)}</pre>
+                </section>
+
+                <section className="state-section">
+                    <h4>📚 Senses ({store.senses.length})</h4>
+                    <div className="sense-list">
+                        {store.senses.slice(0, 10).map(sense => (
+                            <div key={sense.id} className="sense-item">
+                                {sense.word.en} - {sense.meaning.en}
+                            </div>
+                        ))}
+                        {store.senses.length > 10 && (
+                            <div className="more-indicator">
+                                ... and {store.senses.length - 10} more
+                            </div>
+                        )}
+                    </div>
+                </section>
+
+                <section className="state-section">
+                    <h4>🏗️ Constructions ({store.constructions.length})</h4>
+                    <pre>{JSON.stringify(store.constructions.slice(0, 5), null, 2)}</pre>
+                </section>
+
+                <section className="state-section">
+                    <h4>📱 Platform Info</h4>
+                    <pre>{JSON.stringify({
+                        platform: platformAdapter.getPlatform(),
+                        viewport: platformAdapter.getViewport(),
+                        hasTouch: platformAdapter.hasTouch(),
+                        hasMouse: platformAdapter.hasMouse(),
+                    }, null, 2)}</pre>
+                </section>
+            </div>
+        </div>
+    );
+};
+
 export const DevConsole: React.FC = () => {
     const [isOpen, setIsOpen] = useState(false);
     const [activeTab, setActiveTab] = useState<TabType>('messages');
@@ -33,9 +93,6 @@ export const DevConsole: React.FC = () => {
     const [autoScroll, setAutoScroll] = useState(true);
     const [isPaused, setIsPaused] = useState(false);
     const messagesEndRef = useRef<HTMLDivElement>(null);
-
-    // Get all store state
-    const store = useGameStore();
 
     // Real-time message subscription
     useEffect(() => {
@@ -201,60 +258,7 @@ export const DevConsole: React.FC = () => {
                 )}
 
                 {/* State Inspector Tab */}
-                {activeTab === 'state' && (
-                    <div className="tab-content">
-                        <div className="state-inspector">
-                            <section className="state-section">
-                                <h4>🎮 Player State</h4>
-                                <pre>{JSON.stringify(store.player, null, 2)}</pre>
-                            </section>
-
-                            <section className="state-section">
-                                <h4>🎭 Persona State</h4>
-                                <div className="state-grid">
-                                    <div>Active: {store.activePersona || 'None'}</div>
-                                    <div>Resonance: {JSON.stringify(store.personaResonance, null, 2)}</div>
-                                </div>
-                            </section>
-
-                            <section className="state-section">
-                                <h4>🎒 Inventory ({store.inventory.length})</h4>
-                                <pre>{JSON.stringify(store.inventory, null, 2)}</pre>
-                            </section>
-
-                            <section className="state-section">
-                                <h4>📚 Senses ({store.senses.length})</h4>
-                                <div className="sense-list">
-                                    {store.senses.slice(0, 10).map(sense => (
-                                        <div key={sense.id} className="sense-item">
-                                            {sense.word.en} - {sense.meaning.en}
-                                        </div>
-                                    ))}
-                                    {store.senses.length > 10 && (
-                                        <div className="more-indicator">
-                                            ... and {store.senses.length - 10} more
-                                        </div>
-                                    )}
-                                </div>
-                            </section>
-
-                            <section className="state-section">
-                                <h4>🏗️ Constructions ({store.constructions.length})</h4>
-                                <pre>{JSON.stringify(store.constructions.slice(0, 5), null, 2)}</pre>
-                            </section>
-
-                            <section className="state-section">
-                                <h4>📱 Platform Info</h4>
-                                <pre>{JSON.stringify({
-                                    platform: platformAdapter.getPlatform(),
-                                    viewport: platformAdapter.getViewport(),
-                                    hasTouch: platformAdapter.hasTouch(),
-                                    hasMouse: platformAdapter.hasMouse(),
-                                }, null, 2)}</pre>
-                            </section>
-                        </div>
-                    </div>
-                )}
+                {activeTab === 'state' && <StateInspector />}
 
                 {/* Telemetry Tab */}
                 {activeTab === 'telemetry' && (
