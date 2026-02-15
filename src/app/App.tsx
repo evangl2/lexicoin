@@ -2,16 +2,17 @@ import {
   useEffect,
   useCallback,
   useMemo,
+  useState,
 } from "react";
 import { DndProvider, useDrop } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
+import { useMotionValue } from "motion/react";
 
 import { Canvas } from "@/app/components/ui/Canvas";
 import { Card } from "@/app/components/ui/Card";
 import { Dock } from "@/app/components/ui/Dock";
 import { PersonaProvider } from "@/app/context/PersonaContext";
 import { AudioProvider } from "@/app/context/AudioContext";
-import { useMotionValue } from "motion/react";
 
 // Hooks
 import { useCanvasCamera } from "@/app/hooks/logic/useCanvasCamera";
@@ -26,8 +27,6 @@ import { CanvasControl } from "@/app/components/ui/CanvasControl";
 // Store & Utils
 import { useGameStore } from "@/store/index";
 import { getLoc, mapLanguageCode } from "@/app/utils/localization";
-import { useState } from "react";
-
 
 function InnerApp() {
   // 1. App State & Settings (Zustand Integration)
@@ -97,7 +96,6 @@ function InnerApp() {
   // --- Interaction Logic ---
 
   // Drop from Repository to Canvas (via Dock double-click, handled by retrieveCard)
-  // Note: react-dnd drop zone kept for future drag-from-repo support
   const [, drop] = useDrop(() => ({
     accept: ['CARD'],
     drop: (item: { uid: string, width: number, height: number }, monitor) => {
@@ -110,13 +108,9 @@ function InnerApp() {
       const cy = camera.y.get();
       const s = camera.scale.get();
 
-      // Transform screen coordinates to canvas coordinates
-      // formula: canvas_pos = (screen_pos - camera_pos) / scale
       const dropX = (clientOffset.x - cx) / s;
       const dropY = (clientOffset.y - cy) / s;
 
-      // Center the card on the cursor
-      // Note: item.width/height are in canvas units (unscaled)
       const x = dropX - (item.width / 2);
       const y = dropY - (item.height / 2);
 
@@ -125,7 +119,9 @@ function InnerApp() {
   }));
 
   // 2. Check Deck Collision (Canvas -> Repository)
-  const checkDeckCollision = (id: string) => {
+  // Optimization: useGameStore.getState() to avoid isDeckOpen dependency
+  const checkDeckCollision = useCallback((id: string) => {
+    const isDeckOpen = useGameStore.getState().deckState.isOpen;
     if (!isDeckOpen) return;
 
     const targetItem = data.canvasItems.find((i: any) => i.cardData.rawSense.uid === id);
@@ -152,27 +148,33 @@ function InnerApp() {
     if (screenY > topEdgeY && screenY < bottomEdgeY && screenX > deckXStart && screenX < deckXEnd) {
       data.storeCard(id);
     }
-  };
+  }, [data, camera]);
 
+  // STABLE HANDLERS for Card Component
+  const handleDragStart = useCallback((id: string) => {
+    setDraggingId(id);
+  }, []);
 
+  const handleDragEnd = useCallback((id: string) => {
+    checkDeckCollision(id);
+    data.saveItems();
+    setDraggingId(null);
+  }, [checkDeckCollision, data]);
 
-
-  // Handle card retrieval from repository
-  const handleRetrieveCard = useCallback((uid: string) => {
-    // Place card near center with slight random offset
-    const x = (Math.random() - 0.5) * 400;
-    const y = (Math.random() - 0.5) * 300;
-    data.retrieveCard(uid, x, y);
-  }, [data]);
-
+  const handleUpdatePosition = useCallback((id: string, x: number, y: number) => {
+    // Stable no-op callback
+  }, []);
 
   // --- Z-Index / Focus Management ---
   const [focusedCardCount, setFocusedCardCount] = useState(0);
 
   const handleCardFocus = useCallback(() => {
     setFocusedCardCount(prev => prev + 1);
-    if (isDeckOpen) closeDeck();
-  }, [isDeckOpen, closeDeck]);
+    // Optimization: Access store directly
+    if (useGameStore.getState().deckState.isOpen) {
+      useGameStore.getState().closeDeck();
+    }
+  }, []);
 
   const handleCardBlur = useCallback(() => {
     setFocusedCardCount(prev => Math.max(0, prev - 1));
@@ -191,10 +193,6 @@ function InnerApp() {
           zIndex: 0
         }}
         onPointerDown={(e) => {
-          // Use onPointerDown to capture interaction start (more responsive than click)
-          // and to ensure we catch it even if drag starts? 
-          // Standard click is safer for "interaction" vs "drag".
-          // But user said "Click Canvas".
           if (isDeckOpen) closeDeck();
         }}
       >
@@ -214,14 +212,9 @@ function InnerApp() {
               canvasScale={camera.scaleState}
               canvasX={camera.x}
               canvasY={camera.y}
-              onDragStart={() => setDraggingId(item.cardData.rawSense.uid)}
-              onDragEnd={() => {
-                checkDeckCollision(item.cardData.rawSense.uid);
-                data.saveItems();
-                setDraggingId(null);
-              }}
-              updatePosition={() => { }}
-              onDelete={() => data.deleteItem(item.cardData.rawSense.uid)}
+              onDragStart={handleDragStart}
+              onDragEnd={handleDragEnd}
+              updatePosition={handleUpdatePosition}
               groupFeedback={grouping.groupFeedback}
               onFocus={handleCardFocus}
               onBlur={handleCardBlur}
@@ -243,10 +236,8 @@ function InnerApp() {
               canvasScale={camera.scaleState}
               canvasX={camera.x}
               canvasY={camera.y}
-              updatePosition={() => { }}
+              updatePosition={handleUpdatePosition} // Use stable handler here too
               isHidden={false}
-              onDragStart={undefined}
-              onDragEnd={undefined}
               externalScale={item.scale}
             />
           ))}

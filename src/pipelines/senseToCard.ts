@@ -18,7 +18,7 @@
  * - Performance-first (minimize runtime processing)
  */
 
-import type { SenseEntity, Language } from 'a:/lexicoin/lexicoin/schemas/schemas/SenseEntity.schema';
+import type { SenseEntity, Language } from '@schemas/schemas/SenseEntity.schema';
 import type {
     CardEntity,
     LanguageDisplayData,

@@ -12,7 +12,7 @@
  * - Async visual loading with Persona-specific states
  */
 
-import type { SenseEntity, Language, OntologyType, Fingerprint, WordLevel, POS } from 'a:/lexicoin/lexicoin/schemas/schemas/SenseEntity.schema';
+import type { SenseEntity, Language, OntologyType, Fingerprint, WordLevel, POS } from '@schemas/schemas/SenseEntity.schema';
 
 // ============================================================================
 // LANGUAGE-SPECIFIC DISPLAY DATA

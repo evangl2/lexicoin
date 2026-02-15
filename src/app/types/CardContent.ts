@@ -1,4 +1,4 @@
-import type { Language } from 'a:/lexicoin/lexicoin/schemas/schemas/SenseEntity.schema';
+import type { Language } from '@schemas/schemas/SenseEntity.schema';
 
 /**
  * Represents a single content item (definition or flavor text) for a card.

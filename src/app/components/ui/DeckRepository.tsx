@@ -1,4 +1,4 @@
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useDrag, useDrop } from 'react-dnd';
 import { getEmptyImage } from 'react-dnd-html5-backend';
@@ -8,7 +8,7 @@ import { DefaultInterfacePersona as InterfacePersona } from '@/app/components/pe
 import { CompactCardVisual, CompactMode } from '@/app/components/ui/CompactCardVisual';
 import { PropVisual } from '@/app/components/ui/PropVisual';
 import type { CardItem } from '@/app/hooks/logic/useCardManager';
-import type { Language } from 'a:/lexicoin/lexicoin/schemas/schemas/SenseEntity.schema';
+import type { Language } from '@schemas/schemas/SenseEntity.schema';
 import { mapLanguageCode } from '@/app/utils/localization';
 import { useCardVariants } from '@/app/utils/mergeSplit/useCardVariants';
 import type { CardEntity } from '@/types/CardEntity';
@@ -18,14 +18,13 @@ export interface PropItem {
     title: string;
     description?: string;
     image?: string;
-    // Add other prop-specific fields as needed
 }
 
 interface DeckRepositoryProps {
     isOpen: boolean;
     onClose: () => void;
     items: CardItem[];
-    propItems?: PropItem[]; // New optional prop items
+    propItems?: PropItem[];
     onRetrieve?: (uid: string) => void;
     onStore?: (uid: string) => void;
     systemLanguage?: string;
@@ -49,6 +48,7 @@ const getLoc = (key: string, lang: string = 'ENGLISH') => {
         'Empty Vessel': { en: 'Empty Vessel', zh: '空容器' },
         'WORDS': { en: 'WORDS', zh: '词语' },
         'PROPS': { en: 'PROPS', zh: '道具' },
+        'Load More': { en: 'Load More', zh: '加载更多' },
     };
     return isZh ? (dict[key]?.zh || key) : (dict[key]?.en || key);
 };
@@ -70,8 +70,19 @@ export const DeckRepository: React.FC<DeckRepositoryProps> = ({
     const [sortDir, setSortDir] = useState<SortDir>('asc');
     const [cardMode, setCardMode] = useState<CompactMode>('repository');
 
+    // Pagination State
+    const [visibleCount, setVisibleCount] = useState(20);
+
     // Resolve language code for display data lookup
     const langCode = mapLanguageCode(learningLanguage) as Language;
+
+    // Reset pagination when filters change
+    useEffect(() => {
+        setVisibleCount(20);
+        if (scrollContainerRef.current) {
+            scrollContainerRef.current.scrollLeft = 0;
+        }
+    }, [activeTab, sortKey, sortDir, cardMode, items]); // Reset on item change too
 
     // Sort Logic
     const sortedItems = useMemo(() => {
@@ -110,6 +121,13 @@ export const DeckRepository: React.FC<DeckRepositoryProps> = ({
         return list;
     }, [items, sortKey, sortDir, langCode]);
 
+    // Derived visible items
+    const visibleItems = useMemo(() => sortedItems.slice(0, visibleCount), [sortedItems, visibleCount]);
+
+    const handleLoadMore = () => {
+        setVisibleCount(prev => prev + 20);
+    };
+
     // Horizontal scroll via vertical mouse wheel
     const handleWheel = (e: React.WheelEvent) => {
         if (scrollContainerRef.current) {
@@ -143,7 +161,7 @@ export const DeckRepository: React.FC<DeckRepositoryProps> = ({
                     transition={{ type: "spring", stiffness: 300, damping: 30 }}
                     className="absolute bottom-0 left-1/2 -translate-x-1/2 z-40"
                     style={{
-                        width: InterfacePersona.tokens.layout.menuWidth, // Use Interface Persona width
+                        width: InterfacePersona.tokens.layout.menuWidth,
                         height: InterfacePersona.tokens.layout.menuHeight,
                         fontFamily: InterfacePersona.tokens.typography.label.family
                     }}
@@ -217,10 +235,9 @@ export const DeckRepository: React.FC<DeckRepositoryProps> = ({
                                     </span>
                                 </div>
 
-                                {/* Controls (Only show for Words for now) */}
+                                {/* Controls */}
                                 {activeTab === 'words' && (
                                     <div className="relative z-10 flex items-center gap-4">
-                                        {/* View Mode Toggles */}
                                         <div className="flex items-center gap-1 bg-black/40 rounded-lg p-1 border border-white/10">
                                             <RepoModeButton
                                                 isActive={cardMode === 'repository'}
@@ -327,7 +344,7 @@ export const DeckRepository: React.FC<DeckRepositoryProps> = ({
                                                     : 'flex items-center gap-6'
                                                 }`}
                                         >
-                                            {sortedItems.map(item => (
+                                            {visibleItems.map(item => (
                                                 <RepoCard
                                                     key={item.cardData.uid}
                                                     item={item}
@@ -337,6 +354,18 @@ export const DeckRepository: React.FC<DeckRepositoryProps> = ({
                                                     variants={mergedVariants[item.cardData.uid] || []}
                                                 />
                                             ))}
+
+                                            {/* Load More Button */}
+                                            {visibleCount < sortedItems.length && (
+                                                <div className="flex items-center justify-center min-w-[100px] h-full">
+                                                    <button
+                                                        onClick={handleLoadMore}
+                                                        className="px-4 py-2 border border-[#D4AF37]/30 rounded text-[#D4AF37] hover:bg-[#D4AF37]/10 transition-colors text-xs tracking-widest uppercase"
+                                                    >
+                                                        {getLoc('Load More', systemLanguage)}
+                                                    </button>
+                                                </div>
+                                            )}
                                         </div>
                                     )
                                 ) : (

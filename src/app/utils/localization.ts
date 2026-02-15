@@ -1,4 +1,4 @@
-import type { Language } from 'a:/lexicoin/lexicoin/schemas/schemas/SenseEntity.schema';
+import type { Language } from '@schemas/schemas/SenseEntity.schema';
 
 export const mapLanguageCode = (uiLang: string): Language => {
     const langMap: Record<string, Language> = {

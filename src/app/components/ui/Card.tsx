@@ -49,10 +49,10 @@ interface CardProps {
   externalScale?: MotionValue<number>;
 
   // ========== Callbacks ==========
-  onDragStart?: () => void;
-  onDragEnd?: () => void;
+  onDragStart?: (id: string) => void;
+  onDragEnd?: (id: string) => void;
   updatePosition: (id: string, x: number, y: number) => void;
-  onDelete?: () => void;
+  onDelete?: (id: string) => void; // Kept for interface compatibility but unused
   onDropItem?: (item: any) => void;
   isHidden?: boolean;
   groupFeedback?: { merge: string[], split: string[], timestamp: number } | null;
@@ -60,7 +60,7 @@ interface CardProps {
   onBlur?: () => void;
 }
 
-export const Card: React.FC<CardProps> = ({
+export const Card = React.memo<CardProps>(({
   cardData,
   variants = [],
   learningLanguage,
@@ -80,7 +80,7 @@ export const Card: React.FC<CardProps> = ({
   groupFeedback,
   onFocus,
   onBlur,
-  externalScale, // Destructure new prop
+  externalScale,
 }) => {
   // ========== Variant Logic (Extracted) ==========
   const {
@@ -95,9 +95,7 @@ export const Card: React.FC<CardProps> = ({
   const learningData = currentCardData.displayData[learningLanguage]!;
   const systemData = currentCardData.displayData[systemLanguage]!;
 
-  // Extract commonly used fields for convenience
-  const title = learningData.word;  // Primary title uses learning language
-  // const partOfSpeech = learningData.pos;
+  const title = learningData.word;
   const [isHovered, setIsHovered] = useState(false);
 
   // --- Drop Target (Items) ---
@@ -105,7 +103,7 @@ export const Card: React.FC<CardProps> = ({
     accept: 'ITEM',
     drop: (item) => {
       onDropItem?.(item);
-      return { name: title }; // Return drop result if needed
+      return { name: title };
     },
     collect: (monitor) => ({
       isOver: monitor.isOver(),
@@ -113,7 +111,7 @@ export const Card: React.FC<CardProps> = ({
   }));
 
   const [isDragging, setIsDragging] = useState(false);
-  const [isExpanded, setIsExpanded] = useState(false); // isExpanded state
+  const [isExpanded, setIsExpanded] = useState(false);
 
   // ========== Visual Feedback Logic ==========
   const [visualFeedback, setVisualFeedback] = useState<'merge' | 'split' | null>(null);
@@ -122,7 +120,6 @@ export const Card: React.FC<CardProps> = ({
     if (!groupFeedback) return;
     const uid = cardData.uid;
 
-    // Check if this card is affected by the latest event
     if (groupFeedback.merge.includes(uid)) {
       setVisualFeedback('merge');
     } else if (groupFeedback.split.includes(uid)) {
@@ -130,7 +127,6 @@ export const Card: React.FC<CardProps> = ({
     }
   }, [groupFeedback, cardData.uid]);
 
-  // Clear feedback on interaction
   useEffect(() => {
     if (isHovered || isDragging) {
       setVisualFeedback(null);
@@ -138,21 +134,14 @@ export const Card: React.FC<CardProps> = ({
   }, [isHovered, isDragging]);
 
   const [isFlipped, setIsFlipped] = useState(false);
-
-  // Transient animation flag: enables will-change GPU hint only during flip/scale transitions
-  // Auto-clears after spring settles (~600ms) to restore text sharpness
   const [isAnimating, setIsAnimating] = useState(false);
   const animatingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // --- Selection Overlay State ---
   const [isOverlayOpen, setIsOverlayOpen] = useState(false);
-
-  // We no longer use 'default' string, but actual UIDs. 
-  // Map activeUid to the SelectionOverlay's selectedDefId concept.
   const selectedDefId = activeUid;
-
   const [windowDim, setWindowDim] = useState({ w: 0, h: 0 });
-  const cardRef = useRef<HTMLDivElement>(null);
+  const cardRef = useRef<HTMLDivElement | null>(null);
 
   // --- Mouse & Resize ---
   const mouseX = useMotionValue(0);
@@ -174,7 +163,6 @@ export const Card: React.FC<CardProps> = ({
   }, [centerX, centerY]);
 
   useEffect(() => {
-    // Only track mouse on front face (when expanded but not flipped)
     if (!isExpanded || isFlipped) return;
     const handleMouseMove = (e: MouseEvent) => {
       mouseX.set(e.clientX);
@@ -184,17 +172,9 @@ export const Card: React.FC<CardProps> = ({
     return () => window.removeEventListener('mousemove', handleMouseMove);
   }, [isExpanded, isFlipped, mouseX, mouseY]);
 
-  // Auto-expand logic moved to onContextMenu to avoid cascading renders
-  // useEffect(() => {
-  //   if (isFlipped) {
-  //     setIsExpanded(true);
-  //   }
-  // }, [isFlipped]);
-
   useEffect(() => {
     const handleGlobalClick = (e: PointerEvent) => {
       if ((isExpanded || isFlipped) && cardRef.current && !cardRef.current.contains(e.target as Node)) {
-        // Bug Fix: Explicitly reset isHovered because onListLeave might have been blocked while flipped
         setIsHovered(false);
         setIsExpanded(false);
         if (isFlipped) {
@@ -208,20 +188,14 @@ export const Card: React.FC<CardProps> = ({
   }, [isExpanded, isFlipped, onBlur]);
 
   // --- Selection Overlay Handlers ---
-  const handleDefinitionClick = React.useCallback(() => {
+  const handleDefinitionClick = useCallback(() => {
     setIsOverlayOpen(true);
   }, []);
 
-  const handleSelectDefinition = React.useCallback((item: any) => {
-    // Update active Identity based on selection
+  const handleSelectDefinition = useCallback((item: any) => {
     setActiveUid(item.id);
     setIsOverlayOpen(false);
 
-    // TTS: Speak the selected definition from the NEW identity
-    // We need to look up the data for the selected ID
-    // Note: strict dependencies would require sortedVariants/learningLanguage, 
-    // but for TTS side-effect in event handler it's often acceptable. 
-    // To be perfectly safe/stable, we can rely on the fact that `sortedVariants` is now stable from hook.
     const selectedVariant = sortedVariants.find(v => v.uid === item.id);
     if (selectedVariant) {
       const def = selectedVariant.displayData[learningLanguage]?.definition;
@@ -231,7 +205,6 @@ export const Card: React.FC<CardProps> = ({
     }
   }, [setActiveUid, sortedVariants, learningLanguage]);
 
-  // Selection items - Built from Sorted Variants
   const selectionItems = useMemo(() => sortedVariants.map(variant => ({
     id: variant.uid,
     definitions: Object.keys(variant.displayData).reduce((acc, lang) => {
@@ -241,10 +214,6 @@ export const Card: React.FC<CardProps> = ({
     pos: variant.displayData[learningLanguage]?.pos || 'n.'
   })), [sortedVariants, learningLanguage]);
 
-  // We actually don't need `definitionOverride` anymore because `currentCardData` 
-  // completely swaps the content passed to CardVisual.
-  // But we pass it to retain API compatibility if SelectionOverlay uses it, 
-  // or simply rely on `learningData.definition` which is already correct.
   const definitionOverride = undefined;
 
   // --- Physics ---
@@ -255,7 +224,6 @@ export const Card: React.FC<CardProps> = ({
   const smoothYVelocity = useSpring(yVelocity, CardPersona.physics.springs.smoothVelocity);
 
   const velocityRotateY = useTransform(smoothXVelocity, CardPersona.physics.tilt.velocityRange, CardPersona.physics.tilt.rotateY);
-  // Invert X rotation to match physics drag (Leading edge pushes back)
   const rawRotateX = useTransform(smoothYVelocity, CardPersona.physics.tilt.velocityRange, CardPersona.physics.tilt.rotateX);
   const velocityRotateX = useTransform(rawRotateX, (v) => -v);
   const velocityRotateZ = useTransform(smoothXVelocity, [-2000, 2000], CardPersona.physics.tilt.rotateZ);
@@ -273,24 +241,14 @@ export const Card: React.FC<CardProps> = ({
     return ((val - center) / center) * CardPersona.physics.inspection.tiltFactor;
   });
 
-  // Need a MotionValue version of canvasScale for useTransform
-  // We can't use the prop directly if it's a number.
-  // BUT: App.tsx passes `camera.scale` which IS a MotionValue.
-  // Let's rename the prop in interface to be clear.
-  // Refactoring note: `canvasScale` prop was `number`.
-  // We need the MotionValue to animate the center position smoothly.
   const canvasScaleMotion = useMotionValue(canvasScale);
   useEffect(() => { canvasScaleMotion.set(canvasScale); }, [canvasScale]);
 
-  // Back face: no rotation at all. Front face: normal behavior
   const zeroRotation = useMotionValue(0);
   const displayRotateX = isFlipped ? zeroRotation : (isExpanded ? mouseRotateX : velocityRotateX);
   const displayRotateY = isFlipped ? zeroRotation : (isExpanded ? mouseRotateY : velocityRotateY);
   const displayRotateZ = isFlipped ? zeroRotation : (isExpanded ? zeroRotation : velocityRotateZ);
 
-  // --- Centering Logic ---
-  // Invert the canvas camera transform to find the "center of screen" in world coordinates.
-  // Target = (ScreenCenter - CanvasOffset) / Scale
   const targetCenterX = useTransform([canvasX, canvasScaleMotion], (latest: number[]) => {
     const cx = latest[0] || 0;
     const s = latest[1] || 1;
@@ -305,13 +263,11 @@ export const Card: React.FC<CardProps> = ({
     return (windowDim.h / 2 - cy) / (s || 1);
   });
 
-  // --- Unified Zoom Physics ---
   const zoomSpring = useSpring(0, CardPersona.physics.springs.flip);
   useEffect(() => {
     zoomSpring.set((isExpanded || isFlipped) ? 1 : 0);
   }, [isExpanded, isFlipped, zoomSpring]);
 
-  // Interpolate X/Y based on combined zoom state
   const displayX = useTransform([x, targetCenterX, zoomSpring], (latest: number[]) => {
     const currentX = latest[0] || 0;
     const targetX = latest[1] || 0;
@@ -326,7 +282,6 @@ export const Card: React.FC<CardProps> = ({
     return currentY + (targetY - currentY) * z;
   });
 
-  // --- Scale ---
   const getExpandedScale = () => {
     if (windowDim.w === 0) return 1.5;
     const minScreenDim = Math.min(windowDim.w, windowDim.h);
@@ -336,16 +291,13 @@ export const Card: React.FC<CardProps> = ({
     return targetSize / (cardMaxDim * safeScale);
   };
   const expandedScale = getExpandedScale();
-  // Combined zoom scale
   const targetScale = (isExpanded || isFlipped) ? expandedScale : isDragging ? 1.15 : isHovered ? 1.05 : 1;
 
-  // --- Parallax & Depth ---
   const bgParallaxX = useTransform(displayRotateY, [-20, 20], [15, -15]);
   const bgParallaxY = useTransform(displayRotateX, [-20, 20], [15, -15]);
   const fgParallaxX = useTransform(displayRotateY, [-20, 20], [-25, 25]);
   const fgParallaxY = useTransform(displayRotateX, [-20, 20], [-25, 25]);
 
-  // --- Shadows ---
   const targetShadow = isDragging
     ? CardPersona.tokens.shadows.dragging
     : isExpanded
@@ -354,16 +306,12 @@ export const Card: React.FC<CardProps> = ({
         ? CardPersona.tokens.shadows.hover
         : CardPersona.tokens.shadows.base;
 
-  // --- Flip ---
   const flipSpring = useSpring(0, CardPersona.physics.springs.flip);
   useEffect(() => { flipSpring.set(isFlipped ? 1 : 0); }, [isFlipped, flipSpring]);
   const flipScaleX = useTransform(flipSpring, [0, 0.5, 1], [1, 0, 1]);
   const frontOpacity = useTransform(flipSpring, [0.45, 0.55], [1, 0]);
   const backOpacity = useTransform(flipSpring, [0.45, 0.55], [0, 1]);
 
-
-
-  // --- Gesture ---
   const dragConfig = useMemo(() => ({
     target: cardRef,
     enabled: !isFlipped,
@@ -377,25 +325,17 @@ export const Card: React.FC<CardProps> = ({
       if (title) {
         tts.speak(title, learningLanguage);
       }
-
-      // POSITON SYNC: If we are dragging while zoomed, we "snap" the physics X/Y
-      // to the current visual center so it doesn't jump back when released.
       if (isExpanded) {
-        // Sync physics values to visual center before exiting expansion
         x.set(targetCenterX.get());
         y.set(targetCenterY.get());
-
-        // Ensure manual update because we are high-jacking the jump
-        updatePosition(currentCardData.uid, targetCenterX.get(), targetCenterY.get());
-
+        updatePosition(cardData.uid, targetCenterX.get(), targetCenterY.get());
         setIsExpanded(false);
         onBlur?.();
       }
-      onDragStart?.();
+      onDragStart?.(cardData.uid);
     }
     if (active) {
       const scale = canvasScale || 1;
-
       const nextX = x.get() + dx / scale;
       const nextY = y.get() + dy / scale;
 
@@ -422,21 +362,17 @@ export const Card: React.FC<CardProps> = ({
       x.set(finalX);
       y.set(finalY);
 
-      updatePosition(currentCardData.uid, finalX, finalY);
+      updatePosition(cardData.uid, finalX, finalY);
     }
     if (last) {
       setIsDragging(false);
-      onDragEnd?.();
+      onDragEnd?.(cardData.uid);
     }
   }, dragConfig);
 
-  // Active state for animations
   const isActive = isHovered || isDragging || isExpanded || isOver || isOverlayOpen;
-
-  // Base z-index logic (local layering)
   const baseZIndex = isDragging ? 100 : (isHovered ? 10 : 1);
 
-  // Combine refs for motion.div
   const setRefs = useCallback((node: HTMLDivElement | null) => {
     cardRef.current = node;
     drop(node);
@@ -458,7 +394,6 @@ export const Card: React.FC<CardProps> = ({
         const nextState = !isExpanded;
         setIsExpanded(nextState);
 
-        // Notify app of focus change for Dock shrinking
         if (nextState) {
           onFocus?.();
         } else {
@@ -491,7 +426,7 @@ export const Card: React.FC<CardProps> = ({
       style={{
         x: displayX, y: displayY, width, height,
         rotateX: displayRotateX, rotateY: displayRotateY, rotateZ: displayRotateZ,
-        zIndex: isExpanded || isFlipped ? 500 : baseZIndex, // Modest boost, Dock will shrink
+        zIndex: isExpanded || isFlipped ? 500 : baseZIndex,
         opacity: isHidden ? 0 : 1,
         transform: 'translate3d(0, 0, 0)',
         willChange: (isDragging || isAnimating || externalScale || (!isExpanded && canvasScale < 1)) ? 'transform' : 'auto',
@@ -517,7 +452,6 @@ export const Card: React.FC<CardProps> = ({
       className="canvas-card select-none group relative transition-colors duration-300"
     >
       <CardVisual
-        // Pass the CURRENT ACTIVE data
         learningData={learningData}
         systemData={systemData}
         senseInfo={currentCardData.senseInfo}
@@ -541,7 +475,6 @@ export const Card: React.FC<CardProps> = ({
         smoothYVelocity={smoothYVelocity}
         isExpanded={isExpanded}
 
-        // Selection Overlay Props - Now Multi-Sense Aware
         isOverlayOpen={isOverlayOpen}
         selectionItems={selectionItems}
         selectedDefId={selectedDefId}
@@ -552,4 +485,6 @@ export const Card: React.FC<CardProps> = ({
       />
     </motion.div >
   );
-};
+});
+
+Card.displayName = 'Card';
