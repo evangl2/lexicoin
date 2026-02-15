@@ -11,6 +11,7 @@ import './NotificationSystem.css';
 export const NotificationSystem: React.FC = () => {
     const notifications = useGameStore(state => state.notifications);
     const removeNotification = useGameStore(state => state.removeNotification);
+    const interfaceLang = useGameStore(state => state.player.settings.interfaceLang);
 
     return (
         <div className="notification-system">
@@ -27,7 +28,7 @@ export const NotificationSystem: React.FC = () => {
                         {notification.type === 'ERROR' && '❌'}
                     </span>
                     <span className="notification-message">
-                        {notification.message.zh || notification.message.en}
+                        {(notification.message as any)[interfaceLang] || notification.message.en}
                     </span>
                 </div>
             ))}

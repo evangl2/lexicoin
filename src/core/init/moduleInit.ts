@@ -96,7 +96,10 @@ function setupMessageBusSubscriptions(): void {
     // Library Module subscriptions
     messageBus.subscribe('ACHIEVEMENT_UNLOCKED', (message) => {
         store.addNotification(
-            `Achievement unlocked: ${message.payload.achievementId}`,
+            {
+                en: `Achievement unlocked: ${message.payload.achievementId}`,
+                zh: `解锁成就：${message.payload.achievementId}`
+            },
             'SUCCESS',
             5000
         );
@@ -154,7 +157,10 @@ export async function awardXP(params: {
         });
 
         store.addNotification(
-            `Level Up! You are now level ${levelInfo.level}`,
+            {
+                en: `Level Up! You are now level ${levelInfo.level}`,
+                zh: `等级提升！你现在是第 ${levelInfo.level} 级`
+            },
             'SUCCESS',
             5000
         );
@@ -164,7 +170,10 @@ export async function awardXP(params: {
         for (const unlock of newUnlocks) {
             if (unlock.requiredLevel === levelInfo.level) {
                 store.addNotification(
-                    `Unlocked: ${unlock.name}`,
+                    {
+                        en: `Unlocked: ${unlock.name}`,
+                        zh: `已解锁：${unlock.name}`
+                    },
                     'INFO',
                     4000
                 );
