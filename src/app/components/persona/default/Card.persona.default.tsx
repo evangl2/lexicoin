@@ -200,13 +200,15 @@ const AlchemicalCorners = React.memo(() => (
   </div>
 ));
 
+const FRAME_TICKS = [...Array(25)];
+
 const CrucibleFrame = React.memo(() => (
   <>
     <div className="absolute inset-0 border rounded-sm pointer-events-none" style={{ borderColor: tokens.colors.borderInner }} />
     <div className="absolute inset-x-0 top-0 h-[1px] opacity-50" style={{ background: definitions.gradients.sheen }} />
 
     <div className="absolute top-0 inset-x-0 h-3 border-b flex justify-between px-2 items-end" style={{ borderColor: tokens.colors.borderInner }}>
-      {[...Array(25)].map((_, i) => (
+      {FRAME_TICKS.map((_, i) => (
         <div key={i} className={`w-[1px] ${i % 5 === 0 ? 'h-2 opacity-50' : 'h-1 opacity-20'}`} style={{ backgroundColor: definitions.colors.goldBase }} />
       ))}
     </div>
