@@ -364,10 +364,14 @@ export const Card: React.FC<CardProps> = ({
 
 
   // --- Gesture ---
-  const bind = useDrag(({ active, xy: [px, py], delta: [dx, dy], first, last }) => {
-    // Disable dragging ONLY when fully flipped
-    if (isFlipped) return;
+  const dragConfig = useMemo(() => ({
+    target: cardRef,
+    enabled: !isFlipped,
+    pointer: { keys: false },
+    eventOptions: { passive: false }
+  }), [cardRef, isFlipped]);
 
+  useDrag(({ active, xy: [px, py], delta: [dx, dy], first, last }) => {
     if (first) {
       setIsDragging(true);
       if (title) {
@@ -424,8 +428,7 @@ export const Card: React.FC<CardProps> = ({
       setIsDragging(false);
       onDragEnd?.();
     }
-  }, { pointer: { keys: false }, eventOptions: { passive: false } });
-  const handlers = bind();
+  }, dragConfig);
 
   // Active state for animations
   const isActive = isHovered || isDragging || isExpanded || isOver || isOverlayOpen;
@@ -433,14 +436,15 @@ export const Card: React.FC<CardProps> = ({
   // Base z-index logic (local layering)
   const baseZIndex = isDragging ? 100 : (isHovered ? 10 : 1);
 
+  // Combine refs for motion.div
+  const setRefs = useCallback((node: HTMLDivElement | null) => {
+    cardRef.current = node;
+    drop(node);
+  }, [drop]);
+
   return (
     <motion.div
-      ref={(node) => {
-        // @ts-ignore - Handler type conflict between use-gesture and framer-motion
-        cardRef.current = node;
-        drop(node);
-      }}
-      {...((isFlipped ? {} : handlers) as any)}
+      ref={setRefs}
       onClick={(e) => {
         if (isDragging) return;
         if (e.button !== 0) return;
@@ -504,7 +508,6 @@ export const Card: React.FC<CardProps> = ({
 
       onPointerDown={(e) => {
         e.stopPropagation();
-        if (!isFlipped && handlers?.onPointerDown) handlers.onPointerDown(e);
       }}
       onHoverStart={() => !isFlipped && setIsHovered(true)}
       onHoverEnd={() => !isFlipped && setIsHovered(false)}
