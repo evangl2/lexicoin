@@ -1,6 +1,7 @@
 import {
   useEffect,
   useCallback,
+  useMemo,
 } from "react";
 import { DndProvider, useDrop } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
@@ -79,16 +80,19 @@ function InnerApp() {
   });
 
   // 5. Physics Engine
-  usePhysics(
-    data.items.map((item: any) => ({
-      id: item.cardData.rawSense.uid,
-      x: item.mx,
-      y: item.my,
-      width: item.width,
-      height: item.height,
-    })),
-    draggingId,
+  const physicsItems = useMemo(
+    () =>
+      data.items.map((item: any) => ({
+        id: item.cardData.rawSense.uid,
+        x: item.mx,
+        y: item.my,
+        width: item.width,
+        height: item.height,
+      })),
+    [data.items],
   );
+
+  usePhysics(physicsItems, draggingId);
 
   // --- Interaction Logic ---
 
