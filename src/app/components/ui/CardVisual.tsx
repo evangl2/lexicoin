@@ -9,7 +9,7 @@ import { tts } from '@/app/utils/audio/tts';
 import { SelectionOverlay } from '@/app/components/ui/SelectionOverlay';
 import type { ContentItem } from '@/app/types/CardContent';
 import type { LanguageDisplayData, SenseInfo, VisualData } from '@/types/CardEntity';
-import type { Language } from 'a:/lexicoin/lexicoin/schemas/schemas/SenseEntity.schema';
+import type { Language } from '@schemas/schemas/SenseEntity.schema';
 
 // ============================================================================
 // HELPER FUNCTIONS (Typography & Icons)
