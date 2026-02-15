@@ -45,11 +45,23 @@ export const DragLayer: React.FC<DragLayerProps> = ({ scaleState, systemLang, le
     // 1. Consistency: Matches the visual style of the Dock/Repository (which also uses CompactCardVisual).
     // 2. Robustness: CompactCardVisual is lighter and doesn't rely on complex physics/glare motion values that fail during drag.
     // 3. Stability: Works perfectly at ANY canvas zoom level (50% to 300%+).
-    const FIXED_SCALE = 0.5; // Matches Repository item size (125x175)
+    const FIXED_SCALE_LEGACY = 0.5; // Matches Repository item size (125x175)
+
+    // Check for new robust mode
+    const itemCardMode = (item as any).cardMode;
+    const visualPayload = (item as any).visualPayload;
+
+    // If cardMode is present, we trust sourceWidth/Height and use 1:1 scale
+    const scale = itemCardMode ? 1.0 : FIXED_SCALE_LEGACY;
 
     // Target Size in Preview
-    const targetWidth = isItem ? sourceWidth : (250 * FIXED_SCALE);
-    const targetHeight = isItem ? sourceHeight : (350 * FIXED_SCALE);
+    const targetWidth = isItem
+        ? sourceWidth
+        : (itemCardMode ? sourceWidth : (250 * FIXED_SCALE_LEGACY));
+
+    const targetHeight = isItem
+        ? sourceHeight
+        : (itemCardMode ? sourceHeight : (350 * FIXED_SCALE_LEGACY));
 
     // Anchor Point
     const grabOffsetX = (initialClientOffset.x - initialSourceClientOffset.x);
@@ -74,15 +86,17 @@ export const DragLayer: React.FC<DragLayerProps> = ({ scaleState, systemLang, le
                     <DragPreviewCard
                         title={item.title}
                         image={item.image}
-                        width={250}
-                        height={350}
-                        scale={FIXED_SCALE}
+                        width={itemCardMode ? targetWidth : 250} // If mode is set, use exact target width
+                        height={itemCardMode ? targetHeight : 350} // If mode is set, use exact target height
+                        scale={scale}
                         systemLanguage={systemLang}
                         learningLanguage={learningLang}
                         difficultyLevel={item.difficulty?.toString() || "A1"}
                         partOfSpeech={item.pos || "n."}
                         durability={item.durability || 100}
                         layoutMode={'compact'} // FORCE COMPACT MODE
+                        cardMode={itemCardMode} // Pass specific mode (repo/icon/word)
+                        visualPayload={visualPayload}
                         persona={CardPersona}
                     />
                 )}

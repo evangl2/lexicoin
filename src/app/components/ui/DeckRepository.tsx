@@ -511,12 +511,15 @@ const RepoCard: React.FC<RepoCardProps> = ({ item, langCode, mode, onRetrieve, v
             title: learningData?.word || currentCardData.uid,
             difficulty: learningData?.level || 'A1',
             pos: learningData?.pos || 'n.',
-            durability: currentCardData.senseInfo.durability
+            durability: currentCardData.senseInfo.durability,
+            // Enhanced Drag Data for WYSIWYG Preview
+            cardMode: mode,
+            visualPayload: currentCardData.visual.payload
         },
         collect: (monitor) => ({
             isDragging: monitor.isDragging(),
         }),
-    }), [item.cardData.uid, width, height, learningData, currentCardData]);
+    }), [item.cardData.uid, width, height, learningData, currentCardData, mode]);
 
     React.useEffect(() => {
         preview(getEmptyImage(), { captureDraggingState: true });

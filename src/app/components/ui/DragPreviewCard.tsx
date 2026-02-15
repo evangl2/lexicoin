@@ -14,6 +14,9 @@ interface DragPreviewCardProps {
   systemLanguage?: string;
   learningLanguage?: string;
   layoutMode?: 'default' | 'compact';
+  // New props for robust preview
+  cardMode?: 'repository' | 'icon' | 'word';
+  visualPayload?: string;
   persona?: any;
 }
 
@@ -28,6 +31,8 @@ export const DragPreviewCard: React.FC<DragPreviewCardProps> = ({
   systemLanguage = "ENGLISH",
   learningLanguage = "ENGLISH",
   layoutMode = 'default',
+  cardMode, // Optional: if provided, overrides layoutMode to be 'compact' and uses specific sub-mode
+  visualPayload,
   persona,
 }) => {
   const commonProps = {
@@ -56,7 +61,7 @@ export const DragPreviewCard: React.FC<DragPreviewCardProps> = ({
     },
     visual: {
       status: 'idle' as const,
-      payload: ''
+      payload: visualPayload || '' // Use passed payload
     },
     learningLanguage: learningLanguage as any,
     systemLanguage: systemLanguage as any,
@@ -65,6 +70,9 @@ export const DragPreviewCard: React.FC<DragPreviewCardProps> = ({
 
   // Explicitly disable physics/glare
   const zero = useMotionValue(0);
+
+  // Determine effective mode
+  const effectiveLayoutMode = cardMode ? 'compact' : layoutMode;
 
   return (
     <div
@@ -76,9 +84,9 @@ export const DragPreviewCard: React.FC<DragPreviewCardProps> = ({
       }}
       className="relative select-none pointer-events-none"
     >
-      {layoutMode === 'compact' ? (
+      {effectiveLayoutMode === 'compact' ? (
         <CompactCardVisual
-          mode="repository"
+          mode={cardMode || 'repository'} // Default to repository if cardMode not specified but layout is compact
           learningData={commonProps.learningData}
           senseInfo={commonProps.senseInfo as any}
           visual={commonProps.visual as any}

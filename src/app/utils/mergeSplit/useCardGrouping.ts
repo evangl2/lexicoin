@@ -194,70 +194,79 @@ export const useCardGrouping = ({ items, setItems, learningLang }: UseCardGroupi
 
         // 3.5 Detect Merging Items (Exiting)
         // Find items that are currently visible (Anchors) but will become Variants in the new state.
+        // GUARD: Only animate if we had items before (not on startup)
+        const shouldAnimate = prevItemsLength !== undefined && prevItemsLength > 0;
         const exiting: CardItem[] = [];
-        items.forEach(oldItem => {
-            const uid = oldItem.cardData.rawSense.uid;
-            // Is it still an anchor?
-            const isStillAnchor = newItems.some(ni => ni.cardData.rawSense.uid === uid);
-            if (isStillAnchor) return;
 
-            // Did it merge into someone?
-            // Find the Anchor that contains this UID in its variants
-            let targetAnchorUID: string | undefined;
-            let targetAnchorItem: CardItem | undefined;
+        if (shouldAnimate) {
+            items.forEach(oldItem => {
+                const uid = oldItem.cardData.rawSense.uid;
+                // Is it still an anchor?
+                const isStillAnchor = newItems.some(ni => ni.cardData.rawSense.uid === uid);
+                if (isStillAnchor) return;
 
-            // Look in newMergedVariants
-            for (const [anchorID, variants] of Object.entries(newMergedVariants)) {
-                if (variants.some(v => v.uid === uid)) {
-                    targetAnchorUID = anchorID;
-                    break;
-                }
-            }
+                // Did it merge into someone?
+                // Find the Anchor that contains this UID in its variants
+                let targetAnchorUID: string | undefined;
+                let targetAnchorItem: CardItem | undefined;
 
-            if (targetAnchorUID) {
-                // Find the visible item for this anchor
-                targetAnchorItem = newItems.find(ni => ni.cardData.rawSense.uid === targetAnchorUID);
-            }
-
-            if (targetAnchorItem) {
-                // Yes, it merged. Animate it to the target anchor.
-                const startX = oldItem.mx.get();
-                const startY = oldItem.my.get();
-                let targetX = targetAnchorItem.mx.get();
-                let targetY = targetAnchorItem.my.get();
-
-                // UX: If target is in Repository, animate to Dock (Bottom Center)
-                // BUT only if the source item was on Canvas.
-                // If source was already in Repository, it should just disappear/merge silently.
-                if (targetAnchorItem.location === 'repository') {
-                    if (oldItem.location === 'repository') {
-                        // Skip animation for Repo -> Repo merge
-                        return;
+                // Look in newMergedVariants
+                for (const [anchorID, variants] of Object.entries(newMergedVariants)) {
+                    if (variants.some(v => v.uid === uid)) {
+                        targetAnchorUID = anchorID;
+                        break;
                     }
-                    // Optimize: Target random position within Dock area (Center +/- 250px)
-                    // This creates a "pile up" effect instead of a single point
-                    const dockSpread = 500;
-                    const randomOffsetX = (Math.random() - 0.5) * dockSpread;
-                    targetX = (window.innerWidth / 2) + randomOffsetX;
-                    targetY = window.innerHeight - 80;
                 }
 
-                // Use existing motion values if possible, or create new ones? 
-                // We reuse the oldItem's motion values to preserve momentum/state if needed,
-                // but simple animate is enough.
+                if (targetAnchorUID) {
+                    // Find the visible item for this anchor
+                    targetAnchorItem = newItems.find(ni => ni.cardData.rawSense.uid === targetAnchorUID);
+                }
 
-                // Slower Physics (approx 50% slower): Stiffness 90, Damping 20
-                const slowSpring = { type: "spring" as const, stiffness: 90, damping: 20 };
+                if (targetAnchorItem) {
+                    // Yes, it merged. Animate it to the target anchor.
+                    const startX = oldItem.mx.get();
+                    const startY = oldItem.my.get();
+                    let targetX = targetAnchorItem.mx.get();
+                    let targetY = targetAnchorItem.my.get();
 
-                animate(oldItem.mx, targetX, slowSpring);
-                animate(oldItem.my, targetY, slowSpring);
-                // Global UI Animation: Shrink to 10% while absorbing
-                // This is independent of Persona
-                animate(oldItem.scale, 0.1, slowSpring);
+                    // UX: If target is in Repository, animate to Dock (Bottom Center)
+                    // BUT only if the source item was on Canvas.
+                    // If source was already in Repository, it should just disappear/merge silently.
+                    if (targetAnchorItem.location === 'repository') {
+                        if (oldItem.location === 'repository') {
+                            // Skip animation for Repo -> Repo merge
+                            console.log('[Group] Skipping animation for Repo->Repo merge:', uid, '->', targetAnchorUID);
+                            return;
+                        }
+                        console.log('[Group] Animating Canvas->Repo merge:', uid, '->', targetAnchorUID);
+                        // Optimize: Target random position within Dock area (Center +/- 250px)
+                        // This creates a "pile up" effect instead of a single point
+                        const dockSpread = 500;
+                        const randomOffsetX = (Math.random() - 0.5) * dockSpread;
+                        targetX = (window.innerWidth / 2) + randomOffsetX;
+                        targetY = window.innerHeight - 80;
+                    } else {
+                        console.log('[Group] Animating Standard merge:', uid, '->', targetAnchorUID, targetAnchorItem.location);
+                    }
 
-                exiting.push(oldItem);
-            }
-        });
+                    // Use existing motion values if possible, or create new ones? 
+                    // We reuse the oldItem's motion values to preserve momentum/state if needed,
+                    // but simple animate is enough.
+
+                    // Slower Physics (approx 50% slower): Stiffness 90, Damping 20
+                    const slowSpring = { type: "spring" as const, stiffness: 90, damping: 20 };
+
+                    animate(oldItem.mx, targetX, slowSpring);
+                    animate(oldItem.my, targetY, slowSpring);
+                    // Global UI Animation: Shrink to 10% while absorbing
+                    // This is independent of Persona
+                    animate(oldItem.scale, 0.1, slowSpring);
+
+                    exiting.push(oldItem);
+                }
+            });
+        }
 
         if (exiting.length > 0) {
             setExitingItems(prev => [...prev, ...exiting]);

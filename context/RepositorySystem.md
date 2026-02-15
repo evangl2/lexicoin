@@ -22,7 +22,7 @@
 
 1.  **侧边栏 (Sidebar)**:
     *   **导航**: 提供 "WORDS" (词语) 和 "PROPS" (道具) 两个 Tab 切换。
-    *   **视觉风格**: 采用深色背景 (`bgDeep`) 和金色高亮 (`#D4AF37`)，符合 Alchemy 风格。
+
 
 2.  **内容区域 (Content Area)**:
     *   **头部 (Header)**: 包含当前 Tab 标题、视图切换按钮 (Cards/Icons/List) 以及排序控件。
