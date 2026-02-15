@@ -91,13 +91,13 @@ class APIClient {
                 options.body = JSON.stringify(body);
             }
 
-            logger.debug(`API Request: ${method} ${endpoint}`, { body }, 'APIClient');
+            logger.debug(`API Request: ${method} ${endpoint}`, { hasBody: !!body }, 'APIClient');
 
             const response = await fetch(url, options);
             const data = await response.json();
 
             if (!response.ok) {
-                logger.error(`API Error: ${response.status}`, data, 'APIClient');
+                logger.error(`API Error: ${response.status}`, { message: data.message || 'Request failed' }, 'APIClient');
                 return {
                     success: false,
                     error: {
@@ -109,7 +109,7 @@ class APIClient {
                 };
             }
 
-            logger.debug(`API Response: ${method} ${endpoint}`, { data }, 'APIClient');
+            logger.debug(`API Response: ${method} ${endpoint}`, { success: true }, 'APIClient');
 
             return {
                 success: true,
