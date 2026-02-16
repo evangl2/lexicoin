@@ -17,12 +17,14 @@ import { AudioProvider } from "@/app/context/AudioContext";
 // Hooks
 import { useCanvasCamera } from "@/app/hooks/logic/useCanvasCamera";
 import { useCardManager } from "@/app/hooks/logic/useCardManager";
+import { useDeviceManager } from "@/app/hooks/logic/useDeviceManager"; // Added
 import { useCardGrouping } from "@/app/utils/mergeSplit/useCardGrouping";
 import { usePhysics } from "@/app/hooks/usePhysics";
 
 // UI Components
 import { DragLayer } from "@/app/components/ui/DragLayer";
 import { CanvasControl } from "@/app/components/ui/CanvasControl";
+import { SynthesisCircle } from "@/app/components/ui/SynthesisCircle"; // Added
 
 // Store & Utils
 import { useGameStore } from "@/store/index";
@@ -69,7 +71,11 @@ function InnerApp() {
   const camera = useCanvasCamera();
 
   // 3. Data Manager (CRUD + Persistence)
+  // 3. Data Manager (CRUD + Persistence)
   const data = useCardManager();
+
+  // 3b. Device Manager
+  const deviceManager = useDeviceManager(); // Added
 
   // 4. Grouping Logic (Merge/Split + Smart Camera)
   const grouping = useCardGrouping({
@@ -97,8 +103,8 @@ function InnerApp() {
 
   // Drop from Repository to Canvas (via Dock double-click, handled by retrieveCard)
   const [, drop] = useDrop(() => ({
-    accept: ['CARD'],
-    drop: (item: { uid: string, width: number, height: number }, monitor) => {
+    accept: ['CARD', 'DEVICE'],
+    drop: (item: { uid: string, width: number, height: number, type?: string }, monitor) => {
       if (monitor.didDrop()) return;
 
       const clientOffset = monitor.getClientOffset();
@@ -114,26 +120,54 @@ function InnerApp() {
       const x = dropX - (item.width / 2);
       const y = dropY - (item.height / 2);
 
-      data.retrieveCard(item.uid, x, y);
+      if (item.type === 'DEVICE') {
+        deviceManager.retrieveDevice(item.uid, x, y);
+      } else {
+        data.retrieveCard(item.uid, x, y);
+      }
     },
   }));
 
   // 2. Check Deck Collision (Canvas -> Repository)
   // Optimization: useGameStore.getState() to avoid isDeckOpen dependency
-  const checkDeckCollision = useCallback((id: string) => {
+  const checkDeckCollision = useCallback((id: string, isDevice: boolean = false) => {
     const isDeckOpen = useGameStore.getState().deckState.isOpen;
     if (!isDeckOpen) return;
-
-    const targetItem = data.canvasItems.find((i: any) => i.cardData.rawSense.uid === id);
-    if (!targetItem) return;
 
     const cx = camera.x.get();
     const cy = camera.y.get();
     const s = camera.scale.get();
 
-    // Calculate approximate screen position of the card center
-    const screenX = cx + targetItem.mx.get() * s;
-    const screenY = cy + targetItem.my.get() * s;
+    let mx = 0;
+    let my = 0;
+    let width = 0;
+    let height = 0;
+
+    if (isDevice) {
+      // Logic for devices
+      const device = deviceManager.canvasDevices.find(d => d.uid === id);
+      if (!device) return;
+      mx = device.mx.get();
+      my = device.my.get();
+      // Hardcode size for now or lookup based on type
+      width = 450;
+      height = 450;
+    } else {
+      const targetItem = data.canvasItems.find((i: any) => i.cardData.rawSense.uid === id);
+      if (!targetItem) return;
+      mx = targetItem.mx.get();
+      my = targetItem.my.get();
+      width = targetItem.width;
+      height = targetItem.height;
+    }
+
+    // Calculate approximate screen position of the CENTER
+    // mx, my are Top-Left coordinates in Canvas Space
+    const centerX = mx + width / 2;
+    const centerY = my + height / 2;
+
+    const screenX = cx + centerX * s;
+    const screenY = cy + centerY * s;
 
     // Deck Zone Definition
     const deckHeight = 260;
@@ -146,9 +180,13 @@ function InnerApp() {
     const deckXEnd = deckXStart + deckWidth;
 
     if (screenY > topEdgeY && screenY < bottomEdgeY && screenX > deckXStart && screenX < deckXEnd) {
-      data.storeCard(id);
+      if (isDevice) {
+        deviceManager.storeDevice(id);
+      } else {
+        data.storeCard(id);
+      }
     }
-  }, [data, camera]);
+  }, [data, camera, deviceManager]);
 
   // STABLE HANDLERS for Card Component
   const handleDragStart = useCallback((id: string) => {
@@ -160,6 +198,10 @@ function InnerApp() {
     data.saveItems();
     setDraggingId(null);
   }, [checkDeckCollision, data]);
+
+  const handleDeviceDragEnd = useCallback((uid: string) => {
+    checkDeckCollision(uid, true);
+  }, [checkDeckCollision]);
 
   const handleUpdatePosition = useCallback((id: string, x: number, y: number) => {
     // Stable no-op callback
@@ -180,6 +222,21 @@ function InnerApp() {
     setFocusedCardCount(prev => Math.max(0, prev - 1));
   }, []);
 
+  // Filter out cards that are inside devices
+  const slottedCardIds = useMemo(() => {
+    const ids = new Set<string>();
+    deviceManager.canvasDevices.forEach(d => {
+      if (d.state.slot1_uid) ids.add(d.state.slot1_uid);
+      if (d.state.slot2_uid) ids.add(d.state.slot2_uid);
+    });
+    return ids;
+  }, [deviceManager.canvasDevices]);
+
+  const visibleCanvasItems = useMemo(() =>
+    data.canvasItems.filter((item: any) => !slottedCardIds.has(item.cardData.rawSense.uid)),
+    [data.canvasItems, slottedCardIds]
+  );
+
   return (
     <div
       ref={drop}
@@ -198,7 +255,7 @@ function InnerApp() {
       >
         <Canvas scale={camera.scale} x={camera.x} y={camera.y}>
           {/* Render Active Canvas Items */}
-          {data.canvasItems.map((item: any) => (
+          {visibleCanvasItems.map((item: any) => (
             <Card
               key={item.cardData.rawSense.uid}
               cardData={item.cardData}
@@ -218,6 +275,26 @@ function InnerApp() {
               groupFeedback={grouping.groupFeedback}
               onFocus={handleCardFocus}
               onBlur={handleCardBlur}
+              onDropIntoSlot={(cardId, deviceUid, slotId) => {
+                deviceManager.updateDeviceState(deviceUid, {
+                  [`slot${slotId}_uid`]: cardId
+                });
+              }}
+            />
+          ))}
+
+          {/* Render Active Devices */}
+          {deviceManager.canvasDevices.map(device => (
+            <SynthesisCircle
+              key={device.uid}
+              uid={device.uid}
+              x={device.mx}
+              y={device.my}
+              state={device.state}
+              updateState={deviceManager.updateDeviceState}
+              inputCards={data.items}
+              canvasScale={camera.scale}
+              onDragEnd={handleDeviceDragEnd}
             />
           ))}
 
@@ -282,6 +359,8 @@ function InnerApp() {
         setSystemLang={setSystemLang}
         isZoomed={focusedCardCount > 0}
         mergedVariants={grouping.mergedVariants}
+        deviceItems={deviceManager.repositoryDevices}
+        onRetrieveDevice={(uid) => deviceManager.retrieveDevice(uid, window.innerWidth / 2, window.innerHeight / 2)}
       />
 
     </div>

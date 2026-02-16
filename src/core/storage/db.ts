@@ -46,11 +46,27 @@ export interface VisualRecord {
 
 // ---- Database Singleton ----
 
+export interface DeviceRecord {
+    uid: string;
+    type: 'synthesis-circle';
+    x: number;
+    y: number;
+    location: CardLocation; // Reuse CardLocation ('canvas' | 'repository')
+    state: {
+        slot1_uid: string | null;
+        slot2_uid: string | null;
+        isProcessing: boolean;
+    };
+}
+
+// ---- Database Singleton ----
+
 const db = new Dexie('lexicoin_db') as Dexie & {
     gameData: EntityTable<GameDataRecord, 'key'>;
     canvasPositions: EntityTable<CanvasPositionRecord, 'uid'>;
     senses: EntityTable<SenseRecord, 'uid'>;
     visuals: EntityTable<VisualRecord, 'uid'>;
+    devices: EntityTable<DeviceRecord, 'uid'>;
 };
 
 db.version(1).stores({
@@ -76,6 +92,14 @@ db.version(4).stores({
     canvasPositions: 'uid, location',
     senses: 'uid',
     visuals: '[uid+variantId], uid',
+});
+
+db.version(5).stores({
+    gameData: 'key',
+    canvasPositions: 'uid, location',
+    senses: 'uid',
+    visuals: '[uid+variantId], uid',
+    devices: 'uid, location',
 });
 
 export { db };

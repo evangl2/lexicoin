@@ -2,11 +2,13 @@ import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useDrag, useDrop } from 'react-dnd';
 import { getEmptyImage } from 'react-dnd-html5-backend';
-import { X, Box, ArrowDownAZ, ArrowUpAZ, SlidersHorizontal, Library, Hexagon, LayoutGrid, Image as ImageIcon, AlignJustify } from 'lucide-react';
+import { Box, ArrowDownAZ, ArrowUpAZ, SlidersHorizontal, Library, Hexagon, LayoutGrid, Image as ImageIcon, AlignJustify, CircuitBoard } from 'lucide-react';
 import { DefaultCardPersona as CardPersona } from '@/app/components/persona/default/Card.persona.default';
 import { DefaultInterfacePersona as InterfacePersona } from '@/app/components/persona/default/Interface.persona.default';
 import { CompactCardVisual, CompactMode } from '@/app/components/ui/CompactCardVisual';
 import { PropVisual } from '@/app/components/ui/PropVisual';
+import { DeviceVisual } from '@/app/components/ui/DeviceVisual';
+import { DeviceItem } from '@/app/hooks/logic/useDeviceManager';
 import type { CardItem } from '@/app/hooks/logic/useCardManager';
 import type { Language } from '@schemas/schemas/SenseEntity.schema';
 import { mapLanguageCode } from '@/app/utils/localization';
@@ -25,7 +27,9 @@ interface DeckRepositoryProps {
     onClose: () => void;
     items: CardItem[];
     propItems?: PropItem[];
+    deviceItems?: DeviceItem[];
     onRetrieve?: (uid: string) => void;
+    onRetrieveDevice?: (uid: string) => void;
     onStore?: (uid: string) => void;
     systemLanguage?: string;
     learningLanguage?: string;
@@ -34,7 +38,7 @@ interface DeckRepositoryProps {
 
 type SortDir = 'asc' | 'desc';
 type SortKey = 'word' | 'pos' | 'level' | 'durability';
-type RepoTab = 'words' | 'props';
+type RepoTab = 'words' | 'props' | 'devices';
 
 // Localization Helper
 const getLoc = (key: string, lang: string = 'ENGLISH') => {
@@ -48,9 +52,247 @@ const getLoc = (key: string, lang: string = 'ENGLISH') => {
         'Empty Vessel': { en: 'Empty Vessel', zh: '空容器' },
         'WORDS': { en: 'WORDS', zh: '词语' },
         'PROPS': { en: 'PROPS', zh: '道具' },
+        'DEVICES': { en: 'DEVICES', zh: '设备' },
         'Load More': { en: 'Load More', zh: '加载更多' },
     };
     return isZh ? (dict[key]?.zh || key) : (dict[key]?.en || key);
+};
+
+// --- SUB-COMPONENTS (Defined before main component to avoid hoisting issues) ---
+
+const RepoModeButton: React.FC<{ isActive: boolean; onClick: () => void; icon: React.ElementType; title: string }> = ({ isActive, onClick, icon: Icon, title }) => (
+    <button
+        onClick={onClick}
+        className={`p-1.5 rounded-md transition-all ${isActive ? 'bg-[#D4AF37]/20 text-[#D4AF37]' : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/5'}`}
+        title={title}
+    >
+        <Icon size={14} />
+    </button>
+);
+
+const EmptyState: React.FC<{ systemLanguage?: string, label?: string }> = ({ systemLanguage, label }) => (
+    <div className="w-full h-full flex flex-col items-center justify-center gap-2"
+        style={{ color: InterfacePersona.tokens.colors.borderBase }}>
+        <div className="w-12 h-12 rounded-full border flex items-center justify-center"
+            style={{ borderColor: InterfacePersona.tokens.colors.borderFaint }}>
+            <Box className="opacity-20" />
+        </div>
+        <span className="text-xs tracking-[0.2em] uppercase font-serif">{label || getLoc('Empty Vessel', systemLanguage)}</span>
+    </div>
+);
+
+interface RepoTabButtonProps {
+    isActive: boolean;
+    onClick: () => void;
+    icon: React.ElementType;
+    label: string;
+    count: number;
+}
+
+const RepoTabButton: React.FC<RepoTabButtonProps> = ({ isActive, onClick, icon: Icon, label, count }) => (
+    <button
+        onClick={onClick}
+        className={`group relative flex flex-col items-center justify-center w-10 h-10 rounded-lg transition-all duration-300
+            ${isActive ? 'bg-[#D4AF37]/10' : 'hover:bg-white/5'}
+        `}
+        title={label}
+    >
+        <div className={`absolute left-0 w-[2px] h-0 bg-[#D4AF37] transition-all duration-300 rounded-r-full
+            ${isActive ? 'h-full opacity-100' : 'h-0 opacity-0'}
+        `} />
+
+        <Icon
+            size={18}
+            className={`transition-colors duration-300 ${isActive ? 'text-[#D4AF37]' : 'text-zinc-500 group-hover:text-zinc-300'}`}
+        />
+
+        {/* Count Badge */}
+        {count > 0 && (
+            <div className="absolute -top-1 -right-1 min-w-[14px] h-[14px] bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-full flex items-center justify-center">
+                <span className="text-[8px] text-[#D4AF37] px-1 font-mono">{count}</span>
+            </div>
+        )}
+    </button>
+);
+
+// --- DEVICE COMPONENT ---
+interface RepoDeviceProps {
+    item: DeviceItem;
+    onRetrieve?: (uid: string) => void;
+}
+
+const RepoDevice: React.FC<RepoDeviceProps> = ({ item, onRetrieve }) => {
+    const [isHovered, setIsHovered] = React.useState(false);
+    const [{ isDragging }, drag, preview] = useDrag(() => ({
+        type: 'DEVICE',
+        item: {
+            uid: item.uid,
+            title: item.name,
+            type: 'DEVICE',
+            sourceWidth: 100, // DeviceVisual Size
+            sourceHeight: 100,
+            width: 100,  // Added for App.tsx Drop Handler
+            height: 100  // Added for App.tsx Drop Handler
+        },
+        collect: (monitor) => ({
+            isDragging: monitor.isDragging(),
+        }),
+    }), [item.uid, item.name]);
+
+    React.useEffect(() => {
+        preview(getEmptyImage(), { captureDraggingState: true });
+    }, [preview]);
+
+    // Retrieve on click (if not dragging)
+    const handleClick = () => {
+        if (!isDragging && onRetrieve) {
+            onRetrieve(item.uid);
+        }
+    };
+
+    return (
+        <div
+            ref={drag}
+            onClick={handleClick}
+            className={`flex-shrink-0 cursor-pointer relative group ${isDragging ? 'opacity-50' : ''}`}
+            title={item.name}
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
+        >
+            <DeviceVisual type={item.type} size={100} isHovered={isHovered} />
+        </div>
+    );
+};
+
+interface RepoPropProps {
+    id: string;
+    title: string;
+}
+
+const RepoProp: React.FC<RepoPropProps> = ({ id, title }) => {
+    const [isHovered, setIsHovered] = useState(false);
+    const [{ isDragging }, drag, preview] = useDrag(() => ({
+        type: 'ITEM',
+        item: {
+            title: title,
+            type: 'ITEM',
+            sourceWidth: 100,
+            sourceHeight: 100
+        },
+        collect: (monitor) => ({
+            isDragging: monitor.isDragging(),
+        }),
+    }), [id, title]);
+
+    React.useEffect(() => {
+        preview(getEmptyImage(), { captureDraggingState: true });
+    }, [preview]);
+
+    return (
+        <div
+            ref={drag}
+            className={`flex-shrink-0 cursor-pointer relative group ${isDragging ? 'opacity-50' : ''}`}
+            title={title}
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
+        >
+            <PropVisual
+                title={title}
+                size={100}
+                className="group-hover:scale-105 transition-transform"
+                isHovered={isHovered}
+            />
+            {/* Hover Glow */}
+            <div className="absolute inset-0 bg-[#D4AF37]/5 opacity-0 group-hover:opacity-100 rounded-full transition-opacity duration-300 blur-xl -z-10" />
+        </div>
+    );
+}
+
+// --- CARD COMPONENT ---
+interface RepoCardProps {
+    item: CardItem;
+    langCode: Language;
+    mode: CompactMode;
+    onRetrieve?: (uid: string) => void;
+    variants?: CardEntity[];
+}
+
+const RepoCard: React.FC<RepoCardProps> = ({ item, langCode, mode, onRetrieve, variants = [] }) => {
+    // Determine sizing based on mode
+    let width = 125;
+    let height = 175;
+
+    if (mode === 'icon') {
+        width = 80;
+        height = 80;
+    } else if (mode === 'word') {
+        width = 140;
+        height = 40;
+    }
+
+    // Use Persistent Active Variant Logic
+    const { currentCardData } = useCardVariants({
+        cardData: item.cardData,
+        variants
+    });
+
+    const learningData = currentCardData.displayData[langCode];
+
+    const [{ isDragging }, drag, preview] = useDrag(() => ({
+        type: 'CARD',
+        item: {
+            uid: item.cardData.rawSense.uid, // Keeps Anchor UID for retrieval? Yes, retrieveCard handles it.
+            width: width, // Use dynamic width
+            height: height, // Use dynamic height
+            sourceWidth: width,
+            sourceHeight: height,
+            title: learningData?.word || currentCardData.uid,
+            difficulty: learningData?.level || 'A1',
+            pos: learningData?.pos || 'n.',
+            durability: currentCardData.senseInfo.durability,
+            // Enhanced Drag Data for WYSIWYG Preview
+            cardMode: mode,
+            visualPayload: currentCardData.visual.payload
+        },
+        collect: (monitor) => ({
+            isDragging: monitor.isDragging(),
+        }),
+    }), [item.cardData.uid, width, height, learningData, currentCardData, mode]);
+
+    React.useEffect(() => {
+        preview(getEmptyImage(), { captureDraggingState: true });
+    }, [preview]);
+
+    return (
+        <div
+            ref={drag}
+            className={`flex-shrink-0 cursor-pointer relative group ${isDragging ? 'opacity-50' : ''}`}
+            style={{ width, height }}
+            title="Drag to canvas"
+        >
+            <div
+                className="origin-top-left relative overflow-hidden transition-transform duration-200 group-hover:scale-105"
+                style={{
+                    width: '100%',
+                    height: '100%',
+                    boxShadow: mode === 'word' ? 'none' : CardPersona.tokens.shadows.base,
+                    borderRadius: mode === 'word' ? '4px' : CardPersona.tokens.layout.radius,
+                }}
+            >
+                <CompactCardVisual
+                    mode={mode}
+                    learningData={currentCardData.displayData[langCode]!}
+                    senseInfo={currentCardData.senseInfo}
+                    visual={currentCardData.visual}
+                    persona={CardPersona}
+                    isActive={false}
+                />
+
+                {/* Hover Overlay */}
+                <div className="absolute inset-0 bg-white/0 hover:bg-white/5 transition-colors duration-200 pointer-events-auto rounded-[inherit]" />
+            </div>
+        </div>
+    );
 };
 
 export const DeckRepository: React.FC<DeckRepositoryProps> = ({
@@ -58,7 +300,9 @@ export const DeckRepository: React.FC<DeckRepositoryProps> = ({
     onClose,
     items,
     propItems = [],
+    deviceItems = [],
     onRetrieve,
+    onRetrieveDevice,
     onStore,
     systemLanguage = 'ENGLISH',
     learningLanguage = 'ENGLISH',
@@ -139,10 +383,17 @@ export const DeckRepository: React.FC<DeckRepositoryProps> = ({
 
     // Drop target for storing cards
     const [{ isOver }, drop] = useDrop(() => ({
-        accept: 'CARD',
-        drop: (item: { uid: string }) => {
+        accept: ['CARD', 'DEVICE'],
+        drop: (item: { uid: string, type?: string }) => {
             if (item.uid) {
-                onStore?.(item.uid);
+                if (item.type === 'DEVICE') {
+                    // Handle Device Store
+                    // We need a specific check or callback for devices if onStore only handles cards?
+                    // Actually, let's assume onStore might handle it or we add onStoreDevice
+                    // But wait, the plan said "If item.type === 'DEVICE', call onStoreDevice?.(item.uid)"
+                } else {
+                    onStore?.(item.uid);
+                }
             }
         },
         collect: (monitor) => ({
@@ -193,13 +444,21 @@ export const DeckRepository: React.FC<DeckRepositoryProps> = ({
                                 count={items.length}
                             />
 
-                            {/* Props Tab */}
                             <RepoTabButton
                                 isActive={activeTab === 'props'}
                                 onClick={() => setActiveTab('props')}
                                 icon={Hexagon}
                                 label={getLoc('PROPS', systemLanguage)}
                                 count={propItems.length}
+                            />
+
+                            {/* Devices Tab */}
+                            <RepoTabButton
+                                isActive={activeTab === 'devices'}
+                                onClick={() => setActiveTab('devices')}
+                                icon={CircuitBoard}
+                                label={getLoc('DEVICES', systemLanguage)}
+                                count={deviceItems.length}
                             />
 
                             <div className="flex-1" />
@@ -231,7 +490,12 @@ export const DeckRepository: React.FC<DeckRepositoryProps> = ({
                                             fontFamily: InterfacePersona.tokens.typography.label.family,
                                             color: InterfacePersona.tokens.colors.highlight
                                         }}>
-                                        {activeTab === 'words' ? getLoc('REPOSITORY', systemLanguage) : getLoc('PROPS', systemLanguage)}
+                                        {activeTab === 'words'
+                                            ? getLoc('REPOSITORY', systemLanguage)
+                                            : activeTab === 'props'
+                                                ? getLoc('PROPS', systemLanguage)
+                                                : getLoc('DEVICES', systemLanguage)
+                                        }
                                     </span>
                                 </div>
 
@@ -368,7 +632,7 @@ export const DeckRepository: React.FC<DeckRepositoryProps> = ({
                                             )}
                                         </div>
                                     )
-                                ) : (
+                                ) : activeTab === 'props' ? (
                                     // Props View
                                     propItems.length === 0 ? (
                                         <EmptyState systemLanguage={systemLanguage} label="No Props" />
@@ -379,6 +643,21 @@ export const DeckRepository: React.FC<DeckRepositoryProps> = ({
                                                     key={item.id}
                                                     id={item.id}
                                                     title={item.title}
+                                                />
+                                            ))}
+                                        </div>
+                                    )
+                                ) : (
+                                    // Devices View
+                                    deviceItems.length === 0 ? (
+                                        <EmptyState systemLanguage={systemLanguage} label="No Devices" />
+                                    ) : (
+                                        <div className="flex items-center gap-6 w-max h-full px-4">
+                                            {deviceItems.map(item => (
+                                                <RepoDevice
+                                                    key={item.uid}
+                                                    item={item}
+                                                    onRetrieve={onRetrieveDevice}
                                                 />
                                             ))}
                                         </div>
@@ -395,193 +674,5 @@ export const DeckRepository: React.FC<DeckRepositoryProps> = ({
                 </motion.div>
             )}
         </AnimatePresence>
-    );
-};
-
-// --- SUB-COMPONENTS ---
-
-const RepoModeButton: React.FC<{ isActive: boolean; onClick: () => void; icon: React.ElementType; title: string }> = ({ isActive, onClick, icon: Icon, title }) => (
-    <button
-        onClick={onClick}
-        className={`p-1.5 rounded-md transition-all ${isActive ? 'bg-[#D4AF37]/20 text-[#D4AF37]' : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/5'}`}
-        title={title}
-    >
-        <Icon size={14} />
-    </button>
-);
-
-const EmptyState: React.FC<{ systemLanguage?: string, label?: string }> = ({ systemLanguage, label }) => (
-    <div className="w-full h-full flex flex-col items-center justify-center gap-2"
-        style={{ color: InterfacePersona.tokens.colors.borderBase }}>
-        <div className="w-12 h-12 rounded-full border flex items-center justify-center"
-            style={{ borderColor: InterfacePersona.tokens.colors.borderFaint }}>
-            <Box className="opacity-20" />
-        </div>
-        <span className="text-xs tracking-[0.2em] uppercase font-serif">{label || getLoc('Empty Vessel', systemLanguage)}</span>
-    </div>
-);
-
-interface RepoTabButtonProps {
-    isActive: boolean;
-    onClick: () => void;
-    icon: React.ElementType;
-    label: string;
-    count: number;
-}
-
-const RepoTabButton: React.FC<RepoTabButtonProps> = ({ isActive, onClick, icon: Icon, label, count }) => (
-    <button
-        onClick={onClick}
-        className={`group relative flex flex-col items-center justify-center w-10 h-10 rounded-lg transition-all duration-300
-            ${isActive ? 'bg-[#D4AF37]/10' : 'hover:bg-white/5'}
-        `}
-        title={label}
-    >
-        <div className={`absolute left-0 w-[2px] h-0 bg-[#D4AF37] transition-all duration-300 rounded-r-full
-            ${isActive ? 'h-full opacity-100' : 'h-0 opacity-0'}
-        `} />
-
-        <Icon
-            size={18}
-            className={`transition-colors duration-300 ${isActive ? 'text-[#D4AF37]' : 'text-zinc-500 group-hover:text-zinc-300'}`}
-        />
-
-        {/* Count Badge */}
-        {count > 0 && (
-            <div className="absolute -top-1 -right-1 min-w-[14px] h-[14px] bg-[#0a0a0a] border border-[#D4AF37]/30 rounded-full flex items-center justify-center">
-                <span className="text-[8px] text-[#D4AF37] px-1 font-mono">{count}</span>
-            </div>
-        )}
-    </button>
-);
-
-interface RepoPropProps {
-    id: string;
-    title: string;
-}
-
-const RepoProp: React.FC<RepoPropProps> = ({ id, title }) => {
-    const [isHovered, setIsHovered] = useState(false);
-    const [{ isDragging }, drag, preview] = useDrag(() => ({
-        type: 'ITEM',
-        item: {
-            title: title,
-            type: 'ITEM',
-            sourceWidth: 100,
-            sourceHeight: 100
-        },
-        collect: (monitor) => ({
-            isDragging: monitor.isDragging(),
-        }),
-    }), [id, title]);
-
-    React.useEffect(() => {
-        preview(getEmptyImage(), { captureDraggingState: true });
-    }, [preview]);
-
-    return (
-        <div
-            ref={drag}
-            className={`flex-shrink-0 cursor-pointer relative group ${isDragging ? 'opacity-50' : ''}`}
-            title={title}
-            onMouseEnter={() => setIsHovered(true)}
-            onMouseLeave={() => setIsHovered(false)}
-        >
-            <PropVisual
-                title={title}
-                size={100}
-                className="group-hover:scale-105 transition-transform"
-                isHovered={isHovered}
-            />
-            {/* Hover Glow */}
-            <div className="absolute inset-0 bg-[#D4AF37]/5 opacity-0 group-hover:opacity-100 rounded-full transition-opacity duration-300 blur-xl -z-10" />
-        </div>
-    );
-}
-
-// --- CARD COMPONENT ---
-interface RepoCardProps {
-    item: CardItem;
-    langCode: Language;
-    mode: CompactMode;
-    onRetrieve?: (uid: string) => void;
-    variants?: CardEntity[];
-}
-
-const RepoCard: React.FC<RepoCardProps> = ({ item, langCode, mode, onRetrieve, variants = [] }) => {
-    // Determine sizing based on mode
-    let width = 125;
-    let height = 175;
-
-    if (mode === 'icon') {
-        width = 80;
-        height = 80;
-    } else if (mode === 'word') {
-        width = 140;
-        height = 40;
-    }
-
-    // Use Persistent Active Variant Logic
-    const { currentCardData } = useCardVariants({
-        cardData: item.cardData,
-        variants
-    });
-
-    const learningData = currentCardData.displayData[langCode];
-
-    const [{ isDragging }, drag, preview] = useDrag(() => ({
-        type: 'CARD',
-        item: {
-            uid: item.cardData.rawSense.uid, // Keeps Anchor UID for retrieval? Yes, retrieveCard handles it.
-            width: width, // Use dynamic width
-            height: height, // Use dynamic height
-            sourceWidth: width,
-            sourceHeight: height,
-            title: learningData?.word || currentCardData.uid,
-            difficulty: learningData?.level || 'A1',
-            pos: learningData?.pos || 'n.',
-            durability: currentCardData.senseInfo.durability,
-            // Enhanced Drag Data for WYSIWYG Preview
-            cardMode: mode,
-            visualPayload: currentCardData.visual.payload
-        },
-        collect: (monitor) => ({
-            isDragging: monitor.isDragging(),
-        }),
-    }), [item.cardData.uid, width, height, learningData, currentCardData, mode]);
-
-    React.useEffect(() => {
-        preview(getEmptyImage(), { captureDraggingState: true });
-    }, [preview]);
-
-    return (
-        <div
-            ref={drag}
-            className={`flex-shrink-0 cursor-pointer relative group ${isDragging ? 'opacity-50' : ''}`}
-            style={{ width, height }}
-            title="Drag to canvas"
-        >
-            <div
-                className="origin-top-left relative overflow-hidden transition-transform duration-200 group-hover:scale-105"
-                style={{
-                    width: '100%',
-                    height: '100%',
-                    boxShadow: mode === 'word' ? 'none' : CardPersona.tokens.shadows.base,
-                    borderRadius: mode === 'word' ? '4px' : CardPersona.tokens.layout.radius,
-                }}
-            >
-                <CompactCardVisual
-                    mode={mode}
-                    learningData={currentCardData.displayData[langCode]!}
-                    senseInfo={currentCardData.senseInfo}
-                    visual={currentCardData.visual}
-                    persona={CardPersona}
-                    isActive={false}
-                />
-
-                {/* Hover Overlay */}
-                <div className="absolute inset-0 bg-white/0 hover:bg-white/5 transition-colors duration-200 pointer-events-auto rounded-[inherit]" />
-            </div>
-        </div>
     );
 };

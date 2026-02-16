@@ -6,6 +6,7 @@ import { ConfigMenu } from './ConfigMenu';
 import { useInterfacePersona } from '@/app/context/PersonaContext';
 import { Slot } from '@/app/components/persona/slots';
 import type { CardItem } from '@/app/hooks/logic/useCardManager';
+import type { DeviceItem } from '@/app/hooks/logic/useDeviceManager'; // Added
 
 interface DockProps {
    isDeckOpen?: boolean;
@@ -21,6 +22,8 @@ interface DockProps {
    setSystemLang?: (val: string) => void;
    isZoomed?: boolean;
    mergedVariants?: Record<string, import('@/types/CardEntity').CardEntity[]>;
+   deviceItems?: DeviceItem[]; // Added
+   onRetrieveDevice?: (uid: string) => void; // Added
 }
 
 // Localization Helper
@@ -49,7 +52,9 @@ export const Dock: React.FC<DockProps> = ({
    systemLang = 'ENGLISH',
    setSystemLang = () => { },
    isZoomed = false,
-   mergedVariants = {}
+   mergedVariants = {},
+   deviceItems = [],
+   onRetrieveDevice
 }) => {
    const interfacePersona = useInterfacePersona();
    const [activeId, setActiveId] = useState<number>(1); // Default active: Canvas
@@ -130,7 +135,9 @@ export const Dock: React.FC<DockProps> = ({
                onClose={() => toggleDeck?.()}
                items={repositoryItems}
                propItems={[]} // Placeholder for now
+               deviceItems={deviceItems} // Added
                onRetrieve={onRetrieve}
+               onRetrieveDevice={onRetrieveDevice} // Added
                onStore={onStore}
                systemLanguage={systemLang}
                learningLanguage={learningLang}

@@ -58,6 +58,7 @@ interface CardProps {
   groupFeedback?: { merge: string[], split: string[], timestamp: number } | null;
   onFocus?: () => void;
   onBlur?: () => void;
+  onDropIntoSlot?: (cardId: string, deviceUid: string, slotId: number) => void;
 }
 
 export const Card = React.memo<CardProps>(({
@@ -81,6 +82,7 @@ export const Card = React.memo<CardProps>(({
   onFocus,
   onBlur,
   externalScale,
+  onDropIntoSlot,
 }) => {
   // ========== Variant Logic (Extracted) ==========
   const {
@@ -388,6 +390,19 @@ export const Card = React.memo<CardProps>(({
     if (last) {
       setIsDragging(false);
       onDragEnd?.(cardData.uid);
+
+      // Manual Drop Detection for Synthesis Slots (Bridge between use-gesture and react-dnd)
+      const elements = document.elementsFromPoint(px, py);
+      const slotElement = elements.find(el => el.classList.contains('synthesis-slot')) as HTMLElement;
+
+      if (slotElement) {
+        const slotId = parseInt(slotElement.dataset.slotId || '0', 10);
+        const deviceUid = slotElement.dataset.deviceUid;
+
+        if (slotId && deviceUid && onDropIntoSlot) {
+          onDropIntoSlot(cardData.uid, deviceUid, slotId);
+        }
+      }
     }
   }, dragConfig);
 
