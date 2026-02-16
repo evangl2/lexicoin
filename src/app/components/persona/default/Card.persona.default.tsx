@@ -170,6 +170,8 @@ const HermeticBackground = React.memo(() => (
   </div>
 ));
 
+const CORNER_INDICES = [0, 1, 2, 3];
+
 const AlchemicalCorners = React.memo(() => (
   <div className="absolute inset-0 pointer-events-none z-20">
     <svg width="0" height="0" className="absolute">
@@ -181,7 +183,7 @@ const AlchemicalCorners = React.memo(() => (
       </defs>
     </svg>
 
-    {[0, 1, 2, 3].map((i) => (
+    {CORNER_INDICES.map((i) => (
       <div key={i} className={`absolute w-10 h-10 ${i === 0 ? 'top-0 left-0' :
         i === 1 ? 'top-0 right-0 transform scale-x-[-1]' :
           i === 2 ? 'bottom-0 left-0 transform scale-y-[-1]' :
