@@ -1,16 +1,10 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
 import { useMotionValue, animate, MotionValue } from "motion/react";
 
 export const useCanvasCamera = () => {
     const x = useMotionValue(0);
     const y = useMotionValue(0);
     const scale = useMotionValue(1);
-    const [scaleState, setScaleState] = useState(1);
-
-    // Sync scale state for React renders
-    useEffect(() => {
-        return scale.on("change", setScaleState);
-    }, [scale]);
 
     // Initial Center
     useEffect(() => {
@@ -40,7 +34,6 @@ export const useCanvasCamera = () => {
         x,
         y,
         scale,
-        scaleState,
         centerCamera,
         flyTo
     };

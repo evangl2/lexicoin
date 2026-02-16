@@ -5,13 +5,12 @@ import { PropVisual } from "@/app/components/ui/PropVisual";
 import { DefaultCardPersona as CardPersona } from '@/app/components/persona/default/Card.persona.default';
 
 interface DragLayerProps {
-    scaleState: number;
     systemLang: string;
     learningLang: string;
     getLoc: (key: string, lang: string) => string;
 }
 
-export const DragLayer: React.FC<DragLayerProps> = ({ scaleState, systemLang, learningLang, getLoc }) => {
+export const DragLayer: React.FC<DragLayerProps> = ({ systemLang, learningLang, getLoc }) => {
     const {
         isDragging,
         item,

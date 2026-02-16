@@ -209,7 +209,7 @@ function InnerApp() {
               y={item.my}
               width={item.width}
               height={item.height}
-              canvasScale={camera.scaleState}
+              canvasScale={camera.scale} // Pass MotionValue
               canvasX={camera.x}
               canvasY={camera.y}
               onDragStart={handleDragStart}
@@ -233,7 +233,7 @@ function InnerApp() {
               y={item.my}
               width={item.width}
               height={item.height}
-              canvasScale={camera.scaleState}
+              canvasScale={camera.scale} // Pass MotionValue
               canvasX={camera.x}
               canvasY={camera.y}
               updatePosition={handleUpdatePosition} // Use stable handler here too
@@ -247,7 +247,6 @@ function InnerApp() {
 
       {/* Drag Preview Layer */}
       <DragLayer
-        scaleState={camera.scaleState}
         systemLang={systemLang}
         learningLang={learningLang}
         getLoc={getLoc}

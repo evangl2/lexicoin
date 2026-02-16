@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { useCardVariants } from '@/app/utils/mergeSplit/useCardVariants';
 import { useDrop } from 'react-dnd';
-import { motion, useVelocity, useTransform, useSpring, useMotionValue, MotionValue } from 'motion/react';
+import { motion, useVelocity, useTransform, useSpring, useMotionValue, MotionValue, animate } from 'motion/react';
 import { useDrag } from '@use-gesture/react';
 import { DefaultCardPersona as CardPersona } from '@/app/components/persona/default/Card.persona.default';
 import { CardVisual } from '@/app/components/ui/CardVisual';
@@ -41,7 +41,7 @@ interface CardProps {
   y: MotionValue<number>;
   width: number;
   height: number;
-  canvasScale: number;
+  canvasScale: MotionValue<number>; // Changed to MotionValue for performance
   canvasX: MotionValue<number>;
   canvasY: MotionValue<number>;
 
@@ -241,22 +241,19 @@ export const Card = React.memo<CardProps>(({
     return ((val - center) / center) * CardPersona.physics.inspection.tiltFactor;
   });
 
-  const canvasScaleMotion = useMotionValue(canvasScale);
-  useEffect(() => { canvasScaleMotion.set(canvasScale); }, [canvasScale]);
-
   const zeroRotation = useMotionValue(0);
   const displayRotateX = isFlipped ? zeroRotation : (isExpanded ? mouseRotateX : velocityRotateX);
   const displayRotateY = isFlipped ? zeroRotation : (isExpanded ? mouseRotateY : velocityRotateY);
   const displayRotateZ = isFlipped ? zeroRotation : (isExpanded ? zeroRotation : velocityRotateZ);
 
-  const targetCenterX = useTransform([canvasX, canvasScaleMotion], (latest: number[]) => {
+  const targetCenterX = useTransform([canvasX, canvasScale], (latest: number[]) => {
     const cx = latest[0] || 0;
     const s = latest[1] || 1;
     if (typeof window === 'undefined') return 0;
     return (windowDim.w / 2 - cx) / (s || 1);
   });
 
-  const targetCenterY = useTransform([canvasY, canvasScaleMotion], (latest: number[]) => {
+  const targetCenterY = useTransform([canvasY, canvasScale], (latest: number[]) => {
     const cy = latest[0] || 0;
     const s = latest[1] || 1;
     if (typeof window === 'undefined') return 0;
@@ -282,16 +279,40 @@ export const Card = React.memo<CardProps>(({
     return currentY + (targetY - currentY) * z;
   });
 
-  const getExpandedScale = () => {
+  // ========== Scale Logic Optimization ==========
+  // We use MotionValues instead of Re-rendering to calculate scale
+  const expandedScale = useTransform(canvasScale, (s) => {
     if (windowDim.w === 0) return 1.5;
     const minScreenDim = Math.min(windowDim.w, windowDim.h);
     const targetSize = minScreenDim * 0.8;
     const cardMaxDim = Math.max(width, height);
-    const safeScale = canvasScale > 0 ? canvasScale : 1;
+    const safeScale = s > 0 ? s : 1;
     return targetSize / (cardMaxDim * safeScale);
-  };
-  const expandedScale = getExpandedScale();
-  const targetScale = (isExpanded || isFlipped) ? expandedScale : isDragging ? 1.15 : isHovered ? 1.05 : 1;
+  });
+
+  const scaleSpring = useSpring(1, CardPersona.physics.springs.scale);
+
+  // Update scaleSpring based on mode and canvasScale
+  useEffect(() => {
+    if (isExpanded || isFlipped) {
+      // Subscribe to expandedScale updates for live zoom
+      const unsubscribe = expandedScale.on("change", (v) => {
+        scaleSpring.set(v);
+      });
+      scaleSpring.set(expandedScale.get());
+      return unsubscribe;
+    } else {
+      // Idle/Hover/Drag
+      const target = isDragging ? 1.15 : isHovered ? 1.05 : 1;
+      scaleSpring.set(target);
+    }
+  }, [isExpanded, isFlipped, isDragging, isHovered, expandedScale, scaleSpring]);
+
+  // Use MotionValue for will-change to avoid re-renders on zoom
+  const willChangeMV = useTransform(canvasScale, (s) => {
+    const shouldPromote = isDragging || isAnimating || !!externalScale || (!isExpanded && s < 1);
+    return shouldPromote ? 'transform' : 'auto';
+  });
 
   const bgParallaxX = useTransform(displayRotateY, [-20, 20], [15, -15]);
   const bgParallaxY = useTransform(displayRotateX, [-20, 20], [15, -15]);
@@ -335,7 +356,7 @@ export const Card = React.memo<CardProps>(({
       onDragStart?.(cardData.uid);
     }
     if (active) {
-      const scale = canvasScale || 1;
+      const scale = canvasScale.get() || 1;
       const nextX = x.get() + dx / scale;
       const nextY = y.get() + dy / scale;
 
@@ -429,7 +450,7 @@ export const Card = React.memo<CardProps>(({
         zIndex: isExpanded || isFlipped ? 500 : baseZIndex,
         opacity: isHidden ? 0 : 1,
         transform: 'translate3d(0, 0, 0)',
-        willChange: (isDragging || isAnimating || externalScale || (!isExpanded && canvasScale < 1)) ? 'transform' : 'auto',
+        willChange: willChangeMV as any, // MotionValue<string> needs cast or ignore
         boxShadow: targetShadow,
         transition: 'box-shadow 0.3s ease-out',
         transformStyle: 'preserve-3d',
@@ -438,7 +459,7 @@ export const Card = React.memo<CardProps>(({
         marginLeft: -width / 2, marginTop: -height / 2,
         touchAction: 'none',
         borderRadius: CardPersona.tokens.layout.radius,
-        ...(externalScale ? { scale: externalScale } : {}),
+        scale: externalScale || scaleSpring,
       }}
 
       onPointerDown={(e) => {
@@ -447,7 +468,6 @@ export const Card = React.memo<CardProps>(({
       onHoverStart={() => !isFlipped && setIsHovered(true)}
       onHoverEnd={() => !isFlipped && setIsHovered(false)}
       onDoubleClick={(e) => e.stopPropagation()}
-      animate={externalScale ? undefined : { scale: targetScale }}
       transition={CardPersona.physics.springs.scale}
       className="canvas-card select-none group relative transition-colors duration-300"
     >
