@@ -8,6 +8,7 @@ import { CardVisual } from '@/app/components/ui/CardVisual';
 import { tts } from '@/app/utils/audio/tts';
 import type { CardEntity } from '@/types/CardEntity';
 import type { Language } from '@schemas/schemas/SenseEntity.schema';
+import { useWindowDimensions } from '@/app/hooks/useWindowDimensions';
 
 // --- Types & Data ---
 
@@ -142,7 +143,10 @@ export const Card = React.memo<CardProps>(({
   // --- Selection Overlay State ---
   const [isOverlayOpen, setIsOverlayOpen] = useState(false);
   const selectedDefId = activeUid;
-  const [windowDim, setWindowDim] = useState({ w: 0, h: 0 });
+
+  // OPTIMIZATION: Use shared window dimensions hook instead of local listeners
+  const windowDim = useWindowDimensions();
+
   const cardRef = useRef<HTMLDivElement | null>(null);
 
   // --- Mouse & Resize ---
@@ -153,16 +157,10 @@ export const Card = React.memo<CardProps>(({
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const updateDim = () => {
-        setWindowDim({ w: window.innerWidth, h: window.innerHeight });
-        centerX.set(window.innerWidth / 2);
-        centerY.set(window.innerHeight / 2);
-      };
-      updateDim();
-      window.addEventListener('resize', updateDim);
-      return () => window.removeEventListener('resize', updateDim);
+      centerX.set(windowDim.w / 2);
+      centerY.set(windowDim.h / 2);
     }
-  }, [centerX, centerY]);
+  }, [centerX, centerY, windowDim]);
 
   useEffect(() => {
     if (!isExpanded || isFlipped) return;
@@ -310,11 +308,11 @@ export const Card = React.memo<CardProps>(({
     }
   }, [isExpanded, isFlipped, isDragging, isHovered, expandedScale, scaleSpring]);
 
-  // Use MotionValue for will-change to avoid re-renders on zoom
-  const willChangeMV = useTransform(canvasScale, (s) => {
-    const shouldPromote = isDragging || isAnimating || !!externalScale || (!isExpanded && s < 1);
-    return shouldPromote ? 'transform' : 'auto';
-  });
+  // OPTIMIZATION: Simplified will-change logic
+  // Promote to layer only when user is interacting with this specific card
+  // This avoids recalculating useTransform for every card on every canvas scale change
+  const isActive = isHovered || isDragging || isExpanded || isOver || isOverlayOpen;
+  const willChange = isActive ? 'transform' : 'auto';
 
   const bgParallaxX = useTransform(displayRotateY, [-20, 20], [15, -15]);
   const bgParallaxY = useTransform(displayRotateX, [-20, 20], [15, -15]);
@@ -406,8 +404,6 @@ export const Card = React.memo<CardProps>(({
     }
   }, dragConfig);
 
-  const isActive = isHovered || isDragging || isExpanded || isOver || isOverlayOpen;
-
   // OPTIMIZATION: Bind z-index to visual scale to prevent clipping during shrink animation
   // When scale > 1.1 (hover is ~1.05, drag is ~1.15, expanded is larger), we force high z-index.
   const zIndex = useTransform(scaleSpring, (currentScale) => {
@@ -474,7 +470,7 @@ export const Card = React.memo<CardProps>(({
         zIndex,
         opacity: isHidden ? 0 : 1,
         transform: 'translate3d(0, 0, 0)',
-        willChange: willChangeMV as any, // MotionValue<string> needs cast or ignore
+        willChange,
         boxShadow: targetShadow,
         transition: 'box-shadow 0.3s ease-out',
         transformStyle: 'preserve-3d',
@@ -504,6 +500,7 @@ export const Card = React.memo<CardProps>(({
         systemLanguage={systemLanguage}
         isActive={isActive}
         isOver={isOver}
+        isAnimating={isExpanded || isFlipped || isDragging} // Pass animation state to Visual
 
         flipScaleX={flipScaleX}
         frontOpacity={frontOpacity}

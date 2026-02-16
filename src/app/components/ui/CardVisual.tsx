@@ -98,6 +98,7 @@ export interface CardVisualProps {
   // ========== Interaction States ==========
   isActive?: boolean;
   isOver?: boolean;
+  isAnimating?: boolean; // OPTIMIZATION: Use this to disable expensive filters
 
   // ========== Motion Values (Physics) ==========
   flipScaleX?: any;
@@ -137,6 +138,7 @@ export const CardVisual = React.memo<CardVisualProps>(({
   systemLanguage,
   isActive = false,
   isOver = false,
+  isAnimating = false,
 
   flipScaleX = 1,
   frontOpacity = 1,
@@ -343,13 +345,15 @@ export const CardVisual = React.memo<CardVisualProps>(({
             {level}
           </Persona.visuals.ScrapLabel>
         ) : (
-          <span className={`text-xl drop-shadow-[0_0_12px_rgba(240,208,130,0.4)] font-bold tracking-[0.2em]`}
+          <span className={`text-xl font-bold tracking-[0.2em]`}
             style={{
               fontFamily: Persona.tokens.typography.label.family,
               color: Persona.tokens.colors.textHighlight,
               background: Persona.tokens.typography.label.gradient,
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent',
+              // OPTIMIZATION: Use text-shadow instead of drop-shadow filter
+              textShadow: '0 0 12px rgba(240,208,130,0.4)',
             }}>
             {level}
           </span>
@@ -357,8 +361,6 @@ export const CardVisual = React.memo<CardVisualProps>(({
       </div>
     </>
   );
-
-
 
   const renderText = () => (
     <div className="flex flex-col items-center justify-end w-full h-full pb-0 relative z-40">
@@ -372,8 +374,6 @@ export const CardVisual = React.memo<CardVisualProps>(({
       )}
 
       <div className={`flex items-baseline justify-center mb-1 w-full text-center relative z-10`}>
-
-
         <div className="flex flex-col itemscenter justify-center gap-2.5 px-4 mb-1.5">
           {/* Main title: Learning language word */}
           <h2 className={`leading-tight capitalize pb-[0.1em] ${getTitleClass(word, false)}`}
@@ -382,7 +382,8 @@ export const CardVisual = React.memo<CardVisualProps>(({
               backgroundImage: Persona.definitions.gradients.goldText || Persona.tokens.typography.label.gradient,
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent',
-              filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.8))',
+              // OPTIMIZATION: Use text-shadow instead of filter
+              textShadow: '0 2px 4px rgba(0,0,0,0.8)',
               textAlign: 'center'
             }}>
             {word}
@@ -395,17 +396,14 @@ export const CardVisual = React.memo<CardVisualProps>(({
               style={{
                 fontFamily: Persona.tokens.typography.body.family,
                 color: Persona.tokens.colors.goldMetallic,
-                filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))'
+                // OPTIMIZATION: Use text-shadow
+                textShadow: '0 1px 2px rgba(0,0,0,0.6)'
               }}>
               {systemWord}
             </span>
           )}
         </div>
-
-
       </div>
-
-
     </div>
   );
 
@@ -419,12 +417,14 @@ export const CardVisual = React.memo<CardVisualProps>(({
           }} />
       )}
 
+      {/* OPTIMIZATION: Replaced filter: blur with box-shadow on a pseudo-element logic or simpler opacity fade */}
       <motion.div
         className="absolute -inset-[3px] rounded-[22px] opacity-0 group-hover:opacity-100 transition-opacity duration-500"
         style={{
-          background: Persona.definitions.gradients?.goldMetallic || Persona.tokens.colors.goldMetallic,
+          background: 'transparent',
           zIndex: -1,
-          filter: 'blur(5px)'
+          // Use box-shadow glow instead of blur filter on background
+          boxShadow: `0 0 15px 2px ${Persona.tokens.colors.goldMetallic}`
         }}
       />
 
@@ -462,6 +462,7 @@ export const CardVisual = React.memo<CardVisualProps>(({
                 isCompact={false}
                 visualPayload={visual.payload}
                 isActive={isActive}
+                isAnimating={isAnimating} // OPTIMIZATION: Pass animating state
                 fallbackWord={word}
                 Persona={Persona}
                 bgParallaxX={bgParallaxX}
@@ -575,7 +576,8 @@ export const CardVisual = React.memo<CardVisualProps>(({
                   backgroundImage: Persona.definitions.gradients.goldText || `linear-gradient(to bottom, ${Persona.tokens.colors.goldBright}, ${Persona.tokens.colors.goldDeep})`,
                   WebkitBackgroundClip: 'text',
                   WebkitTextFillColor: 'transparent',
-                  filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.8))'
+                  // OPTIMIZATION: Text shadow
+                  textShadow: '0 1px 2px rgba(0,0,0,0.8)'
                 }}>
                 {word}
               </h3>
@@ -771,6 +773,7 @@ const MemoizedCardVisual = React.memo(({
   isCompact,
   visualPayload,
   isActive,
+  isAnimating, // OPTIMIZATION: Prop received
   fallbackWord,
   Persona,
   bgParallaxX,
@@ -803,9 +806,14 @@ const MemoizedCardVisual = React.memo(({
       <Persona.visuals.Frame />
 
       <motion.div
-        className={`absolute inset-0 flex items-center justify-center z-40 drop-shadow-[0_10px_20px_rgba(0,0,0,0.8)] 
+        // OPTIMIZATION: Reduce drop-shadow intensity or disable during animation
+        className={`absolute inset-0 flex items-center justify-center z-40
             ${isCompact ? 'scale-[1.0] opacity-30 mix-blend-screen' : ''}`}
-        style={{ x: fgParallaxX, y: fgParallaxY }}
+        style={{
+          x: fgParallaxX,
+          y: fgParallaxY,
+          filter: isAnimating ? 'none' : 'drop-shadow(0 10px 20px rgba(0,0,0,0.8))' // Conditional filter
+        }}
       >
         <DynamicVisual code={visualPayload} isActive={isActive} fallbackElement={fallbackWord} />
       </motion.div>
@@ -837,6 +845,7 @@ const MemoizedCardVisual = React.memo(({
     prevProps.isCompact === nextProps.isCompact &&
     prevProps.visualPayload === nextProps.visualPayload &&
     prevProps.isActive === nextProps.isActive &&
+    prevProps.isAnimating === nextProps.isAnimating && // Check logic
     prevProps.fallbackWord === nextProps.fallbackWord &&
     prevProps.durability === nextProps.durability &&
     prevProps.bgParallaxX === nextProps.bgParallaxX &&
@@ -863,7 +872,8 @@ const VisualFeedbackOverlay = React.memo(({ visualFeedback, persona }: { visualF
       }}
     >
       {/* Static SVG Icon */}
-      <div className="absolute top-2 right-2 filter drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)]">
+      {/* OPTIMIZATION: Reduced drop shadow */}
+      <div className="absolute top-2 right-2 filter drop-shadow-[0_1px_2px_rgba(0,0,0,0.5)]">
         <svg width="24" height="24" viewBox="0 0 24 24" fill={config.color}>
           {config.svg && (
             <>
