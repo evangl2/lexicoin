@@ -1,4 +1,5 @@
 import { StateCreator } from 'zustand';
+import type { GameStore } from '../interfaces';
 
 export interface ConfigState {
     // Language
@@ -20,7 +21,7 @@ export interface ConfigState {
     setVolume: (volume: number) => void;
 }
 
-export const createConfigSlice: StateCreator<ConfigState> = (set) => ({
+export const createConfigSlice: StateCreator<GameStore, [], [], ConfigState> = (set) => ({
     // Defaults matching existing code
     learningLang: 'ENGLISH',
     systemLang: 'ENGLISH',

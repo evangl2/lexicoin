@@ -1,8 +1,8 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { indexedDBStorage } from './persistence';
-import { createConfigSlice, ConfigState } from './slices/createConfigSlice';
-import { createCardStateSlice, CardState } from './slices/createCardStateSlice';
+import { createConfigSlice } from './slices/createConfigSlice';
+import { createCardStateSlice } from './slices/createCardStateSlice';
 
 import type {
     PlayerState,
@@ -19,89 +19,7 @@ import type {
 } from '../types/index';
 // Fix import path to use alias if possible, or relative
 import { generateId } from '@utils/helpers';
-
-// ============================================================================
-// STATE INTERFACE
-// ============================================================================
-
-interface GameStore extends ConfigState, CardState {
-    // Player State
-    player: PlayerState;
-    updatePlayer: (updates: Partial<PlayerState>) => void;
-
-    // UI State
-    viewMode: ViewMode;
-    setViewMode: (mode: ViewMode) => void;
-    canvasView: CanvasView;
-    setCanvasView: (view: Partial<CanvasView>) => void;
-    resetCanvasView: () => void;
-
-    // Drag State
-    dragState: DragState;
-    startDrag: (item: any, itemType: DragState['itemType'], source: DragState['source'], startPos: { x: number; y: number }) => void;
-    updateDragPosition: (pos: { x: number; y: number }) => void;
-    endDrag: () => void;
-
-    // Notifications
-    notifications: Notification[];
-    addNotification: (message: string | LocalizedText, type?: Notification['type'], duration?: number) => void;
-    removeNotification: (id: UUID) => void;
-
-    // Senses (cached from SenseModule)
-    senses: Sense[];
-    setSenses: (senses: Sense[]) => void;
-    addSense: (sense: Sense) => void;
-
-    // Deck Drawer State
-    deckState: {
-        isOpen: boolean;
-        activeTab: 'archive' | 'items';
-    };
-    openDeck: (tab: 'archive' | 'items') => void;
-    closeDeck: () => void;
-    setDeckTab: (tab: 'archive' | 'items') => void;
-
-    // Config Menu State (Runtime only)
-    isConfigOpen: boolean;
-    toggleConfig: () => void;
-    setConfigOpen: (isOpen: boolean) => void;
-
-    // Module Status
-    modulesReady: boolean;
-    setModulesReady: (ready: boolean) => void;
-
-    // Persona State
-    activePersona?: PersonaType;
-    setActivePersona: (personaId: PersonaType) => void;
-    personaResonance: Record<PersonaType, number>;
-    updateResonance: (personaId: PersonaType, amount: number) => void;
-
-    // Construction State (cached from ConstructionModule)
-    constructions: Construction[];
-    setConstructions: (constructions: Construction[]) => void;
-    addConstruction: (construction: Construction) => void;
-
-    // Inventory State (cached from ItemModule)
-    inventory: InventoryItem[];
-    setInventory: (items: InventoryItem[]) => void;
-    addInventoryItem: (item: InventoryItem) => void;
-    removeInventoryItem: (instanceId: UUID) => void;
-
-    // Review State
-    activeReviewSession?: UUID;
-    setActiveReviewSession: (sessionId?: UUID) => void;
-    reviewDueSenses: UUID[];
-    setReviewDueSenses: (senseIds: UUID[]) => void;
-
-    // Library State
-    libraryFilter: {
-        query?: string;
-        type?: 'SENSE' | 'CONSTRUCTION';
-        discovered?: boolean;
-    };
-    setLibraryFilter: (filter: Partial<typeof initialLibraryFilter>) => void;
-    clearLibraryFilter: () => void;
-}
+import type { GameStore, LibraryFilter } from './interfaces';
 
 // ============================================================================
 // INITIAL STATE
@@ -151,7 +69,7 @@ const initialDragState: DragState = {
     source: 'CANVAS',
 };
 
-const initialLibraryFilter = {
+const initialLibraryFilter: LibraryFilter = {
     query: undefined,
     type: undefined,
     discovered: undefined,
@@ -165,9 +83,7 @@ export const useGameStore = create<GameStore>()(
     persist(
         (set, get, api) => ({
             // Include Slices
-            // @ts-ignore - Typescript strictness with Slice pattern might require defined casting
             ...createConfigSlice(set, get, api),
-            // @ts-ignore
             ...createCardStateSlice(set, get, api),
 
             // Player State
