@@ -1,4 +1,5 @@
 import { StateCreator } from 'zustand';
+import type { GameStore } from '../interfaces';
 
 export interface CardState {
     // Map of Card UID -> Active Variant UID
@@ -9,7 +10,7 @@ export interface CardState {
     removeCardState: (cardUid: string) => void;
 }
 
-export const createCardStateSlice: StateCreator<CardState> = (set) => ({
+export const createCardStateSlice: StateCreator<GameStore, [], [], CardState> = (set) => ({
     activeVariants: {},
 
     setActiveVariant: (cardUid, variantUid) => set((state) => ({
