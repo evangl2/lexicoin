@@ -13,6 +13,14 @@ interface FlavorCarouselProps {
     onContentClick?: () => void;
 }
 
+// Icons - Explicitly using currentColor or hardcoded high-contrast color if needed
+// Using a more robust arrow icon
+const ArrowIcon = ({ className }: { className?: string }) => (
+    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" className={className}>
+        <path d="M15 18l-6-6 6-6" />
+    </svg>
+);
+
 export const FlavorCarousel: React.FC<FlavorCarouselProps> = ({
     items,
     persona,
@@ -36,14 +44,6 @@ export const FlavorCarousel: React.FC<FlavorCarouselProps> = ({
         if (next >= items.length) next = 0;
         onNavigate(next, newDirection);
     };
-
-    // Icons - Explicitly using currentColor or hardcoded high-contrast color if needed
-    // Using a more robust arrow icon
-    const ArrowIcon = ({ className }: { className?: string }) => (
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" className={className}>
-            <path d="M15 18l-6-6 6-6" />
-        </svg>
-    );
 
     const variants = {
         enter: (direction: number) => ({
