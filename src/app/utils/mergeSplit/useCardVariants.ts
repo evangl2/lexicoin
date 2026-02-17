@@ -10,13 +10,9 @@ interface UseCardVariantsProps {
 
 export const useCardVariants = ({ cardData, variants }: UseCardVariantsProps) => {
     // ========== State: Active Sense Identity (Persisted in Store) ==========
-    const activeVariants = useGameStore(s => s.activeVariants);
+    // optimization: select only the specific variant to prevent re-renders when other cards update
+    const activeUid = useGameStore(s => s.activeVariants[cardData.uid]) ?? cardData.uid;
     const setActiveVariant = useGameStore(s => s.setActiveVariant);
-
-    // Get persisted active variant or default to cardData.uid
-    // Helper to avoiding re-renders: checking reference equality in store selector is better,
-    // but here we just read from the map.
-    const activeUid = activeVariants[cardData.uid] ?? cardData.uid;
 
     const setActiveUid = (variantUid: string) => {
         setActiveVariant(cardData.uid, variantUid);
