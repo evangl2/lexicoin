@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useTransform, useMotionTemplate, useMotionValue } from 'motion/react';
+import { useTransform, useMotionTemplate, useMotionValue, type MotionValue } from 'motion/react';
 import { motion } from 'motion/react';
 import { DefaultCardPersona as DefaultPersona } from '@/app/components/persona/default/Card.persona.default';
 import { DynamicVisual } from '@/app/components/ui/DynamicVisual';
@@ -54,6 +54,21 @@ const getTitleClass = (text: string, isCompact: boolean) => {
   if (len > 14) return "text-xl tracking-wider mr-[-0.05em]";
   if (len > 8) return "text-2xl tracking-widest mr-[-0.1em]";
   return "text-3xl tracking-widest mr-[-0.1em]";
+};
+
+// Helper to ensure we always have a MotionValue
+const useEnsureMotionValue = (value: number | MotionValue<number> | undefined, defaultValue: number) => {
+  const motionValue = useMotionValue(typeof value === 'number' ? value : defaultValue);
+
+  useEffect(() => {
+    if (typeof value === 'number') {
+      motionValue.set(value);
+    } else if (value === undefined) {
+      motionValue.set(defaultValue);
+    }
+  }, [value, motionValue, defaultValue]);
+
+  return (typeof value === 'object' && value !== null) ? value : motionValue;
 };
 
 // ============================================================================
@@ -283,34 +298,12 @@ export const CardVisual = React.memo<CardVisualProps>(({
   `;
 
   // --- Pointer Events Calculation ---
-  // Convert opacity MotionValues to pointer-events strings
-  // Use useState to track the current opacity and derive pointer-events
-  const [currentFrontOpacity, setCurrentFrontOpacity] = useState(1);
-  const [currentBackOpacity, setCurrentBackOpacity] = useState(0);
+  // Optimized: Use MotionValues for pointer-events to prevent re-renders on every frame
+  const safeFrontOpacity = useEnsureMotionValue(frontOpacity, 1);
+  const safeBackOpacity = useEnsureMotionValue(backOpacity, 0);
 
-  useEffect(() => {
-    if (typeof frontOpacity === 'object' && frontOpacity.get) {
-      const unsubscribe = frontOpacity.on('change', setCurrentFrontOpacity);
-      setCurrentFrontOpacity(frontOpacity.get());
-      return unsubscribe;
-    } else {
-      setCurrentFrontOpacity(frontOpacity);
-    }
-  }, [frontOpacity]);
-
-  useEffect(() => {
-    if (typeof backOpacity === 'object' && backOpacity.get) {
-      const unsubscribe = backOpacity.on('change', setCurrentBackOpacity);
-      setCurrentBackOpacity(backOpacity.get());
-      return unsubscribe;
-    } else {
-      setCurrentBackOpacity(backOpacity);
-    }
-  }, [backOpacity]);
-
-  // Determine pointer-events based on which face is more visible
-  const frontPointerEvents = currentFrontOpacity > 0.5 ? 'auto' : 'none';
-  const backPointerEvents = currentBackOpacity > 0.5 ? 'auto' : 'none';
+  const frontPointerEvents = useTransform(safeFrontOpacity, (v: number) => v > 0.5 ? 'auto' : 'none');
+  const backPointerEvents = useTransform(safeBackOpacity, (v: number) => v > 0.5 ? 'auto' : 'none');
 
   // ========== Layout Configuration ==========
   // Compact mode is now handled by CompactCardVisual.tsx
