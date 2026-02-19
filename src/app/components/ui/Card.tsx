@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 import { useCardVariants } from '@/app/utils/mergeSplit/useCardVariants';
 import { useDrop } from 'react-dnd';
 import { motion, useVelocity, useTransform, useSpring, useMotionValue, MotionValue, animate } from 'motion/react';
+import { useWindowDimensions } from '@/app/hooks/useWindowDimensions';
 import { useDrag } from '@use-gesture/react';
 import { DefaultCardPersona as CardPersona } from '@/app/components/persona/default/Card.persona.default';
 import { CardVisual } from '@/app/components/ui/CardVisual';
@@ -142,27 +143,12 @@ export const Card = React.memo<CardProps>(({
   // --- Selection Overlay State ---
   const [isOverlayOpen, setIsOverlayOpen] = useState(false);
   const selectedDefId = activeUid;
-  const [windowDim, setWindowDim] = useState({ w: 0, h: 0 });
+  const { windowWidth, windowHeight } = useWindowDimensions();
   const cardRef = useRef<HTMLDivElement | null>(null);
 
   // --- Mouse & Resize ---
   const mouseX = useMotionValue(0);
   const mouseY = useMotionValue(0);
-  const centerX = useMotionValue(0);
-  const centerY = useMotionValue(0);
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const updateDim = () => {
-        setWindowDim({ w: window.innerWidth, h: window.innerHeight });
-        centerX.set(window.innerWidth / 2);
-        centerY.set(window.innerHeight / 2);
-      };
-      updateDim();
-      window.addEventListener('resize', updateDim);
-      return () => window.removeEventListener('resize', updateDim);
-    }
-  }, [centerX, centerY]);
 
   useEffect(() => {
     if (!isExpanded || isFlipped) return;
@@ -233,13 +219,13 @@ export const Card = React.memo<CardProps>(({
   const mouseSpringX = useSpring(mouseX, CardPersona.physics.springs.mouseTilt);
   const mouseSpringY = useSpring(mouseY, CardPersona.physics.springs.mouseTilt);
 
-  const mouseRotateY = useTransform(mouseSpringX, (val) => {
-    const center = windowDim.w / 2;
+  const mouseRotateY = useTransform([mouseSpringX, windowWidth], ([val = 0, w = 0]: number[]) => {
+    const center = w / 2;
     return ((val - center) / center) * CardPersona.physics.inspection.tiltFactor;
   });
 
-  const mouseRotateX = useTransform(mouseSpringY, (val) => {
-    const center = windowDim.h / 2;
+  const mouseRotateX = useTransform([mouseSpringY, windowHeight], ([val = 0, h = 0]: number[]) => {
+    const center = h / 2;
     return ((val - center) / center) * CardPersona.physics.inspection.tiltFactor;
   });
 
@@ -248,18 +234,20 @@ export const Card = React.memo<CardProps>(({
   const displayRotateY = isFlipped ? zeroRotation : (isExpanded ? mouseRotateY : velocityRotateY);
   const displayRotateZ = isFlipped ? zeroRotation : (isExpanded ? zeroRotation : velocityRotateZ);
 
-  const targetCenterX = useTransform([canvasX, canvasScale], (latest: number[]) => {
+  const targetCenterX = useTransform([canvasX, canvasScale, windowWidth], (latest: number[]) => {
     const cx = latest[0] || 0;
     const s = latest[1] || 1;
+    const w = latest[2] || 0;
     if (typeof window === 'undefined') return 0;
-    return (windowDim.w / 2 - cx) / (s || 1);
+    return (w / 2 - cx) / (s || 1);
   });
 
-  const targetCenterY = useTransform([canvasY, canvasScale], (latest: number[]) => {
+  const targetCenterY = useTransform([canvasY, canvasScale, windowHeight], (latest: number[]) => {
     const cy = latest[0] || 0;
     const s = latest[1] || 1;
+    const h = latest[2] || 0;
     if (typeof window === 'undefined') return 0;
-    return (windowDim.h / 2 - cy) / (s || 1);
+    return (h / 2 - cy) / (s || 1);
   });
 
   const zoomSpring = useSpring(0, CardPersona.physics.springs.flip);
@@ -283,9 +271,9 @@ export const Card = React.memo<CardProps>(({
 
   // ========== Scale Logic Optimization ==========
   // We use MotionValues instead of Re-rendering to calculate scale
-  const expandedScale = useTransform(canvasScale, (s) => {
-    if (windowDim.w === 0) return 1.5;
-    const minScreenDim = Math.min(windowDim.w, windowDim.h);
+  const expandedScale = useTransform([canvasScale, windowWidth, windowHeight], ([s = 1, w = 0, h = 0]: number[]) => {
+    if (w === 0 || h === 0) return 1.5;
+    const minScreenDim = Math.min(w, h);
     const targetSize = minScreenDim * 0.8;
     const cardMaxDim = Math.max(width, height);
     const safeScale = s > 0 ? s : 1;
