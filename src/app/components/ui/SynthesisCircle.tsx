@@ -17,10 +17,15 @@ interface SynthesisCircleProps {
     inputCards: any[]; // Cards currently in the slots
     canvasScale: MotionValue<number>; // Needed for drag calculations
     onDragEnd: (uid: string) => void;
+    onCardEnter?: (cardUid: string) => void;
+    onCardEject?: (cardUid: string) => void;
+    mergedVariants?: Record<string, any[]>; // Added prop
+    onDropIntoRepository?: (uid: string) => void;
 }
 
 export const SynthesisCircle: React.FC<SynthesisCircleProps> = ({
-    uid, x, y, state, updateState, inputCards, canvasScale, onDragEnd
+    uid, x, y, state, updateState, inputCards, canvasScale, onDragEnd,
+    onCardEnter, onCardEject, mergedVariants = {}, onDropIntoRepository
 }) => {
     // Drop Targets (Slots)
     const [{ isOver1 }, drop1] = useDrop(() => ({
@@ -28,10 +33,12 @@ export const SynthesisCircle: React.FC<SynthesisCircleProps> = ({
         drop: (item: { uid: string }) => {
             if (state.slot1_uid) return;
             if (item.uid === state.slot2_uid) return;
+            // Atomic Update
             updateState(uid, { slot1_uid: item.uid });
+            onCardEnter?.(item.uid);
         },
         collect: monitor => ({ isOver1: monitor.isOver() })
-    }), [state.slot1_uid, state.slot2_uid, uid, updateState]);
+    }), [state.slot1_uid, state.slot2_uid, uid, updateState, onCardEnter]);
 
     const [{ isOver2 }, drop2] = useDrop(() => ({
         accept: 'CARD',
@@ -39,9 +46,10 @@ export const SynthesisCircle: React.FC<SynthesisCircleProps> = ({
             if (state.slot2_uid) return;
             if (item.uid === state.slot1_uid) return;
             updateState(uid, { slot2_uid: item.uid });
+            onCardEnter?.(item.uid);
         },
         collect: monitor => ({ isOver2: monitor.isOver() })
-    }), [state.slot1_uid, state.slot2_uid, uid, updateState]);
+    }), [state.slot1_uid, state.slot2_uid, uid, updateState, onCardEnter]);
 
     // Drag Logic (Optimized)
     // We rely on use-gesture for all dragging (Canvas and Repo interaction via collision check)
@@ -56,7 +64,7 @@ export const SynthesisCircle: React.FC<SynthesisCircleProps> = ({
         eventOptions: { passive: false }
     }), [circleRef]);
 
-    useDrag(({ active, delta: [dx, dy], last }) => {
+    useDrag(({ active, delta: [dx, dy], xy: [px, py], last }) => {
         if (active) {
             const scale = canvasScale.get() || 1;
             x.set(x.get() + dx / scale);
@@ -64,6 +72,13 @@ export const SynthesisCircle: React.FC<SynthesisCircleProps> = ({
         }
         if (last) {
             onDragEnd(uid);
+
+            // Manual Drop Detection for Repository
+            const elements = document.elementsFromPoint(px, py);
+            const repoElement = elements.find(el => el.id === 'deck-repository-drop-zone');
+            if (repoElement && onDropIntoRepository) {
+                onDropIntoRepository(uid);
+            }
         }
     }, dragConfig);
 
@@ -91,8 +106,19 @@ export const SynthesisCircle: React.FC<SynthesisCircleProps> = ({
 
     const handleEject = (slot: 1 | 2) => {
         if (state.isProcessing) return;
-        if (slot === 1) updateState(uid, { slot1_uid: null });
-        else updateState(uid, { slot2_uid: null });
+
+        let targetUid: string | null = null;
+        if (slot === 1) {
+            targetUid = state.slot1_uid;
+            updateState(uid, { slot1_uid: null });
+        } else {
+            targetUid = state.slot2_uid;
+            updateState(uid, { slot2_uid: null });
+        }
+
+        if (targetUid) {
+            onCardEject?.(targetUid);
+        }
     };
 
     return (
@@ -129,6 +155,7 @@ export const SynthesisCircle: React.FC<SynthesisCircleProps> = ({
                         ref={drop1}
                         isOver={isOver1}
                         card={card1}
+                        variants={card1 ? (mergedVariants[card1.cardData.uid] || []) : []}
                         onEject={() => handleEject(1)}
                         disabled={state.isProcessing}
                         slotId={1}
@@ -154,6 +181,7 @@ export const SynthesisCircle: React.FC<SynthesisCircleProps> = ({
                         ref={drop2}
                         isOver={isOver2}
                         card={card2}
+                        variants={card2 ? (mergedVariants[card2.cardData.uid] || []) : []}
                         onEject={() => handleEject(2)}
                         disabled={state.isProcessing}
                         slotId={2}
@@ -175,6 +203,7 @@ export const SynthesisCircle: React.FC<SynthesisCircleProps> = ({
 interface SlotProps {
     isOver: boolean;
     card?: any;
+    variants: any[]; // Added
     onEject: () => void;
     disabled: boolean;
     ref?: any;
@@ -183,7 +212,7 @@ interface SlotProps {
 }
 
 const Slot = React.forwardRef<HTMLDivElement, SlotProps>((props, ref) => {
-    const { isOver, card, onEject, disabled } = props;
+    const { isOver, card, variants, onEject, disabled } = props;
     return (
         <div
             ref={ref}
@@ -200,14 +229,7 @@ const Slot = React.forwardRef<HTMLDivElement, SlotProps>((props, ref) => {
             {card ? (
                 <div className="w-full h-full relative">
                     <div className="w-full h-full rounded-lg overflow-hidden">
-                        <CompactCardVisual
-                            mode="icon"
-                            learningData={card.cardData.displayData[DEFAULT_LANGUAGE] || Object.values(card.cardData.displayData)[0]}
-                            senseInfo={card.cardData.senseInfo}
-                            visual={card.cardData.visual}
-                            persona={DefaultCardPersona}
-                            isActive={false}
-                        />
+                        <SlottedCard card={card} variants={variants} />
                     </div>
                     {!disabled && (
                         <button
@@ -227,3 +249,24 @@ const Slot = React.forwardRef<HTMLDivElement, SlotProps>((props, ref) => {
     );
 });
 Slot.displayName = 'Slot';
+
+import { useCardVariants } from '@/app/utils/mergeSplit/useCardVariants';
+
+// Helper component to use hooks conditionally (only when card exists)
+const SlottedCard: React.FC<{ card: any, variants: any[] }> = ({ card, variants }) => {
+    const { currentCardData } = useCardVariants({
+        cardData: card.cardData,
+        variants: variants
+    });
+
+    return (
+        <CompactCardVisual
+            mode="icon"
+            learningData={currentCardData.displayData[DEFAULT_LANGUAGE] || Object.values(currentCardData.displayData)[0]}
+            senseInfo={currentCardData.senseInfo}
+            visual={currentCardData.visual}
+            persona={DefaultCardPersona}
+            isActive={false}
+        />
+    );
+};

@@ -31,6 +31,7 @@ interface DeckRepositoryProps {
     onRetrieve?: (uid: string) => void;
     onRetrieveDevice?: (uid: string) => void;
     onStore?: (uid: string) => void;
+    onStoreDevice?: (uid: string) => void;
     systemLanguage?: string;
     learningLanguage?: string;
     mergedVariants?: Record<string, CardEntity[]>;
@@ -304,6 +305,7 @@ export const DeckRepository: React.FC<DeckRepositoryProps> = ({
     onRetrieve,
     onRetrieveDevice,
     onStore,
+    onStoreDevice,
     systemLanguage = 'ENGLISH',
     learningLanguage = 'ENGLISH',
     mergedVariants = {}
@@ -388,9 +390,7 @@ export const DeckRepository: React.FC<DeckRepositoryProps> = ({
             if (item.uid) {
                 if (item.type === 'DEVICE') {
                     // Handle Device Store
-                    // We need a specific check or callback for devices if onStore only handles cards?
-                    // Actually, let's assume onStore might handle it or we add onStoreDevice
-                    // But wait, the plan said "If item.type === 'DEVICE', call onStoreDevice?.(item.uid)"
+                    onStoreDevice?.(item.uid);
                 } else {
                     onStore?.(item.uid);
                 }
@@ -411,6 +411,7 @@ export const DeckRepository: React.FC<DeckRepositoryProps> = ({
                     exit={{ y: '100%', opacity: 0 }}
                     transition={{ type: "spring", stiffness: 300, damping: 30 }}
                     className="absolute bottom-0 left-1/2 -translate-x-1/2 z-40"
+                    id="deck-repository-drop-zone"
                     style={{
                         width: InterfacePersona.tokens.layout.menuWidth,
                         height: InterfacePersona.tokens.layout.menuHeight,
