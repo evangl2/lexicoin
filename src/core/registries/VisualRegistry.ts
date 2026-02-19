@@ -49,6 +49,8 @@ class VisualRegistry {
         entries.forEach(entry => this.register(entry));
     }
 
+
+
     /**
      * Retrieve a specific visual variant.
      */

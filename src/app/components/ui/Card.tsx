@@ -60,6 +60,7 @@ interface CardProps {
   onFocus?: () => void;
   onBlur?: () => void;
   onDropIntoSlot?: (cardId: string, deviceUid: string, slotId: number) => void;
+  onDropIntoRepository?: (cardId: string) => void;
 }
 
 export const Card = React.memo<CardProps>(({
@@ -84,6 +85,7 @@ export const Card = React.memo<CardProps>(({
   onBlur,
   externalScale,
   onDropIntoSlot,
+  onDropIntoRepository,
 }) => {
   // ========== Variant Logic (Extracted) ==========
   const {
@@ -390,6 +392,12 @@ export const Card = React.memo<CardProps>(({
         if (slotId && deviceUid && onDropIntoSlot) {
           onDropIntoSlot(cardData.uid, deviceUid, slotId);
         }
+      }
+
+      // Manual Drop Detection for Repository
+      const repoElement = elements.find(el => el.id === 'deck-repository-drop-zone');
+      if (repoElement && onDropIntoRepository) {
+        onDropIntoRepository(cardData.uid);
       }
     }
   }, dragConfig);

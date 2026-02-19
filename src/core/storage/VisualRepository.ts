@@ -17,6 +17,19 @@ class VisualRepository {
     private initialized = false;
 
     /**
+     * Reset the repository to its initial state.
+     * Clears all data and re-seeds with initial visuals.
+     */
+    async reset(initialVisuals: VisualEntry[]): Promise<void> {
+        await db.visuals.clear();
+        visualRegistry.clear(); // Clear in-memory registry too
+        logger.warn('Cleared all visuals from IndexedDB and Registry', undefined, 'VisualRepository');
+        await this.seed(initialVisuals);
+        // Reload registry after seed
+        await this.loadAllIntoRegistry();
+    }
+
+    /**
      * Seed initial visuals into IndexedDB.
      * No-op when the table already contains data.
      */

@@ -15,6 +15,16 @@ class SenseRepository {
     private initialized = false;
 
     /**
+     * Reset the repository to its initial state.
+     * Clears all data and re-seeds with initial senses.
+     */
+    async reset(initialSenses: SenseEntity[]): Promise<void> {
+        await db.senses.clear();
+        logger.warn('Cleared all senses from IndexedDB', undefined, 'SenseRepository');
+        await this.seed(initialSenses);
+    }
+
+    /**
      * Seed initial senses into IndexedDB.
      * No-op when the table already contains data.
      */

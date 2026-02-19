@@ -24,6 +24,7 @@ interface DockProps {
    mergedVariants?: Record<string, import('@/types/CardEntity').CardEntity[]>;
    deviceItems?: DeviceItem[]; // Added
    onRetrieveDevice?: (uid: string) => void; // Added
+   onStoreDevice?: (uid: string) => void; // Added
 }
 
 // Localization Helper
@@ -54,7 +55,8 @@ export const Dock: React.FC<DockProps> = ({
    isZoomed = false,
    mergedVariants = {},
    deviceItems = [],
-   onRetrieveDevice
+   onRetrieveDevice,
+   onStoreDevice
 }) => {
    const interfacePersona = useInterfacePersona();
    const [activeId, setActiveId] = useState<number>(1); // Default active: Canvas
@@ -138,6 +140,7 @@ export const Dock: React.FC<DockProps> = ({
                deviceItems={deviceItems} // Added
                onRetrieve={onRetrieve}
                onRetrieveDevice={onRetrieveDevice} // Added
+               onStoreDevice={onStoreDevice} // Added
                onStore={onStore}
                systemLanguage={systemLang}
                learningLanguage={learningLang}

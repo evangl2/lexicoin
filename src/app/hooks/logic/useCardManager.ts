@@ -16,7 +16,12 @@ export interface CardItem {
     width: number;
     height: number;
     location: CardLocation;
+    // Helper to check if visible on canvas
+    isVisible: boolean;
 }
+
+// Helper to extract raw values from MotionValues
+const getMotionValue = (mv: MotionValue<number>) => mv.get();
 
 export const useCardManager = () => {
     const [items, setItems] = useState<CardItem[]>([]);
@@ -24,10 +29,13 @@ export const useCardManager = () => {
     const saveTimerRef = useRef<ReturnType<typeof setTimeout>>();
 
     // ==== Derived Lists ====
+    // Canvas items: explicit 'canvas' location
     const canvasItems = useMemo(
         () => items.filter(i => i.location === 'canvas'),
         [items]
     );
+
+    // Repository items: explicit 'repository' location
     const repositoryItems = useMemo(
         () => items.filter(i => i.location === 'repository'),
         [items]
@@ -86,6 +94,7 @@ export const useCardManager = () => {
                     my: motionValue(posY),
                     scale: motionValue(1),
                     location,
+                    isVisible: location === 'canvas'
                 };
             });
 
@@ -99,17 +108,42 @@ export const useCardManager = () => {
     }, []);
 
     // ==== Save Logic — debounced and error-handled ====
-    const saveItems = useCallback(() => {
+    // Now accepts mergedVariants to persist "Sense Position" for hidden cards
+    const saveItems = useCallback((mergedVariants: Record<string, CardEntity[]> = {}) => {
         if (!isLoaded) return;
 
         clearTimeout(saveTimerRef.current);
         saveTimerRef.current = setTimeout(() => {
-            const records = items.map((item) => ({
-                uid: item.cardData.rawSense.uid,
-                x: item.mx.get(),
-                y: item.my.get(),
-                location: item.location,
-            }));
+            const records: any[] = [];
+
+            // 1. Save Active Items (Anchors)
+            items.forEach((item) => {
+                const x = item.mx.get();
+                const y = item.my.get();
+                const location = item.location;
+
+                // Save Anchor
+                records.push({
+                    uid: item.cardData.rawSense.uid,
+                    x,
+                    y,
+                    location,
+                });
+
+                // 2. Save Merged Variants (if any)
+                // "Sense Position" Strategy: Variants share the EXACT same position as their Anchor
+                const variants = mergedVariants[item.cardData.uid];
+                if (variants && variants.length > 0) {
+                    variants.forEach(variant => {
+                        records.push({
+                            uid: variant.uid,
+                            x, // Inherit Anchor X
+                            y, // Inherit Anchor Y
+                            location, // Inherit Anchor Location
+                        });
+                    });
+                }
+            });
 
             db.transaction('rw', db.canvasPositions, async () => {
                 await db.canvasPositions.bulkPut(records);
@@ -148,7 +182,8 @@ export const useCardManager = () => {
                     mx: newMx,
                     my: newMy,
                     scale: motionValue(1),
-                    location: 'canvas'
+                    location: 'canvas',
+                    isVisible: true
                 };
 
                 // Sync to DB immediately
@@ -162,14 +197,48 @@ export const useCardManager = () => {
         }));
     }, []);
 
+    // ==== Set Card Location (Generic) ====
+    const setCardLocation = useCallback((uid: string, location: CardLocation, position?: { x: number, y: number }) => {
+        setItems(prev => prev.map(item => {
+            if (item.cardData.rawSense.uid === uid) {
+                // If position is provided, update it (e.g. for ejection)
+                // IMPORTANT: Create NEW MotionValues to reset velocity history (fixing "warp" effect)
+                let newMx = item.mx;
+                let newMy = item.my;
+
+                if (position) {
+                    newMx = motionValue(position.x);
+                    newMy = motionValue(position.y);
+                }
+
+                return {
+                    ...item,
+                    mx: newMx,
+                    my: newMy,
+                    location,
+                    isVisible: location === 'canvas'
+                };
+            }
+            return item;
+        }));
+
+        // DB Update
+        const updatePayload: any = { location };
+        if (position) {
+            updatePayload.x = position.x;
+            updatePayload.y = position.y;
+        }
+
+        db.canvasPositions.update(uid, updatePayload).catch(err => {
+            logger.error(`Failed to set card location to ${location}`, err, 'useCardManager');
+        });
+    }, []);
+
     const deleteItem = useCallback((id: string) => {
         setItems(prev => prev.filter(i => i.cardData.rawSense.uid !== id));
     }, []);
 
-    // Auto-save when items change count (debounced by react render)
-    useEffect(() => {
-        if (isLoaded) saveItems();
-    }, [items.length, isLoaded, saveItems]);
+
 
     // Cleanup debounce timer on unmount
     useEffect(() => {
@@ -183,6 +252,7 @@ export const useCardManager = () => {
         repositoryItems,
         storeCard,
         retrieveCard,
+        setCardLocation, // New API
         deleteItem,
         saveItems,
         isLoaded

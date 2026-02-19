@@ -22,7 +22,7 @@ export interface GameDataRecord {
 }
 
 /** Per-card canvas position & location */
-export type CardLocation = 'canvas' | 'repository';
+export type CardLocation = 'canvas' | 'repository' | 'device';
 
 export interface CanvasPositionRecord {
     uid: string;
