@@ -1,7 +1,7 @@
 import type { VisualEntry } from '../../schemas/SenseEntity.schema';
 
 export const VISUAL_EARTH_ALCHEMICAL: VisualEntry = {
-    "uid": "SENSE_ALCHEMICAL_EARTH_008",
+    "uid": "78883495-5a63-4e48-a488-6e09faa7e0ef",
     "id": "default",
     "meta": {
         "stability": 100.0,

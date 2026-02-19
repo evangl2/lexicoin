@@ -3,7 +3,7 @@ import type { SenseEntity } from '../schemas/SenseEntity.schema';
 
 
 export const SENSE_PHYSICAL_FIRE_001: SenseEntity = {
-    "uid": "SENSE_PHYSICAL_FIRE_001",
+    "uid": "0a6cf958-f934-47c5-8afd-f970a04699c0",
     "fingerprint": {
         "items": [
             { "word": "combustion", "tier": 1 },
@@ -71,7 +71,7 @@ export const SENSE_PHYSICAL_FIRE_001: SenseEntity = {
 
 
 export const SENSE_ALCHEMICAL_FIRE_002: SenseEntity = {
-    "uid": "SENSE_ALCHEMICAL_FIRE_002",
+    "uid": "6495ded8-9fa7-4cab-b403-e00cce99a635",
     "fingerprint": {
         "items": [
             { "word": "element", "tier": 1 },
@@ -135,7 +135,7 @@ export const SENSE_ALCHEMICAL_FIRE_002: SenseEntity = {
 
 
 export const SENSE_PHYSICAL_WATER_003: SenseEntity = {
-    "uid": "SENSE_PHYSICAL_WATER_003",
+    "uid": "d58cf5b3-080c-47e1-b052-98606c462e12",
     "fingerprint": {
         "items": [
             { "word": "water", "tier": 1 },
@@ -199,7 +199,7 @@ export const SENSE_PHYSICAL_WATER_003: SenseEntity = {
 
 
 export const SENSE_ALCHEMICAL_WATER_003: SenseEntity = {
-    "uid": "SENSE_ALCHEMICAL_WATER_003",
+    "uid": "b0e23429-d687-40fe-9d07-ad4287d5a067",
     "fingerprint": {
         "items": [
             { "word": "element", "tier": 1 },
@@ -264,7 +264,7 @@ export const SENSE_ALCHEMICAL_WATER_003: SenseEntity = {
 
 
 export const SENSE_PHYSICAL_AIR_005: SenseEntity = {
-    "uid": "SENSE_PHYSICAL_AIR_005",
+    "uid": "9f5c9b4d-d084-4ca7-b4ef-bcd879ee40eb",
     "fingerprint": {
         "items": [
             { "word": "atmosphere", "tier": 1 },
@@ -327,7 +327,7 @@ export const SENSE_PHYSICAL_AIR_005: SenseEntity = {
 
 
 export const SENSE_ALCHEMICAL_AIR_006: SenseEntity = {
-    "uid": "SENSE_ALCHEMICAL_AIR_006",
+    "uid": "0698e210-1749-4bbd-8c40-d337646165b3",
     "fingerprint": {
         "items": [
             { "word": "intellect", "tier": 1 },
@@ -391,7 +391,7 @@ export const SENSE_ALCHEMICAL_AIR_006: SenseEntity = {
 
 
 export const SENSE_PHYSICAL_EARTH_007: SenseEntity = {
-    "uid": "SENSE_PHYSICAL_EARTH_007",
+    "uid": "a149f57b-aea5-40c3-924d-df25b1588ef9",
     "fingerprint": {
         "items": [
             { "word": "soil", "tier": 1 },
@@ -455,7 +455,7 @@ export const SENSE_PHYSICAL_EARTH_007: SenseEntity = {
 
 
 export const SENSE_ALCHEMICAL_EARTH_008: SenseEntity = {
-    "uid": "SENSE_ALCHEMICAL_EARTH_008",
+    "uid": "78883495-5a63-4e48-a488-6e09faa7e0ef",
     "fingerprint": {
         "items": [
             { "word": "element", "tier": 1 },

@@ -1,7 +1,7 @@
 import type { VisualEntry } from '../../schemas/SenseEntity.schema';
 
 export const VISUAL_AIR_PHYSICAL: VisualEntry = {
-    "uid": "SENSE_PHYSICAL_AIR_005",
+    "uid": "9f5c9b4d-d084-4ca7-b4ef-bcd879ee40eb",
     "id": "default",
     "meta": {
         "stability": 100.0,

@@ -1,7 +1,7 @@
 import type { VisualEntry } from '../../schemas/SenseEntity.schema';
 
 export const VISUAL_EARTH_PHYSICAL: VisualEntry = {
-    "uid": "SENSE_PHYSICAL_EARTH_007",
+    "uid": "a149f57b-aea5-40c3-924d-df25b1588ef9",
     "id": "default",
     "meta": {
         "stability": 100.0,

@@ -1,7 +1,7 @@
 import type { VisualEntry } from '../../schemas/SenseEntity.schema';
 
 export const VISUAL_WATER_PHYSICAL: VisualEntry = {
-  "uid": "SENSE_PHYSICAL_WATER_003",
+  "uid": "d58cf5b3-080c-47e1-b052-98606c462e12",
   "id": "default",
   "meta": {
     "stability": 100.0,
