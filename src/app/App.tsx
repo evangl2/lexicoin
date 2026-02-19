@@ -99,6 +99,20 @@ function InnerApp() {
 
   usePhysics(physicsItems, draggingId);
 
+  // 6. Persistence Binding (Robustness Fix)
+  // Ensure we auto-save whenever items (Anchors) or groupings (Variants) change.
+  // This replaces the internal auto-save in useCardManager to ensure mergedVariants are always included.
+  useEffect(() => {
+    if (data.isLoaded) {
+      data.saveItems(grouping.mergedVariants);
+    }
+  }, [
+    data.items,        // Anchor list changed (Load/Store/Merge)
+    data.isLoaded,     // Ready signal
+    grouping.mergedVariants, // Merge state changed
+    data.saveItems     // Stable callback
+  ]);
+
   // --- Interaction Logic ---
 
   // Drop from Repository to Canvas (via Dock double-click, handled by retrieveCard)
@@ -128,80 +142,33 @@ function InnerApp() {
     },
   }));
 
-  // 2. Check Deck Collision (Canvas -> Repository)
-  // Optimization: useGameStore.getState() to avoid isDeckOpen dependency
-  const checkDeckCollision = useCallback((id: string, isDevice: boolean = false) => {
-    const isDeckOpen = useGameStore.getState().deckState.isOpen;
-    if (!isDeckOpen) return;
-
-    const cx = camera.x.get();
-    const cy = camera.y.get();
-    const s = camera.scale.get();
-
-    let mx = 0;
-    let my = 0;
-    let width = 0;
-    let height = 0;
-
-    if (isDevice) {
-      // Logic for devices
-      const device = deviceManager.canvasDevices.find(d => d.uid === id);
-      if (!device) return;
-      mx = device.mx.get();
-      my = device.my.get();
-      // Hardcode size for now or lookup based on type
-      width = 450;
-      height = 450;
-    } else {
-      const targetItem = data.canvasItems.find((i: any) => i.cardData.rawSense.uid === id);
-      if (!targetItem) return;
-      mx = targetItem.mx.get();
-      my = targetItem.my.get();
-      width = targetItem.width;
-      height = targetItem.height;
-    }
-
-    // Calculate approximate screen position of the CENTER
-    // mx, my are Top-Left coordinates in Canvas Space
-    const centerX = mx + width / 2;
-    const centerY = my + height / 2;
-
-    const screenX = cx + centerX * s;
-    const screenY = cy + centerY * s;
-
-    // Deck Zone Definition
-    const deckHeight = 260;
-    const bottomOffset = 135;
-    const topEdgeY = window.innerHeight - (bottomOffset + deckHeight);
-    const bottomEdgeY = window.innerHeight - bottomOffset + 50;
-
-    const deckWidth = window.innerWidth * 0.8;
-    const deckXStart = (window.innerWidth - deckWidth) / 2;
-    const deckXEnd = deckXStart + deckWidth;
-
-    if (screenY > topEdgeY && screenY < bottomEdgeY && screenX > deckXStart && screenX < deckXEnd) {
-      if (isDevice) {
-        deviceManager.storeDevice(id);
-      } else {
-        data.storeCard(id);
-      }
-    }
-  }, [data, camera, deviceManager]);
-
-  // STABLE HANDLERS for Card Component
   const handleDragStart = useCallback((id: string) => {
     setDraggingId(id);
   }, []);
 
   const handleDragEnd = useCallback((id: string) => {
-    checkDeckCollision(id);
-    data.saveItems();
+    // checkDeckCollision(id); // Removed
+    // Pass mergedVariants to ensure "Sense Position" is updated
+    data.saveItems(grouping.mergedVariants);
     setDraggingId(null);
-  }, [checkDeckCollision, data]);
+  }, [data, grouping.mergedVariants]);
 
   const handleDeviceDragEnd = useCallback((uid: string) => {
-    checkDeckCollision(uid, true);
-  }, [checkDeckCollision]);
+    // checkDeckCollision(uid, true); // Removed
+    // Device state is auto-saved or handled by manager
+  }, []);
+
+  const handleRepositoryDrop = useCallback((uid: string, isDevice: boolean = false) => {
+    // Check if deck is actually open (extra safety, though UI shouldn't be visible if closed)
+    const isDeckOpen = useGameStore.getState().deckState.isOpen;
+    if (!isDeckOpen) return;
+
+    if (isDevice) {
+      deviceManager.storeDevice(uid);
+    } else {
+      data.storeCard(uid);
+    }
+  }, [deviceManager, data]);
 
   const handleUpdatePosition = useCallback((id: string, x: number, y: number) => {
     // Stable no-op callback
@@ -280,6 +247,7 @@ function InnerApp() {
                   [`slot${slotId}_uid`]: cardId
                 });
               }}
+              onDropIntoRepository={(uid) => handleRepositoryDrop(uid, false)}
             />
           ))}
 
@@ -295,6 +263,10 @@ function InnerApp() {
               inputCards={data.items}
               canvasScale={camera.scale}
               onDragEnd={handleDeviceDragEnd}
+              onCardEnter={(cid) => data.setCardLocation(cid, 'device')}
+              onCardEject={(cid) => data.setCardLocation(cid, 'canvas', { x: device.mx.get() + 80, y: device.my.get() + 50 })}
+              mergedVariants={grouping.mergedVariants}
+              onDropIntoRepository={(uid) => handleRepositoryDrop(uid, true)}
             />
           ))}
 
@@ -361,6 +333,11 @@ function InnerApp() {
         mergedVariants={grouping.mergedVariants}
         deviceItems={deviceManager.repositoryDevices}
         onRetrieveDevice={(uid) => deviceManager.retrieveDevice(uid, window.innerWidth / 2, window.innerHeight / 2)}
+        onStoreDevice={(uid) => {
+          deviceManager.storeDevice(uid, (cardUid, x, y) => {
+            data.setCardLocation(cardUid, 'canvas', { x, y });
+          });
+        }}
       />
 
     </div>

@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { motionValue, MotionValue } from "motion/react";
-import { db, DeviceRecord } from "@core/storage/db";
+import { db, DeviceRecord, CardLocation } from "@core/storage/db"; // Added CardLocation import
 import { logger } from "@utils/logger";
 import { nanoid } from "nanoid";
 import { DeviceType, DeviceState } from "@/types/DeviceEntity";
@@ -12,7 +12,7 @@ export interface DeviceItem {
     name: string;
     mx: MotionValue<number>;
     my: MotionValue<number>;
-    location: 'canvas' | 'repository';
+    location: CardLocation; // Updated from 'canvas' | 'repository'
     state: DeviceState;
 }
 
@@ -104,10 +104,34 @@ export const useDeviceManager = () => {
 
     // ==== Actions ====
 
-    const storeDevice = useCallback((uid: string) => {
-        setDevices(prev => prev.map(d =>
-            d.uid === uid ? { ...d, location: 'repository' } : d
-        ));
+    const storeDevice = useCallback((uid: string, onEject?: (slotUid: string, x: number, y: number) => void) => {
+        setDevices(prev => prev.map(d => {
+            if (d.uid === uid) {
+                // Ejection Logic
+                if (onEject) {
+                    const currentX = d.mx.get();
+                    const currentY = d.my.get();
+
+                    // Eject Slot 1
+                    if (d.state.slot1_uid) {
+                        // Offset slightly for visibility
+                        onEject(d.state.slot1_uid, currentX - 60, currentY);
+                    }
+                    // Eject Slot 2
+                    if (d.state.slot2_uid) {
+                        onEject(d.state.slot2_uid, currentX + 60, currentY);
+                    }
+                }
+
+                return {
+                    ...d,
+                    location: 'repository',
+                    // Clear slots on store - MUTUALLY EXCLUSIVE
+                    state: { ...d.state, slot1_uid: null, slot2_uid: null }
+                };
+            }
+            return d;
+        }));
     }, []);
 
     const retrieveDevice = useCallback((uid: string, x: number, y: number) => {

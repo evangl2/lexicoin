@@ -18,10 +18,15 @@ import { personaModule } from '@modules/persona/PersonaModule';
 import { itemModule } from '@modules/item/ItemModule';
 import { reviewModule } from '@modules/review/ReviewModule';
 import { libraryModule } from '@modules/library/LibraryModule';
+import { senseRepository } from '@core/storage/SenseRepository';
+import { visualRepository } from '@core/storage/VisualRepository';
+import { INITIAL_SENSES } from '@schemas/data/initialSenses';
+import { ALL_INITIAL_VISUALS } from '@schemas/data/InitialItem';
+import { db } from '@core/storage/db';
 import type { BaseMessage } from '@app-types/protocol';
 import './DevConsole.css';
 
-type TabType = 'messages' | 'state' | 'telemetry' | 'inject' | 'logs';
+type TabType = 'messages' | 'state' | 'telemetry' | 'inject' | 'logs' | 'system';
 
 const StateInspector: React.FC = () => {
     // Get all store state - moved here to prevent re-renders in main console
@@ -211,6 +216,12 @@ export const DevConsole: React.FC = () => {
                     onClick={() => setActiveTab('logs')}
                 >
                     📝 Logs ({logs.length})
+                </button>
+                <button
+                    className={activeTab === 'system' ? 'active' : ''}
+                    onClick={() => setActiveTab('system')}
+                >
+                    ⚠️ System
                 </button>
             </div>
 
@@ -407,6 +418,47 @@ export const DevConsole: React.FC = () => {
                                     )}
                                 </div>
                             ))}
+                        </div>
+                    </div>
+                )}
+
+                {/* System Tab */}
+                {activeTab === 'system' && (
+                    <div className="tab-content">
+                        <div className="system-panel">
+                            <h4>⚠️ Danger Zone</h4>
+                            <p className="warning-text">
+                                These actions are destructive and cannot be undone.
+                            </p>
+
+                            <div className="system-actions">
+                                <button
+                                    className="danger-btn"
+                                    onClick={async () => {
+                                        if (confirm('Are you SURE you want to factory reset? This will wipe ALL progress, custom senses, and current state.')) {
+                                            try {
+                                                logger.warn('Initiating Factory Reset...', undefined, 'DevConsole');
+
+                                                // 1. Reset Repositories
+                                                await senseRepository.reset(INITIAL_SENSES);
+                                                await visualRepository.reset(ALL_INITIAL_VISUALS);
+
+                                                // 2. Clear other DB tables
+                                                await db.gameData.clear();
+                                                await db.canvasPositions.clear();
+
+                                                // 3. Force reload to reset in-memory state
+                                                window.location.reload();
+                                            } catch (e) {
+                                                logger.error('Factory Reset Failed', e, 'DevConsole');
+                                                alert('Reset failed. Check logs.');
+                                            }
+                                        }
+                                    }}
+                                >
+                                    💥 Restore Initial State
+                                </button>
+                            </div>
                         </div>
                     </div>
                 )}
