@@ -142,6 +142,19 @@ export const Card = React.memo<CardProps>(({
   const [isAnimating, setIsAnimating] = useState(false);
   const animatingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Clear timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (animatingTimerRef.current) clearTimeout(animatingTimerRef.current);
+    };
+  }, []);
+
+  const startAnimation = useCallback(() => {
+    setIsAnimating(true);
+    if (animatingTimerRef.current) clearTimeout(animatingTimerRef.current);
+    animatingTimerRef.current = setTimeout(() => setIsAnimating(false), 600);
+  }, []);
+
   // --- Selection Overlay State ---
   const [isOverlayOpen, setIsOverlayOpen] = useState(false);
   const selectedDefId = activeUid;
@@ -339,6 +352,7 @@ export const Card = React.memo<CardProps>(({
         tts.speak(title, learningLanguage);
       }
       if (isExpanded) {
+        startAnimation();
         x.set(targetCenterX.get());
         y.set(targetCenterY.get());
         updatePosition(cardData.uid, targetCenterX.get(), targetCenterY.get());
@@ -402,7 +416,7 @@ export const Card = React.memo<CardProps>(({
     }
   }, dragConfig);
 
-  const isActive = isHovered || isDragging || isExpanded || isOver || isOverlayOpen;
+  const isActive = (isHovered || isDragging || isExpanded || isOver || isOverlayOpen) && !isAnimating;
 
   // OPTIMIZATION: Bind z-index to visual scale to prevent clipping during shrink animation
   // When scale > 1.1 (hover is ~1.05, drag is ~1.15, expanded is larger), we force high z-index.
@@ -433,6 +447,7 @@ export const Card = React.memo<CardProps>(({
 
         const nextState = !isExpanded;
         setIsExpanded(nextState);
+        startAnimation();
 
         if (nextState) {
           onFocus?.();
@@ -448,9 +463,7 @@ export const Card = React.memo<CardProps>(({
         e.preventDefault();
         e.stopPropagation();
 
-        setIsAnimating(true);
-        if (animatingTimerRef.current) clearTimeout(animatingTimerRef.current);
-        animatingTimerRef.current = setTimeout(() => setIsAnimating(false), 600);
+        startAnimation();
 
         if (!isFlipped) {
           setIsFlipped(true);
