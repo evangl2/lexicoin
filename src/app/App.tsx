@@ -84,17 +84,32 @@ function InnerApp() {
     learningLang
   });
 
+  // Filter out cards that are inside devices
+  const slottedCardIds = useMemo(() => {
+    const ids = new Set<string>();
+    deviceManager.canvasDevices.forEach(d => {
+      if (d.state.slot1_uid) ids.add(d.state.slot1_uid);
+      if (d.state.slot2_uid) ids.add(d.state.slot2_uid);
+    });
+    return ids;
+  }, [deviceManager.canvasDevices]);
+
+  const visibleCanvasItems = useMemo(() =>
+    data.canvasItems.filter((item: any) => !slottedCardIds.has(item.cardData.rawSense.uid)),
+    [data.canvasItems, slottedCardIds]
+  );
+
   // 5. Physics Engine
   const physicsItems = useMemo(
     () =>
-      data.items.map((item: any) => ({
+      visibleCanvasItems.map((item: any) => ({
         id: item.cardData.rawSense.uid,
         x: item.mx,
         y: item.my,
         width: item.width,
         height: item.height,
       })),
-    [data.items],
+    [visibleCanvasItems],
   );
 
   usePhysics(physicsItems, draggingId);
@@ -188,21 +203,6 @@ function InnerApp() {
   const handleCardBlur = useCallback(() => {
     setFocusedCardCount(prev => Math.max(0, prev - 1));
   }, []);
-
-  // Filter out cards that are inside devices
-  const slottedCardIds = useMemo(() => {
-    const ids = new Set<string>();
-    deviceManager.canvasDevices.forEach(d => {
-      if (d.state.slot1_uid) ids.add(d.state.slot1_uid);
-      if (d.state.slot2_uid) ids.add(d.state.slot2_uid);
-    });
-    return ids;
-  }, [deviceManager.canvasDevices]);
-
-  const visibleCanvasItems = useMemo(() =>
-    data.canvasItems.filter((item: any) => !slottedCardIds.has(item.cardData.rawSense.uid)),
-    [data.canvasItems, slottedCardIds]
-  );
 
   return (
     <div
