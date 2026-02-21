@@ -336,13 +336,14 @@ export const CardVisual = React.memo<CardVisualProps>(({
             {level}
           </Persona.visuals.ScrapLabel>
         ) : (
-          <span className={`text-xl drop-shadow-[0_0_12px_rgba(240,208,130,0.4)] font-bold tracking-[0.2em]`}
+          <span className={`text-xl font-bold tracking-[0.2em]`}
             style={{
               fontFamily: Persona.tokens.typography.label.family,
               color: Persona.tokens.colors.textHighlight,
               background: Persona.tokens.typography.label.gradient,
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent',
+              textShadow: '0 0 12px rgba(240,208,130,0.4)',
             }}>
             {level}
           </span>
@@ -375,7 +376,7 @@ export const CardVisual = React.memo<CardVisualProps>(({
               backgroundImage: Persona.definitions.gradients.goldText || Persona.tokens.typography.label.gradient,
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent',
-              filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.8))',
+              textShadow: '0 2px 4px rgba(0,0,0,0.8)',
               textAlign: 'center'
             }}>
             {word}
@@ -388,7 +389,7 @@ export const CardVisual = React.memo<CardVisualProps>(({
               style={{
                 fontFamily: Persona.tokens.typography.body.family,
                 color: Persona.tokens.colors.goldMetallic,
-                filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.6))'
+                textShadow: '0 1px 2px rgba(0,0,0,0.6)'
               }}>
               {systemWord}
             </span>
@@ -568,7 +569,7 @@ export const CardVisual = React.memo<CardVisualProps>(({
                   backgroundImage: Persona.definitions.gradients.goldText || `linear-gradient(to bottom, ${Persona.tokens.colors.goldBright}, ${Persona.tokens.colors.goldDeep})`,
                   WebkitBackgroundClip: 'text',
                   WebkitTextFillColor: 'transparent',
-                  filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.8))'
+                  textShadow: '0 1px 2px rgba(0,0,0,0.8)'
                 }}>
                 {word}
               </h3>
