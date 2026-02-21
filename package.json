@@ -12,6 +12,7 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.97.0",
     "@use-gesture/react": "^10.3.1",
     "dexie": "^4.3.0",
     "lucide-react": "0.487.0",

@@ -55,9 +55,12 @@ export interface Sense {
     visualStatic?: string;          // Optimized for idle state
     visualActive?: string;          // Animated for hover/active state
 
-    // Metadata
+    // Lore/story text
     flavorText: LocalizedText;      // Lore/story text
     tags: string[];                 // Semantic tags for matching
+
+    // Word shells (language specific words)
+    shells?: any;                   // Dynamic shells based on language
 
     // Game mechanics
     durability: number;             // Current durability

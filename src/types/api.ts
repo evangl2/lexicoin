@@ -44,8 +44,9 @@ export interface SynthesisResponse {
     success: boolean;
     result?: {
         sense: Sense;
-        explanation: LocalizedText;
-        confidence: number;
+        archetypeUsed: string;
+        cached: boolean;
+        isNewDiscovery: boolean;
     };
     failureReason?: 'INCOMPATIBLE' | 'NO_SYNERGY' | 'OFFENSIVE' | 'INVALID';
     failureMessage?: LocalizedText;
