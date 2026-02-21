@@ -29,16 +29,14 @@ The central registry of all concepts (Senses).
 ---
 
 ### `public.sense_word_shells`
-Maps concepts to natural language words. **One row per language per sense.**
+Maps concepts to natural language words. **One row per sense.**
 | Column | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
-| `id` | `bigint` | `nextval(...)` | **PK**. Internal ID. |
-| **`sense_id`** | `uuid` | - | **FK** -> `senses.uid`. |
-| **`lang`** | `text` | - | Language code (e.g., 'en', 'zh-CN'). **Unique per Sense**. |
-| `shells` | `jsonb` | `'[]'` | Array of `WordShell` objects (max 20). Contains `text`, `pos`, `level`, `nuances`, etc. |
+| **`sense_id`** | `uuid` | - | **PK**, **FK** -> `senses.uid`. |
+| `shells` | `jsonb` | `'{}'` | Map of `Language -> WordShell[]` (max 20 per lang). |
 
-**Constraints:**
-- `idx_sense_word_shells_lang`: UNIQUE `(sense_id, lang)` ensures strict language separation.
+**Indexes:**
+- `idx_sense_word_shells_sense_id`: Primary key index.
 
 ---
 
@@ -70,11 +68,13 @@ Stores renderable assets (SVG animations) for the concept.
 Stores narrative descriptions and AI persona-driven content.
 | Column | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
-| `id` | `bigint` | `nextval(...)` | **PK**. |
 | **`sense_id`** | `uuid` | - | **FK** -> `senses.uid`. |
 | `persona` | `text` | - | AI Persona ID (e.g., "The Joker", "The Prophet"). |
-| `translations` | `jsonb` | `'{}'` | Map of `Language -> { text, example }`. |
-| `global_meta` | `jsonb` | - | Metadata valid across all languages. |
+| `text` | `jsonb` | `'{}'` | Map of `Language -> PropertyEntry<string>`. |
+| `example` | `jsonb` | `'{}'` | Map of `Language -> PropertyEntry<string>`. |
+
+**Indexes:**
+- `idx_sense_flavor_texts_sense_persona`: UNIQUE `(sense_id, persona)`.
 
 ---
 

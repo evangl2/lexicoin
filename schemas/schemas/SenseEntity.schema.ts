@@ -14,7 +14,7 @@
  * 
  * Metadata Strategy:
  * - Default: 'stability' only for most modifiable items.
- * - Enhanced: 'stability' + 'firstDiscoverer' for high-value items (Qualia text, Visual, FlavorText, Meaning).
+ * - Enhanced: 'stability' + 'firstDiscoverer' for high-value items (Qualia text, Visual, Ontology).
  * - Nuances: Single metadata controls the entire set of nuance tags (not per-tag).
  * 
  * Integration:
@@ -295,41 +295,19 @@ export interface VisualEntry {
  * - Offer usage examples in different narrative styles.
  * - Support learning through storytelling and character-driven content.
  * 
- * Persona Examples:
- * - 'jester': Playful, humorous explanations
- * - 'prophet': Profound, philosophical descriptions
- * - 'scholar': Academic, precise definitions
- * - 'merchant': Practical, usage-focused examples
- * 
  * Metadata Strategy:
- * - Global meta: Tracks the persona entry's overall stability.
- * - Per-language text meta: Individual stability/discoverer for each translation.
- * - Per-language example meta: Individual stability/discoverer for each example.
+ * - text: Map of Language to localized text entry with metadata.
+ * - example: Map of Language to localized example entry with metadata.
  */
 export interface FlavorTextEntry {
-    /**
-     * AI Persona identifier.
-     * Determines the narrative style and tone of descriptions.
-     */
+    /** The identifier for the AI Persona. */
     persona: string;
 
-    /**
-     * Narrative descriptions by language.
-     * Each language translation has individual metadata for quality control.
-     */
+    /** Individual language text sub-items, each with its own stability/discoverer. */
     text: Record<Language, PropertyEntry<string>>;
 
-    /**
-     * Usage examples by language.
-     * Each language example has individual metadata for quality control.
-     */
+    /** Individual language example sub-items, each with its own stability/discoverer. */
     example: Record<Language, PropertyEntry<string>>;
-
-    /**
-     * Global metadata for this persona entry.
-     * Tracks overall stability (no firstDiscoverer at this level).
-     */
-    meta: EntryMetadata;
 }
 
 // ============================================================================
@@ -454,7 +432,7 @@ export interface WordShell {
 
     /**
      * Global metadata for this word shell entry.
-     * Tracks overall stability (no firstDiscoverer at this level).
+     * Tracks overall stability.
      */
     meta: EntryMetadata;
 }
@@ -531,7 +509,7 @@ export interface SenseEntity {
      * - LOCATION: Places or spatial concepts (home, above)
      * - ABSTRACT: Pure abstractions (justice, mathematics)
      * 
-     * Metadata: Stability only (no discoverer).
+     * Metadata: Stability and firstDiscoverer (Attribution anchor).
      */
     ontology: PropertyEntry<OntologyType>;
 
@@ -544,7 +522,7 @@ export interface SenseEntity {
      * - "existence" (concept): 100 (universal)
      * - "schadenfreude" (concept): 30 (less common)
      * 
-     * Metadata: Stability only (no discoverer).
+     * Metadata: Stability only.
      */
     frequency: PropertyEntry<number>;
 
@@ -596,7 +574,7 @@ export interface SenseEntity {
      * Concise definitions by language:
      * - Maximum 40 characters/tokens per language
      * - One definition per language
-     * - Individual stability and firstDiscoverer per language
+     * - Individual stability per language
      * 
      * Purpose:
      * - Quick reference definitions
