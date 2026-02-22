@@ -30,6 +30,8 @@ import { SynthesisCircle } from "@/app/components/ui/SynthesisCircle"; // Added
 import { useGameStore } from "@/store/index";
 import { getLoc, mapLanguageCode } from "@/app/utils/localization";
 
+const EMPTY_VARIANTS: any[] = [];
+
 function InnerApp() {
   // 1. App State & Settings (Zustand Integration)
   const learningLang = useGameStore(s => s.learningLang);
@@ -189,6 +191,20 @@ function InnerApp() {
     // Stable no-op callback
   }, []);
 
+  const handleDropIntoSlot = useCallback((cardId: string, deviceUid: string, slotId: number) => {
+    deviceManager.updateDeviceState(deviceUid, {
+      [`slot${slotId}_uid`]: cardId,
+    });
+  }, [deviceManager]);
+
+  const handleCardDropIntoRepository = useCallback((uid: string) => {
+    handleRepositoryDrop(uid, false);
+  }, [handleRepositoryDrop]);
+
+  const handleDeviceDropIntoRepository = useCallback((uid: string) => {
+    handleRepositoryDrop(uid, true);
+  }, [handleRepositoryDrop]);
+
   // --- Z-Index / Focus Management ---
   const [focusedCardCount, setFocusedCardCount] = useState(0);
 
@@ -226,7 +242,7 @@ function InnerApp() {
             <Card
               key={item.cardData.rawSense.uid}
               cardData={item.cardData}
-              variants={grouping.mergedVariants[item.cardData.uid] || []}
+              variants={grouping.mergedVariants[item.cardData.uid] || EMPTY_VARIANTS}
               learningLanguage={mapLanguageCode(learningLang)}
               systemLanguage={mapLanguageCode(systemLang)}
               x={item.mx}
@@ -242,12 +258,8 @@ function InnerApp() {
               groupFeedback={grouping.groupFeedback}
               onFocus={handleCardFocus}
               onBlur={handleCardBlur}
-              onDropIntoSlot={(cardId, deviceUid, slotId) => {
-                deviceManager.updateDeviceState(deviceUid, {
-                  [`slot${slotId}_uid`]: cardId
-                });
-              }}
-              onDropIntoRepository={(uid) => handleRepositoryDrop(uid, false)}
+              onDropIntoSlot={handleDropIntoSlot}
+              onDropIntoRepository={handleCardDropIntoRepository}
             />
           ))}
 
@@ -266,7 +278,7 @@ function InnerApp() {
               onCardEnter={(cid) => data.setCardLocation(cid, 'device')}
               onCardEject={(cid) => data.setCardLocation(cid, 'canvas', { x: device.mx.get() + 80, y: device.my.get() + 50 })}
               mergedVariants={grouping.mergedVariants}
-              onDropIntoRepository={(uid) => handleRepositoryDrop(uid, true)}
+              onDropIntoRepository={handleDeviceDropIntoRepository}
             />
           ))}
 
