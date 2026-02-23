@@ -67,15 +67,13 @@ SenseEntity 具备自我进化的能力，通过 **沉淀模块 \[14\]** 管理�
 | Qualia Engine | formal, constitutive, telic, agentive | Record\<Language, QualiaItem\[\]\> | 8 Core Languages \+ dynamic injection support. | No | Stability \+ firstDiscoverer (on text) | Each slot supports words or phrases. Max 20 items per language per slot. |
 | Visual Library | uid | string | The same as its according sense uid | No | None |  |
 |  | id | string | “default” as default | No | None |  |
-|  | payload | string |  | No | Stability \+ firstDiscoverer | Visual entries are stored as complete,indivisible payloads  |
+|  | payload | string |  | No | Stability + firstDiscoverer | Visual entries are stored as complete,indivisible payloads  |
 | FlavorText | persona, text, example | FlavorTextEntry[] | N/A | No | Stability (per text/example) | Persona-driven narrative; separate columns for text/example maps. |
-| Meaning | Dictionary Definition | Record\<Language, PropertyEntry\> | Max 40 characters/tokens. | No | Stability \+ firstDiscoverer | Concise definitions for each language. |
-| WordShells | shells | Record\<Language, WordShell[]\> | Max 20 shells per language. | No | Stability \+ firstDiscoverer | Single column 'shells' stores all language mappings as a JSON map. |
+| Meaning | Dictionary Definition | Record\<Language, PropertyEntry\> | Max 40 characters/tokens. | No | Stability + firstDiscoverer | Concise definitions for each language. |
+| WordShells | shells | Record\<Language, WordShell[]\> | Max 20 shells per language. | No | Stability + firstDiscoverer | Single column 'shells' stores all language mappings as a JSON map. |
 |  | pronunciation | string |  | No | Stability only | Phonetic guide for the word. |
 |  | wordFrequency | integer (1-100) | Range: 1 (Rare) to 100 (Common). | No | Stability only | Specific word commonness within its language. |
 |  | pos, level | Enum | POS (n., v., etc.), Level (A1-C2). | No | Stability only | Linguistic metadata. |
-|  | absoluteSynonyms | boolean | Raw value (true/false). | No | Stability only | 100% interchangeability flag. |
-|  | nuances | Object | Register, Intensity, Sentiment, etc. | No | Single meta controls the entire set of nuance tags.Stability only | Categorical nuance tags. |
 
 ### 
 
@@ -83,132 +81,78 @@ SenseEntity 具备自我进化的能力，通过 **沉淀模块 \[14\]** 管理�
 
 ### 
 
-# **\[代码定义 \]**
+# **[代码定义 ]**
 
-/\*\*  
- \* Project: Semantic Module \[08\] \- SenseEntity Final Authority  
- \* \* Rules:  
- \* 1\. Granular Control: Every modifiable sub-item has its own 'meta' for individual sedimentation.  
- \* 2\. Meta Content:   
- \* \- Default: 'stability' only.  
- \* \- Special (Qualia, text, visual, meaning): 'stability' \+ 'firstDiscoverer'.  
- \* \- 'status' and 'version' are removed.  
- \* 3\. Identity Anchors: 'uid', 'fingerprint' remain raw values.  
- \* 4\. Quantity Caps: All Qualia slots and WordShell arrays are limited to 20 items per language.  
- \* 5\. High Fidelity: Visual entries are stored as complete, indivisible payloads to preserve \* all logic, animation, and state data.  
- \*/
+/**
+ * Project: Semantic Module [08] - SenseEntity Final Authority
+ * * Rules:
+ * 1. Granular Control: Every modifiable sub-item has its own 'meta' for individual sedimentation.
+ * 2. Meta Content: 
+ * - Default: 'stability' only.
+ * - Special (Qualia, text, visual, meaning): 'stability' + 'firstDiscoverer'.
+ * - 'status' and 'version' are removed.
+ * 3. Identity Anchors: 'uid', 'fingerprint' remain raw values.
+ * 4. Quantity Caps: All Qualia slots and WordShell arrays are limited to 20 items per language.
+ * 5. High Fidelity: Visual entries are stored as complete, indivisible payloads to preserve * all logic, animation, and state data.
+ */
 
-/\*\* Support for 8 core languages \+ future injections. \*/  
-export type Language \= 'en' | 'zh-CN' | 'fr' | 'de' | 'ja' | 'es' | 'it' | 'pt' | string;  
-export type POS \= 'n.' | 'v.' | 'adj.' | 'adv.' | 'prep.' | 'conj.' | 'pron.' | 'int.';  
-export type WordLevel \= 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2';
+/** Support for 8 core languages + future injections. */
+export type Language = 'en' | 'zh-CN' | 'fr' | 'de' | 'ja' | 'es' | 'it' | 'pt' | string;
+export type POS = 'n.' | 'v.' | 'adj.' | 'adv.' | 'prep.' | 'conj.' | 'pron.' | 'int.';
+export type WordLevel = 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2';
 
-/\*\*  
- \* Metadata for tracking quality and discovery.  
- \* Interfaces with the Sedimentation Module \[14\].  
- \*/  
-export interface EntryMetadata {  
-  /\*\* Community score (+1 / \-1). Records for all modifiable items. \*/  
+/**
+ * Metadata for tracking quality and discovery.
+ * Interfaces with the Sedimentation Module [14].
+ */
+export interface EntryMetadata {
+  /** Community score (+1 / -1). Records for all modifiable items. */
   stability: number;         
-  /\*\* The ID/Name of the first user who generated/discovered this specific data item.  
-   \* Only recorded for: Qualia, text, visual, and meaning sub-items. \*/  
+  /** The ID/Name of the first user who generated/discovered this specific data item.
+   * Only recorded for: Qualia, text, visual, and meaning sub-items. */
   firstDiscoverer?: string;   
 }
 
-/\*\*  
- \* Generic wrapper for data requiring individual sedimentation control.  
- \*/  
-export interface PropertyEntry\<T\> {  
-  value: T;  
-  meta: EntryMetadata;  
+/**
+ * Generic wrapper for data requiring individual sedimentation control.
+ */
+export interface PropertyEntry<T> {
+  value: T;
+  meta: EntryMetadata;
 }
 
-/\*\*  
- \* Semantic Fingerprint: The immutable "DNA" of a sense.  
- \*/  
-export interface Fingerprint {  
-  /\*\* EXACTLY 6 English anchor words. Immutable and excluded from meta. \*/  
+/**
+ * Semantic Fingerprint: The immutable "DNA" of a sense.
+ */
+export interface Fingerprint {
+  /** EXACTLY 6 English anchor words. Immutable and excluded from meta. */
   items: {   
     word: string;   
     tier: 1 | 2 | 3;   
-  }\[\];   
+  }[];   
 }
 
-/\*\*  
- \* Visual Entry \- High Fidelity Payload with Entity Mapping.  
- \* The 'uid' maps back to the parent SenseEntity for relational integrity.  
- \*/  
-export interface VisualEntry {  
-  /\*\* The UID of the parent SenseEntity. \*/  
+/**
+ * Visual Entry - High Fidelity Payload with Entity Mapping.
+ * The 'uid' maps back to the parent SenseEntity for relational integrity.
+ */
+export interface VisualEntry {
+  /** The UID of the parent SenseEntity. */
   uid: string;               
-  /\*\* Unique ID for the visual state (e.g., 'default', 'magic'). \*/  
+  /** Unique ID for the visual state (e.g., 'default', 'magic'). */
   id: string;                
-  /\*\* The complete visual logic payload (React/Framer-Motion or SVG+CSS). \*/  
+  /** The complete visual logic payload (React/Framer-Motion or SVG+CSS). */
   payload: string;           
   meta: EntryMetadata;       
 }
 
-/\*\*  
- \* Persona-driven narrative library entry.  
- \* Meta allows individual control for different personas and their translations.  
- \*/  
-export interface FlavorTextEntry {  
-  /\*\* The identifier for the AI Persona. \*/  
+/**
+ * Persona-driven narrative library entry.
+ * Meta allows individual control for different personas and their translations.
+ */
+export interface FlavorTextEntry {
+  /** The identifier for the AI Persona. */
   persona: string;                    
-  /\*\* Individual language sub-items, each with its own stability. \*/  
-  text: Record\<Language, PropertyEntry\<string\>\>;     
-  /\*\* Individual language examples, each with its own stability. \*/  
-  example: Record\<Language, PropertyEntry\<string\>\>;  
-}
-
-/\*\*  
- \* A logical relation term within a Qualia slot.  
- \* Meta allows individual control for every logical link.  
- \*/  
-export interface QualiaItem {  
-  /\*\* The term text (word or phrase). Meta includes stability and firstDiscoverer. \*/  
-  text: PropertyEntry\<string\>;              
-  /\*\* The immutable fingerprint anchoring this term. \*/  
-  fingerprint: Fingerprint;   
-  /\*\* Meta includes stability and firstDiscoverer. \*/  
-  meta: EntryMetadata;       
-}
-
-/\*\*  
- \* Linguistic synonym entry (WordShell).  
- \*/  
-export interface WordShell {  
-  /\*\* Modifiable text. Meta includes stability and firstDiscoverer. \*/  
-  text: PropertyEntry\<string\>;
-
-  /\*\* \* \[NEW\] Phonetic notation (e.g., IPA).   
-   \* Meta includes stability only.  
-   \*/  
-  pronunciation?: PropertyEntry\<string\>;
-
-  /\*\* Modifiable part-of-speech. Meta includes stability only. \*/  
-  pos: PropertyEntry\<POS\>;
-
-  /\*\* Modifiable difficulty level. Meta includes stability only. \*/  
-  level: PropertyEntry\<WordLevel\>;
-
-  /\*\* Modifiable word frequency (1-100). Meta includes stability only. \*/  
-  wordFrequency: PropertyEntry\<number\>;
-
-  /\*\* Identity flag: true if 100% interchangeable. Meta includes stability only. \*/  
-  absoluteSynonyms: PropertyEntry\<boolean\>;
-
-  /\*\* \* Nuance tags: Categorical metadata.   
-   \* \[UPDATED\] Wrapped in a single PropertyEntry, meaning all tags share ONE meta score.  
-   \*/  
-  nuances: PropertyEntry\<{  
-    register?: 'slang' | 'casual' | 'neutral' | 'formal' | 'literary' | 'honorfic' | 'business' | 'intimate' | 'vulgar' |  
-    'jargon' | 'argot';  
-    intensity?: 'very\_weak' | 'weak' | 'normal' | 'strong' | 'very\_strong';  
-    sentiment?: 'very\_negative' | 'negative' | 'neutral' | 'positive' | 'very\_positive';  
-    domain?: 'financial' | 'technical' | 'marketing' | 'scientific' | 'military' | 'business' | 'religion' | 'academic' | 'gaming' |  
-    'medical' | 'legal' | 'common';  
-    chrono?: 'archaic' | 'modern' | 'neologism';  
   }\>;
 
   /\*\* Global meta for the shell entry (stability only). \*/  

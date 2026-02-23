@@ -17,7 +17,7 @@ We separate the system into two distinct modular functions.
     *   `language_context`: "zh-CN" (String)
 *   **Normalization**: `concept_name` is **lowercased** and **trimmed** before any DB check to ensure Case-Insensitivity (e.g., "Steam" == "steam").
 *   **Actions**:
-    1.  **Word Shells**: Generate definitions, nuances, and POS in the `language_context` first, then English.
+    1.  **Word Shells**: Generate definitions, and POS in the `language_context` first, then English.
     2.  **Visuals**: Generate SVG rendering and metaphor.
     3.  **Flavor Text**: Generate persona-based descriptions relevant to the `language_context` (e.g., using a Chinese idiom for Steam if applicable).
 *   **Output**: A fully populated `senses` row.

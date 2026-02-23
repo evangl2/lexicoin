@@ -315,62 +315,16 @@ export interface FlavorTextEntry {
 // ============================================================================
 
 /**
- * Nuance Tags: Categorical metadata for linguistic subtlety.
- * 
- * Captures fine-grained distinctions in word usage that go beyond
- * simple translation equivalence.
- */
-export interface NuanceTags {
-    /**
-     * Register: Social/stylistic level of language use.
-     * Examples: formal speech, casual chat, technical jargon, slang
-     * Can contain multiple registers (e.g., ['neutral', 'formal'])
-     */
-    register?: ('slang' | 'casual' | 'neutral' | 'formal' | 'literary' | 'honorfic' |
-        'business' | 'intimate' | 'vulgar' | 'jargon' | 'argot')[];
-
-    /**
-     * Intensity: Strength or degree of the concept.
-     * Examples: whisper vs. shout, like vs. love, dislike vs. hate
-     */
-    intensity?: 'very_weak' | 'weak' | 'normal' | 'strong' | 'very_strong';
-
-    /**
-     * Sentiment: Emotional coloring or connotation.
-     * Examples: positive (beautiful), negative (ugly), neutral (object)
-     */
-    sentiment?: 'very_negative' | 'negative' | 'neutral' | 'positive' | 'very_positive';
-
-    /**
-     * Domain: Field-specific usage or specialization.
-     * Examples: medical terminology, legal jargon, gaming slang
-     * Can contain multiple domains (e.g., ['technical', 'scientific'])
-     */
-    domain?: ('financial' | 'technical' | 'marketing' | 'scientific' | 'military' |
-        'business' | 'religion' | 'academic' | 'gaming' | 'medical' | 'legal' | 'common')[];
-
-    /**
-     * Chrono: Temporal usage status.
-     * Examples: archaic (thou), modern (internet), neologism (selfie)
-     * Can contain multiple temporal markers (e.g., ['modern', 'neologism'])
-     */
-    chrono?: ('archaic' | 'modern' | 'neologism')[];
-}
-
-/**
  * Word Shell: Language-specific word mapping.
  * 
  * Purpose:
  * - Connect abstract SenseEntity to concrete words in natural languages.
  * - Capture linguistic metadata (POS, difficulty, frequency).
- * - Track semantic equivalence and subtle distinctions.
  * - Maximum 20 shells per language per SenseEntity.
  * 
  * Design Philosophy:
  * - Text is the primary mutable content (with discoverer tracking).
  * - Metadata fields track quality only (no discoverer for derivative data).
- * - Nuances wrapped in single PropertyEntry (all tags share one stability score).
- * - Absolute synonyms flag helps filter for perfect equivalence.
  */
 export interface WordShell {
     /**
@@ -408,27 +362,7 @@ export interface WordShell {
      */
     wordFrequency: PropertyEntry<number>;
 
-    /**
-     * Absolute Synonym flag.
-     * - true: This word is 100% interchangeable with the SenseEntity in all contexts.
-     * - false: Subtle distinctions exist (captured in nuances).
-     * 
-     * Note: Words without any nuance tags are implicitly absolute synonyms.
-     * Stability-only metadata.
-     */
-    absoluteSynonyms: PropertyEntry<boolean>;
 
-    /**
-     * Nuance tags: Categorical linguistic metadata.
-     * 
-     * All tags wrapped in a SINGLE PropertyEntry, meaning:
-     * - All nuance tags share ONE combined stability score.
-     * - Users vote on the entire nuance set, not individual tags.
-     * - Sedimentation replaces the entire nuance object as a unit.
-     * 
-     * Stability-only metadata (no discoverer tracking).
-     */
-    nuances: PropertyEntry<NuanceTags>;
 
     /**
      * Global metadata for this word shell entry.
@@ -589,15 +523,15 @@ export interface SenseEntity {
      * Word Shells: Language-specific word mappings.
      * 
      * Connect abstract concept to concrete words:
-     * - Maximum 20 shells per language
-     * - Includes linguistic metadata (POS, level, frequency)
-     * - Captures nuances (register, sentiment, domain, etc.)
-     * - Flags absolute synonyms
+     * - [Architecture Shift]: While mathematically structured as an array for legacy 
+     *   compatibility and rare edge cases, we enforce a "Logical Singleton" rule.
+     * - AI should generate EXACTLY ONE shell per language.
+     * - Frontend/Backend logic strictly consumes index [0] as the absolute core word.
+     * - Nuances/Synonyms are delegated to the future `nuances_matrix` system.
      * 
      * Each shell:
      * - Text with stability and firstDiscoverer
      * - Metadata fields with stability only
-     * - Nuances wrapped in single PropertyEntry
      * 
      * Optional: May be undefined if no language mappings exist.
      */
