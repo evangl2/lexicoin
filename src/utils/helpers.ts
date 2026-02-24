@@ -6,8 +6,12 @@ import type { UUID } from '../types/index';
 
 /**
  * Generate a unique ID
+ * Optimized to use crypto.randomUUID() if available
  */
 export function generateId(): UUID {
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+        return crypto.randomUUID();
+    }
     return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 }
 
@@ -48,8 +52,12 @@ export function delay(ms: number): Promise<void> {
 
 /**
  * Deep clone an object
+ * Optimized to use structuredClone if available
  */
 export function deepClone<T>(obj: T): T {
+    if (typeof structuredClone === 'function') {
+        return structuredClone(obj);
+    }
     return JSON.parse(JSON.stringify(obj));
 }
 
