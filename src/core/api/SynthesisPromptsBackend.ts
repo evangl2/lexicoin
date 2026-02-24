@@ -128,3 +128,4 @@ Please generate the synthesis result matching the exact JSON schema provided.`;
 
     return { systemPrompt, userPrompt };
 }
+
