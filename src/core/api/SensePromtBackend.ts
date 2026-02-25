@@ -1,30 +1,128 @@
 import { PERSONA_DICTIONARY } from './PersonaDictionary';
+import {
+  VERB_KEY_FORMS,
+  NOUN_KEY_FORMS,
+  ADJ_KEY_FORMS,
+} from '@schemas/schemas/KeyFormsDictionary.config';
 
 export interface SensePromptParams {
-    concept: string;
-    definition: string;
-    target_languages: string[];
-    personaId: string;
-    personaNarrative?: string;
+  concept: string;
+  definition: string;
+  target_languages: string[];
+  personaId: string;
+  personaNarrative?: string;
+}
+
+// Languages that have grammatical gender (applies to nouns)
+const GENDERED_LANGS = new Set(['fr', 'de', 'es', 'it', 'pt']);
+
+// Languages that use verb conjugation groups (applies to verbs)
+const VERB_GROUP_LANGS = new Set(['fr', 'es', 'it', 'pt']);
+
+/**
+ * Builds the Linguistic Traits section (Section F) dynamically.
+ * Structure: three POS branches (noun / verb / adjective), each listing
+ * per-language rules for only the languages in target_languages.
+ */
+function buildTraitsSection(target_languages: string[]): string {
+  // ── NOUN block ────────────────────────────────────────────────────────────
+  const nounBlocks = target_languages
+    .map(lang => {
+      const lines: string[] = [];
+      if (GENDERED_LANGS.has(lang)) {
+        lines.push(`  - gender (REQUIRED): "masculine" | "feminine" | "neuter"`);
+        lines.push(`  - plural_form (only if irregular plural): string`);
+      }
+      if (lang === 'de') {
+        lines.push(
+          `  - case_pattern — MUST be exactly one of:\n` +
+          `      "strong masculine" (e.g. der Mann) | "strong feminine" (e.g. die Frau) |\n` +
+          `      "strong neuter" (e.g. das Kind) | "weak" (e.g. der Mensch) | "mixed" (e.g. das Herz)`
+        );
+        const forms = NOUN_KEY_FORMS['de'] ?? [];
+        if (forms.length > 0) {
+          lines.push(
+            `  - key_forms (only if irregular declension): string[] positions:\n` +
+            forms.map((f, i) => `      [${i}] ${f}`).join('\n')
+          );
+        }
+      }
+      if (lines.length === 0) return null;
+      return `**${lang}**:\n${lines.join('\n')}`;
+    })
+    .filter(Boolean)
+    .join('\n\n');
+
+  // ── VERB block ────────────────────────────────────────────────────────────
+  const verbBlocks = target_languages
+    .map(lang => {
+      const lines: string[] = [];
+      if (VERB_GROUP_LANGS.has(lang)) {
+        lines.push(`  - verb_group (REQUIRED for ALL verbs): e.g. "1st group (-er)", "3rd group (irregular)"`);
+      }
+      const verbForms = VERB_KEY_FORMS[lang];
+      if (verbForms && verbForms.length > 0) {
+        lines.push(
+          `  - key_forms (only if irregular): string[] positions:\n` +
+          verbForms.map((f, i) => `      [${i}] ${f}`).join('\n')
+        );
+      }
+      if (lines.length === 0) return null;
+      return `**${lang}**:\n${lines.join('\n')}`;
+    })
+    .filter(Boolean)
+    .join('\n\n');
+
+  // ── ADJECTIVE block ───────────────────────────────────────────────────────
+  const adjBlocks = target_languages
+    .map(lang => {
+      const adjForms = ADJ_KEY_FORMS[lang];
+      if (!adjForms || adjForms.length === 0) return null;
+      return (
+        `**${lang}**:\n` +
+        `  - key_forms (only if irregular comparison): string[] positions:\n` +
+        adjForms.map((f, i) => `      [${i}] ${f}`).join('\n')
+      );
+    })
+    .filter(Boolean)
+    .join('\n\n');
+
+  return `#### **F. Linguistic Traits**
+Fill "traits" based on the shell's **pos** AND **language**.
+Omit a language from the traits map entirely if none of the rules below apply to it.
+
+=== IF shell pos = "n." (noun) ===
+${nounBlocks || '(No gendered languages in target_languages — skip traits for all nouns)'}
+
+  For any language NOT listed above: if no traits apply, omit that language from the map.
+
+=== IF shell pos = "v." / "v.t." / "v.i." (verb) ===
+${verbBlocks || '(No verb-group or key-forms languages in target_languages)'}
+
+=== IF shell pos = "adj." (adjective) ===
+${adjBlocks || '(No adjective key-forms languages in target_languages)'}
+
+CRITICAL: key_forms only for genuinely IRREGULAR forms that standard rules cannot derive.
+Regular words need no key_forms.`;
 }
 
 export function buildSensePrompt(params: SensePromptParams): { systemPrompt: string; userPrompt: string } {
-    const { concept, definition, target_languages, personaId, personaNarrative } = params;
+  const { concept, definition, target_languages, personaId, personaNarrative } = params;
 
-    // 1. 获取基础大类的 Persona (如 'idol' 或 'default')
-    const persona = PERSONA_DICTIONARY[personaId] || PERSONA_DICTIONARY['default']!;
+  // 1. Resolve Persona
+  const persona = PERSONA_DICTIONARY[personaId] || PERSONA_DICTIONARY['default']!;
+  let activeInstructions = persona.default;
+  if (personaNarrative && persona.narratives && persona.narratives[personaNarrative]) {
+    activeInstructions = persona.narratives[personaNarrative]!;
+  }
 
-    // 2. 动态匹配对应的具体 InstructionSet
-    // 若前端传了特定的 personaNarrative 且该角色有独家配置，则挂载独家指令。否则直接使用该角色的 default 指令。
-    let activeInstructions = persona.default;
-    if (personaNarrative && persona.narratives && persona.narratives[personaNarrative]) {
-        activeInstructions = persona.narratives[personaNarrative]!;
-    }
+  const textInstruction = `${activeInstructions.textInstruction}\n- **LENGTH LIMIT**: MUST be strictly under 25 words/characters.`;
+  const exampleInstruction = `${activeInstructions.exampleInstruction}\n- **LENGTH LIMIT**: Should ideally be under 25 words/characters.`;
 
-    const textInstruction = `${activeInstructions.textInstruction}\n- **LENGTH LIMIT**: MUST be strictly under 25 words/characters.`;
-    const exampleInstruction = `${activeInstructions.exampleInstruction}\n- **LENGTH LIMIT**: Should ideally be under 25 words/characters.`;
+  // 2. Build Section F dynamically
+  const sectionF = buildTraitsSection(target_languages);
 
-    const systemPrompt = `You are a Senior Semantic Architect and Multi-language Lexicographer. 
+  const systemPrompt = `You are a Senior Semantic Architect and Multi-language Lexicographer. 
 Your mission is to transform a conceptual "Sense" into a high-fidelity **SenseEntity** JSON object.
 
 ### **1. THE MASTER SCHEMA FRAMEWORK**
@@ -60,16 +158,31 @@ You must strictly output the JSON according to this structure:
       {
         "text": { "value": "word_or_phrase", "meta": { "stability": 100.0 } },
         "pronunciation": { "value": "...", "meta": { "stability": 100.0 } },
-        "pos": { "value": "n. | v. | adj. | adv. | prep. | conj. | pron. | int.", "meta": { "stability": 100.0 } },
+        "pos": { "value": "n. | v. | v.t. | v.i. | adj. | adv. | prep. | conj. | pron. | int.", "meta": { "stability": 100.0 } },
         "level": { "value": "A1-C2", "meta": { "stability": 100.0 } },
         "wordFrequency": { "value": 0, "meta": { "stability": 100.0 } },
         "meta": { "stability": 100.0 }
       }
     ]
+  },
+  "wordFamily": {
+    "lang_code": {
+      "root": "irreducible_root_morpheme",
+      "derivations": [
+        { "word": "derived_word", "pos": "n. | v. | adj. | ..." }
+      ],
+      "meta": { "stability": 100.0 }
+    }
+  },
+  "traits": {
+    "lang_code (only if this language has applicable traits)": [
+      { "traitId": "gender | verb_group | case_pattern | plural_form | key_forms", "value": "string or string[]", "meta": { "stability": 100.0 } }
+    ]
   }
 }
 
-> **SCHEMA CONSTRAINT**: In the JSON structure above, every \`lang_code\` MUST be populated with the following languages: [${target_languages.join(', ')}]. Do not miss any language.
+> **SCHEMA CONSTRAINT**: Every \`lang_code\` in meaning / shells / wordFamily MUST be populated for: [${target_languages.join(', ')}]. Do not miss any language.
+> For traits: only include a language key if it has at least one applicable trait. Omit languages with no traits.
 
 ### **2. COMPREHENSIVE FILLING INSTRUCTIONS**
 
@@ -106,19 +219,30 @@ You must strictly output the JSON according to this structure:
 - **Shells Exclusion**: In the "shells" object, provide **EXACTLY ONE** (the most core and accurate) Shell element per language. Do not output multiple variations.
 - **text**: the word or phrase that corresponds to the sense.
 - **pronunciation**: Phonetic notation based on the specific language. (eg.IPA for english, Pinyin with tone marks for simplified chinese) If no phonetic notation exists for that language, use \`none\`.
-- **pos (Part of Speech)**: MUST be one of the following exact strings: \`'n.' | 'v.' | 'adj.' | 'adv.' | 'prep.' | 'conj.' | 'pron.' | 'int.'\`.
+- **pos (Part of Speech)**: MUST be one of the following exact strings: \`'n.' | 'v.' | 'v.t.' | 'v.i.' | 'adj.' | 'adv.' | 'prep.' | 'conj.' | 'pron.' | 'int.'\`.
 - **Level**: Map the \`text\`'s difficulty in its language to the equivalent English **CEFR (A1-C2)** level.
 - **wordFrequency**: 1-100 score. 100 = the word or phrase in \`text\` is a universal daily concept; 1 = extremely rare.
-- **INDEPENDENT SCORING (CRITICAL)**: \`level\` and \`wordFrequency\` MUST ONLY evaluate the word/phrase in \`shells.text.value\` as a standalone dictionary headword. Absolutely ignore the current concept's specific meaning when scoring these two fields. (e.g., Even if the meaning is a complex theological metaphor, if the \`text.value\` is simply "water", the level is A1 and frequency is 100). Conversely, \`pos\` must match the specific meaning.`;
+- **INDEPENDENT SCORING (CRITICAL)**: \`level\` and \`wordFrequency\` MUST ONLY evaluate the word/phrase in \`shells.text.value\` as a standalone dictionary headword. Absolutely ignore the current concept's specific meaning when scoring these two fields. (e.g., Even if the meaning is a complex theological metaphor, if the \`text.value\` is simply "water", the level is A1 and frequency is 100). Conversely, \`pos\` must match the specific meaning.
 
-    const userPrompt = `[TASK DATA]
+#### **E. Word Family**
+Fill "wordFamily" for EVERY language in [${target_languages.join(', ')}].
+- **"root"**: Reduce shells[lang].text.value to its irreducible etymological base.
+  (e.g. "firefighter" → "fire", "création" → "créer", "Feuerwehr" → "Feuer")
+- **"derivations"**: 3–6 closely related + 1–3 distantly related morphological relatives.
+  Each: { "word": string, "pos": one of the exact POS strings above }
+  Every language has real morphological derivations — always provide actual words.
+- **"meta"**: { "stability": 100.0 }
+
+${sectionF}`;
+
+  const userPrompt = `[TASK DATA]
 Concept: "${concept}"
 Definition (Base): "${definition}"
 
 [EXECUTION]
-Construct the SenseEntity JSON. Ensure all ${target_languages.length} languages are filled with high precision and respect the requested persona styles.
+Construct the SenseEntity JSON. Ensure all ${target_languages.length} languages are filled in meaning, shells, and wordFamily with high precision.
+Fill traits per pos+language rules above; omit languages with no applicable traits.
 Output RAW JSON ONLY.`;
 
-    return { systemPrompt, userPrompt };
+  return { systemPrompt, userPrompt };
 }
-
