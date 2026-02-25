@@ -52,11 +52,7 @@ export const SENSE_PHYSICAL_FIRE_001: SenseEntity = {
         }
     ],
     "shells": {
-        "en": [
-            { "text": { "value": "fire", "meta": { "stability": 100.0 } }, "pronunciation": { "value": "/faɪər/", "meta": { "stability": 100.0 } }, "pos": { "value": "n.", "meta": { "stability": 100.0 } }, "level": { "value": "A1", "meta": { "stability": 100.0 } }, "wordFrequency": { "value": 98, "meta": { "stability": 100.0 } }, "meta": { "stability": 100.0 } },
-            { "text": { "value": "flame", "meta": { "stability": 90.0 } }, "pronunciation": { "value": "/fleɪm/", "meta": { "stability": 90.0 } }, "pos": { "value": "n.", "meta": { "stability": 90.0 } }, "level": { "value": "A2", "meta": { "stability": 90.0 } }, "wordFrequency": { "value": 85, "meta": { "stability": 90.0 } }, "meta": { "stability": 90.0 } },
-            { "text": { "value": "blaze", "meta": { "stability": 80.0 } }, "pronunciation": { "value": "/bleɪz/", "meta": { "stability": 80.0 } }, "pos": { "value": "n.", "meta": { "stability": 80.0 } }, "level": { "value": "B1", "meta": { "stability": 80.0 } }, "wordFrequency": { "value": 70, "meta": { "stability": 80.0 } }, "meta": { "stability": 80.0 } }
-        ],
+        "en": [{ "text": { "value": "fire", "meta": { "stability": 100.0 } }, "pronunciation": { "value": "/faɪər/", "meta": { "stability": 100.0 } }, "pos": { "value": "n.", "meta": { "stability": 100.0 } }, "level": { "value": "A1", "meta": { "stability": 100.0 } }, "wordFrequency": { "value": 98, "meta": { "stability": 100.0 } }, "meta": { "stability": 100.0 } }],
         "zh-CN": [{ "text": { "value": "火", "meta": { "stability": 100.0 } }, "pronunciation": { "value": "huǒ", "meta": { "stability": 100.0 } }, "pos": { "value": "n.", "meta": { "stability": 100.0 } }, "level": { "value": "A1", "meta": { "stability": 100.0 } }, "wordFrequency": { "value": 99, "meta": { "stability": 100.0 } }, "meta": { "stability": 100.0 } }],
         "fr": [{ "text": { "value": "feu", "meta": { "stability": 100.0 } }, "pronunciation": { "value": "/fø/", "meta": { "stability": 100.0 } }, "pos": { "value": "n.", "meta": { "stability": 100.0 } }, "level": { "value": "A1", "meta": { "stability": 100.0 } }, "wordFrequency": { "value": 95, "meta": { "stability": 100.0 } }, "meta": { "stability": 100.0 } }],
         "de": [{ "text": { "value": "Feuer", "meta": { "stability": 100.0 } }, "pronunciation": { "value": "/ˈfɔʏɐ/", "meta": { "stability": 100.0 } }, "pos": { "value": "n.", "meta": { "stability": 100.0 } }, "level": { "value": "A1", "meta": { "stability": 100.0 } }, "wordFrequency": { "value": 94, "meta": { "stability": 100.0 } }, "meta": { "stability": 100.0 } }],
@@ -64,6 +60,23 @@ export const SENSE_PHYSICAL_FIRE_001: SenseEntity = {
         "es": [{ "text": { "value": "fuego", "meta": { "stability": 100.0 } }, "pronunciation": { "value": "/ˈfwe.ɡo/", "meta": { "stability": 100.0 } }, "pos": { "value": "n.", "meta": { "stability": 100.0 } }, "level": { "value": "A1", "meta": { "stability": 100.0 } }, "wordFrequency": { "value": 96, "meta": { "stability": 100.0 } }, "meta": { "stability": 100.0 } }],
         "it": [{ "text": { "value": "fuoco", "meta": { "stability": 100.0 } }, "pronunciation": { "value": "/ˈfwɔ.ko/", "meta": { "stability": 100.0 } }, "pos": { "value": "n.", "meta": { "stability": 100.0 } }, "level": { "value": "A1", "meta": { "stability": 100.0 } }, "wordFrequency": { "value": 93, "meta": { "stability": 100.0 } }, "meta": { "stability": 100.0 } }],
         "pt": [{ "text": { "value": "fogo", "meta": { "stability": 100.0 } }, "pronunciation": { "value": "/ˈfo.ɡu/", "meta": { "stability": 100.0 } }, "pos": { "value": "n.", "meta": { "stability": 100.0 } }, "level": { "value": "A1", "meta": { "stability": 100.0 } }, "wordFrequency": { "value": 92, "meta": { "stability": 100.0 } }, "meta": { "stability": 100.0 } }]
+    },
+    "traits": {
+        "fr": [{ "traitId": "gender", "value": "masculine", "meta": { "stability": 100.0 } }],
+        "de": [{ "traitId": "gender", "value": "neuter", "meta": { "stability": 100.0 } }],
+        "es": [{ "traitId": "gender", "value": "masculine", "meta": { "stability": 100.0 } }],
+        "it": [{ "traitId": "gender", "value": "masculine", "meta": { "stability": 100.0 } }],
+        "pt": [{ "traitId": "gender", "value": "masculine", "meta": { "stability": 100.0 } }]
+    },
+    "wordFamily": {
+        "en": { "root": "fire", "derivations": [{ "word": "fiery", "pos": "adj." }, { "word": "firefighter", "pos": "n." }, { "word": "firework", "pos": "n." }, { "word": "fireproof", "pos": "adj." }, { "word": "campfire", "pos": "n." }, { "word": "bonfire", "pos": "n." }], "meta": { "stability": 100.0 } },
+        "zh-CN": { "root": "火", "derivations": [{ "word": "火灾", "pos": "n." }, { "word": "火焰", "pos": "n." }, { "word": "火箭", "pos": "n." }, { "word": "火把", "pos": "n." }, { "word": "点火", "pos": "v." }, { "word": "发火", "pos": "v." }], "meta": { "stability": 100.0 } },
+        "fr": { "root": "feu", "derivations": [{ "word": "enflammer", "pos": "v." }, { "word": "ignifuge", "pos": "adj." }, { "word": "foyer", "pos": "n." }, { "word": "feu-de-joie", "pos": "n." }, { "word": "pare-feu", "pos": "n." }], "meta": { "stability": 100.0 } },
+        "de": { "root": "Feuer", "derivations": [{ "word": "feurig", "pos": "adj." }, { "word": "Feuerwehr", "pos": "n." }, { "word": "Feuerwerk", "pos": "n." }, { "word": "entfachen", "pos": "v." }, { "word": "Lagerfeuer", "pos": "n." }], "meta": { "stability": 100.0 } },
+        "ja": { "root": "火", "derivations": [{ "word": "火山", "pos": "n." }, { "word": "火事", "pos": "n." }, { "word": "火花", "pos": "n." }, { "word": "火力", "pos": "n." }, { "word": "消火", "pos": "v." }], "meta": { "stability": 100.0 } },
+        "es": { "root": "fuego", "derivations": [{ "word": "fogoso", "pos": "adj." }, { "word": "hoguera", "pos": "n." }, { "word": "desfogar", "pos": "v." }, { "word": "cortafuegos", "pos": "n." }, { "word": "fuegos artificiales", "pos": "n." }], "meta": { "stability": 100.0 } },
+        "it": { "root": "fuoco", "derivations": [{ "word": "focoso", "pos": "adj." }, { "word": "focolare", "pos": "n." }, { "word": "infuocare", "pos": "v." }, { "word": "parafuoco", "pos": "n." }, { "word": "sfocato", "pos": "adj." }], "meta": { "stability": 100.0 } },
+        "pt": { "root": "fogo", "derivations": [{ "word": "fogoso", "pos": "adj." }, { "word": "fogueira", "pos": "n." }, { "word": "foguete", "pos": "n." }, { "word": "fogaréu", "pos": "n." }, { "word": "corta-fogo", "pos": "n." }], "meta": { "stability": 100.0 } }
     }
 };
 
@@ -127,6 +140,23 @@ export const SENSE_ALCHEMICAL_FIRE_002: SenseEntity = {
         "es": [{ "text": { "value": "fuego", "meta": { "stability": 100.0 } }, "pronunciation": { "value": "/ˈfweɣo/", "meta": { "stability": 100.0 } }, "pos": { "value": "n.", "meta": { "stability": 100.0 } }, "level": { "value": "A1", "meta": { "stability": 100.0 } }, "wordFrequency": { "value": 97, "meta": { "stability": 100.0 } }, "meta": { "stability": 100.0 } }],
         "it": [{ "text": { "value": "fuoco", "meta": { "stability": 100.0 } }, "pronunciation": { "value": "/ˈfwɔko/", "meta": { "stability": 100.0 } }, "pos": { "value": "n.", "meta": { "stability": 100.0 } }, "level": { "value": "A1", "meta": { "stability": 100.0 } }, "wordFrequency": { "value": 97, "meta": { "stability": 100.0 } }, "meta": { "stability": 100.0 } }],
         "pt": [{ "text": { "value": "fogo", "meta": { "stability": 100.0 } }, "pronunciation": { "value": "/ˈfoɡu/", "meta": { "stability": 100.0 } }, "pos": { "value": "n.", "meta": { "stability": 100.0 } }, "level": { "value": "A1", "meta": { "stability": 100.0 } }, "wordFrequency": { "value": 97, "meta": { "stability": 100.0 } }, "meta": { "stability": 100.0 } }]
+    },
+    "traits": {
+        "fr": [{ "traitId": "gender", "value": "masculine", "meta": { "stability": 100.0 } }],
+        "de": [{ "traitId": "gender", "value": "neuter", "meta": { "stability": 100.0 } }],
+        "es": [{ "traitId": "gender", "value": "masculine", "meta": { "stability": 100.0 } }],
+        "it": [{ "traitId": "gender", "value": "masculine", "meta": { "stability": 100.0 } }],
+        "pt": [{ "traitId": "gender", "value": "masculine", "meta": { "stability": 100.0 } }]
+    },
+    "wordFamily": {
+        "en": { "root": "fire", "derivations": [{ "word": "fiery", "pos": "adj." }, { "word": "firefighter", "pos": "n." }, { "word": "firework", "pos": "n." }, { "word": "fireproof", "pos": "adj." }, { "word": "campfire", "pos": "n." }, { "word": "bonfire", "pos": "n." }], "meta": { "stability": 100.0 } },
+        "zh-CN": { "root": "火", "derivations": [{ "word": "火灾", "pos": "n." }, { "word": "火焰", "pos": "n." }, { "word": "火箭", "pos": "n." }, { "word": "火把", "pos": "n." }, { "word": "点火", "pos": "v." }, { "word": "发火", "pos": "v." }], "meta": { "stability": 100.0 } },
+        "fr": { "root": "feu", "derivations": [{ "word": "enflammer", "pos": "v." }, { "word": "ignifuge", "pos": "adj." }, { "word": "foyer", "pos": "n." }, { "word": "feu-de-joie", "pos": "n." }, { "word": "pare-feu", "pos": "n." }], "meta": { "stability": 100.0 } },
+        "de": { "root": "Feuer", "derivations": [{ "word": "feurig", "pos": "adj." }, { "word": "Feuerwehr", "pos": "n." }, { "word": "Feuerwerk", "pos": "n." }, { "word": "entfachen", "pos": "v." }, { "word": "Lagerfeuer", "pos": "n." }], "meta": { "stability": 100.0 } },
+        "ja": { "root": "火", "derivations": [{ "word": "火山", "pos": "n." }, { "word": "火事", "pos": "n." }, { "word": "火花", "pos": "n." }, { "word": "火力", "pos": "n." }, { "word": "消火", "pos": "v." }], "meta": { "stability": 100.0 } },
+        "es": { "root": "fuego", "derivations": [{ "word": "fogoso", "pos": "adj." }, { "word": "hoguera", "pos": "n." }, { "word": "desfogar", "pos": "v." }, { "word": "cortafuegos", "pos": "n." }, { "word": "fuegos artificiales", "pos": "n." }], "meta": { "stability": 100.0 } },
+        "it": { "root": "fuoco", "derivations": [{ "word": "focoso", "pos": "adj." }, { "word": "focolare", "pos": "n." }, { "word": "infuocare", "pos": "v." }, { "word": "parafuoco", "pos": "n." }, { "word": "sfocato", "pos": "adj." }], "meta": { "stability": 100.0 } },
+        "pt": { "root": "fogo", "derivations": [{ "word": "fogoso", "pos": "adj." }, { "word": "fogueira", "pos": "n." }, { "word": "foguete", "pos": "n." }, { "word": "fogaréu", "pos": "n." }, { "word": "corta-fogo", "pos": "n." }], "meta": { "stability": 100.0 } }
     }
 };
 
@@ -190,12 +220,29 @@ export const SENSE_PHYSICAL_WATER_003: SenseEntity = {
         "es": [{ "text": { "value": "agua", "meta": { "stability": 100.0 } }, "pronunciation": { "value": "/ˈaɡwa/", "meta": { "stability": 100.0 } }, "pos": { "value": "n.", "meta": { "stability": 100.0 } }, "level": { "value": "A1", "meta": { "stability": 100.0 } }, "wordFrequency": { "value": 100, "meta": { "stability": 100.0 } }, "meta": { "stability": 100.0 } }],
         "it": [{ "text": { "value": "acqua", "meta": { "stability": 100.0 } }, "pronunciation": { "value": "/ˈakkwa/", "meta": { "stability": 100.0 } }, "pos": { "value": "n.", "meta": { "stability": 100.0 } }, "level": { "value": "A1", "meta": { "stability": 100.0 } }, "wordFrequency": { "value": 100, "meta": { "stability": 100.0 } }, "meta": { "stability": 100.0 } }],
         "pt": [{ "text": { "value": "água", "meta": { "stability": 100.0 } }, "pronunciation": { "value": "/ˈaɡwɐ/", "meta": { "stability": 100.0 } }, "pos": { "value": "n.", "meta": { "stability": 100.0 } }, "level": { "value": "A1", "meta": { "stability": 100.0 } }, "wordFrequency": { "value": 100, "meta": { "stability": 100.0 } }, "meta": { "stability": 100.0 } }]
+    },
+    "traits": {
+        "fr": [{ "traitId": "gender", "value": "feminine", "meta": { "stability": 100.0 } }],
+        "de": [{ "traitId": "gender", "value": "neuter", "meta": { "stability": 100.0 } }],
+        "es": [{ "traitId": "gender", "value": "feminine", "meta": { "stability": 100.0 } }],
+        "it": [{ "traitId": "gender", "value": "feminine", "meta": { "stability": 100.0 } }],
+        "pt": [{ "traitId": "gender", "value": "feminine", "meta": { "stability": 100.0 } }]
+    },
+    "wordFamily": {
+        "en": { "root": "water", "derivations": [{ "word": "watery", "pos": "adj." }, { "word": "waterfall", "pos": "n." }, { "word": "watershed", "pos": "n." }, { "word": "waterproof", "pos": "adj." }, { "word": "underwater", "pos": "adj." }, { "word": "rainwater", "pos": "n." }], "meta": { "stability": 100.0 } },
+        "zh-CN": { "root": "水", "derivations": [{ "word": "水灾", "pos": "n." }, { "word": "水分", "pos": "n." }, { "word": "水泥", "pos": "n." }, { "word": "水龙头", "pos": "n." }, { "word": "潜水", "pos": "v." }, { "word": "饮水", "pos": "v." }], "meta": { "stability": 100.0 } },
+        "fr": { "root": "eau", "derivations": [{ "word": "aqueux", "pos": "adj." }, { "word": "aquatique", "pos": "adj." }, { "word": "aqueduc", "pos": "n." }, { "word": "aquarium", "pos": "n." }, { "word": "eau-forte", "pos": "n." }, { "word": "eau-de-vie", "pos": "n." }], "meta": { "stability": 100.0 } },
+        "de": { "root": "Wasser", "derivations": [{ "word": "wässrig", "pos": "adj." }, { "word": "Wasserfall", "pos": "n." }, { "word": "Wassermann", "pos": "n." }, { "word": "bewässern", "pos": "v." }, { "word": "Grundwasser", "pos": "n." }], "meta": { "stability": 100.0 } },
+        "ja": { "root": "水", "derivations": [{ "word": "水泳", "pos": "n." }, { "word": "水道", "pos": "n." }, { "word": "水滴", "pos": "n." }, { "word": "水分", "pos": "n." }, { "word": "洪水", "pos": "n." }], "meta": { "stability": 100.0 } },
+        "es": { "root": "agua", "derivations": [{ "word": "acuático", "pos": "adj." }, { "word": "acuoso", "pos": "adj." }, { "word": "acueducto", "pos": "n." }, { "word": "enjuagar", "pos": "v." }, { "word": "paraguas", "pos": "n." }, { "word": "aguardiente", "pos": "n." }], "meta": { "stability": 100.0 } },
+        "it": { "root": "acqua", "derivations": [{ "word": "acquatico", "pos": "adj." }, { "word": "acquoso", "pos": "adj." }, { "word": "acquedotto", "pos": "n." }, { "word": "sciacquare", "pos": "v." }, { "word": "risciacquare", "pos": "v." }, { "word": "acquerello", "pos": "n." }], "meta": { "stability": 100.0 } },
+        "pt": { "root": "água", "derivations": [{ "word": "aquático", "pos": "adj." }, { "word": "aquoso", "pos": "adj." }, { "word": "aqueduto", "pos": "n." }, { "word": "enxaguar", "pos": "v." }, { "word": "guarda-chuva", "pos": "n." }, { "word": "aguardente", "pos": "n." }], "meta": { "stability": 100.0 } }
     }
 };
 
 
 
-export const SENSE_ALCHEMICAL_WATER_003: SenseEntity = {
+export const SENSE_ALCHEMICAL_WATER_004: SenseEntity = {
     "uid": "b0e23429-d687-40fe-9d07-ad4287d5a067",
     "fingerprint": {
         "items": [
@@ -253,6 +300,23 @@ export const SENSE_ALCHEMICAL_WATER_003: SenseEntity = {
         "es": [{ "text": { "value": "agua", "meta": { "stability": 100.0 } }, "pronunciation": { "value": "/ˈaɣwa/", "meta": { "stability": 100.0 } }, "pos": { "value": "n.", "meta": { "stability": 100.0 } }, "level": { "value": "A1", "meta": { "stability": 100.0 } }, "wordFrequency": { "value": 100, "meta": { "stability": 100.0 } }, "meta": { "stability": 100.0 } }],
         "it": [{ "text": { "value": "acqua", "meta": { "stability": 100.0 } }, "pronunciation": { "value": "/ˈakkwa/", "meta": { "stability": 100.0 } }, "pos": { "value": "n.", "meta": { "stability": 100.0 } }, "level": { "value": "A1", "meta": { "stability": 100.0 } }, "wordFrequency": { "value": 100, "meta": { "stability": 100.0 } }, "meta": { "stability": 100.0 } }],
         "pt": [{ "text": { "value": "água", "meta": { "stability": 100.0 } }, "pronunciation": { "value": "/ˈaɡwɐ/", "meta": { "stability": 100.0 } }, "pos": { "value": "n.", "meta": { "stability": 100.0 } }, "level": { "value": "A1", "meta": { "stability": 100.0 } }, "wordFrequency": { "value": 100, "meta": { "stability": 100.0 } }, "meta": { "stability": 100.0 } }]
+    },
+    "traits": {
+        "fr": [{ "traitId": "gender", "value": "feminine", "meta": { "stability": 100.0 } }],
+        "de": [{ "traitId": "gender", "value": "neuter", "meta": { "stability": 100.0 } }],
+        "es": [{ "traitId": "gender", "value": "feminine", "meta": { "stability": 100.0 } }],
+        "it": [{ "traitId": "gender", "value": "feminine", "meta": { "stability": 100.0 } }],
+        "pt": [{ "traitId": "gender", "value": "feminine", "meta": { "stability": 100.0 } }]
+    },
+    "wordFamily": {
+        "en": { "root": "water", "derivations": [{ "word": "watery", "pos": "adj." }, { "word": "waterfall", "pos": "n." }, { "word": "watershed", "pos": "n." }, { "word": "waterproof", "pos": "adj." }, { "word": "underwater", "pos": "adj." }, { "word": "rainwater", "pos": "n." }], "meta": { "stability": 100.0 } },
+        "zh-CN": { "root": "水", "derivations": [{ "word": "水灾", "pos": "n." }, { "word": "水分", "pos": "n." }, { "word": "水泥", "pos": "n." }, { "word": "水龙头", "pos": "n." }, { "word": "潜水", "pos": "v." }, { "word": "饮水", "pos": "v." }], "meta": { "stability": 100.0 } },
+        "fr": { "root": "eau", "derivations": [{ "word": "aqueux", "pos": "adj." }, { "word": "aquatique", "pos": "adj." }, { "word": "aqueduc", "pos": "n." }, { "word": "aquarium", "pos": "n." }, { "word": "eau-forte", "pos": "n." }, { "word": "eau-de-vie", "pos": "n." }], "meta": { "stability": 100.0 } },
+        "de": { "root": "Wasser", "derivations": [{ "word": "wässrig", "pos": "adj." }, { "word": "Wasserfall", "pos": "n." }, { "word": "Wassermann", "pos": "n." }, { "word": "bewässern", "pos": "v." }, { "word": "Grundwasser", "pos": "n." }], "meta": { "stability": 100.0 } },
+        "ja": { "root": "水", "derivations": [{ "word": "水泳", "pos": "n." }, { "word": "水道", "pos": "n." }, { "word": "水滴", "pos": "n." }, { "word": "水分", "pos": "n." }, { "word": "洪水", "pos": "n." }], "meta": { "stability": 100.0 } },
+        "es": { "root": "agua", "derivations": [{ "word": "acuático", "pos": "adj." }, { "word": "acuoso", "pos": "adj." }, { "word": "acueducto", "pos": "n." }, { "word": "enjuagar", "pos": "v." }, { "word": "paraguas", "pos": "n." }, { "word": "aguardiente", "pos": "n." }], "meta": { "stability": 100.0 } },
+        "it": { "root": "acqua", "derivations": [{ "word": "acquatico", "pos": "adj." }, { "word": "acquoso", "pos": "adj." }, { "word": "acquedotto", "pos": "n." }, { "word": "sciacquare", "pos": "v." }, { "word": "risciacquare", "pos": "v." }, { "word": "acquerello", "pos": "n." }], "meta": { "stability": 100.0 } },
+        "pt": { "root": "água", "derivations": [{ "word": "aquático", "pos": "adj." }, { "word": "aquoso", "pos": "adj." }, { "word": "aqueduto", "pos": "n." }, { "word": "enxaguar", "pos": "v." }, { "word": "guarda-chuva", "pos": "n." }, { "word": "aguardente", "pos": "n." }], "meta": { "stability": 100.0 } }
     }
 
 };
@@ -317,6 +381,23 @@ export const SENSE_PHYSICAL_AIR_005: SenseEntity = {
         "es": [{ "text": { "value": "aire", "meta": { "stability": 100.0 } }, "pronunciation": { "value": "/ˈaj.ɾe/", "meta": { "stability": 100.0 } }, "pos": { "value": "n.", "meta": { "stability": 100.0 } }, "level": { "value": "A1", "meta": { "stability": 100.0 } }, "wordFrequency": { "value": 100, "meta": { "stability": 100.0 } }, "meta": { "stability": 100.0 } }],
         "it": [{ "text": { "value": "aria", "meta": { "stability": 100.0 } }, "pronunciation": { "value": "/ˈa.rja/", "meta": { "stability": 100.0 } }, "pos": { "value": "n.", "meta": { "stability": 100.0 } }, "level": { "value": "A1", "meta": { "stability": 100.0 } }, "wordFrequency": { "value": 100, "meta": { "stability": 100.0 } }, "meta": { "stability": 100.0 } }],
         "pt": [{ "text": { "value": "ar", "meta": { "stability": 100.0 } }, "pronunciation": { "value": "/ˈaɾ/", "meta": { "stability": 100.0 } }, "pos": { "value": "n.", "meta": { "stability": 100.0 } }, "level": { "value": "A1", "meta": { "stability": 100.0 } }, "wordFrequency": { "value": 100, "meta": { "stability": 100.0 } }, "meta": { "stability": 100.0 } }]
+    },
+    "traits": {
+        "fr": [{ "traitId": "gender", "value": "masculine", "meta": { "stability": 100.0 } }],
+        "de": [{ "traitId": "gender", "value": "feminine", "meta": { "stability": 100.0 } }],
+        "es": [{ "traitId": "gender", "value": "masculine", "meta": { "stability": 100.0 } }],
+        "it": [{ "traitId": "gender", "value": "feminine", "meta": { "stability": 100.0 } }],
+        "pt": [{ "traitId": "gender", "value": "masculine", "meta": { "stability": 100.0 } }]
+    },
+    "wordFamily": {
+        "en": { "root": "air", "derivations": [{ "word": "airy", "pos": "adj." }, { "word": "airborne", "pos": "adj." }, { "word": "aircraft", "pos": "n." }, { "word": "airfield", "pos": "n." }, { "word": "airmail", "pos": "n." }, { "word": "aerial", "pos": "adj." }], "meta": { "stability": 100.0 } },
+        "zh-CN": { "root": "空气", "derivations": [{ "word": "气候", "pos": "n." }, { "word": "气质", "pos": "n." }, { "word": "充气", "pos": "v." }, { "word": "气味", "pos": "n." }, { "word": "气缸", "pos": "n." }], "meta": { "stability": 100.0 } },
+        "fr": { "root": "air", "derivations": [{ "word": "aérien", "pos": "adj." }, { "word": "aérer", "pos": "v." }, { "word": "aéroport", "pos": "n." }, { "word": "aéronautique", "pos": "n." }, { "word": "plein-air", "pos": "n." }, { "word": "courant-d'air", "pos": "n." }], "meta": { "stability": 100.0 } },
+        "de": { "root": "Luft", "derivations": [{ "word": "luftig", "pos": "adj." }, { "word": "Luftfahrt", "pos": "n." }, { "word": "Flughafen", "pos": "n." }, { "word": "lüften", "pos": "v." }, { "word": "Luftpost", "pos": "n." }, { "word": "Luftballon", "pos": "n." }], "meta": { "stability": 100.0 } },
+        "ja": { "root": "空気", "derivations": [{ "word": "気候", "pos": "n." }, { "word": "気質", "pos": "n." }, { "word": "換気", "pos": "v." }, { "word": "気圧", "pos": "n." }, { "word": "大気", "pos": "n." }], "meta": { "stability": 100.0 } },
+        "es": { "root": "aire", "derivations": [{ "word": "airado", "pos": "adj." }, { "word": "airear", "pos": "v." }, { "word": "aeroplano", "pos": "n." }, { "word": "aire acondicionado", "pos": "n." }, { "word": "aereopuerto", "pos": "n." }, { "word": "aeroespacial", "pos": "adj." }], "meta": { "stability": 100.0 } },
+        "it": { "root": "aria", "derivations": [{ "word": "arieggiare", "pos": "v." }, { "word": "aeroplano", "pos": "n." }, { "word": "aeroporto", "pos": "n." }, { "word": "aria condizionata", "pos": "n." }, { "word": "aereo", "pos": "n." }, { "word": "aerodinamico", "pos": "adj." }], "meta": { "stability": 100.0 } },
+        "pt": { "root": "ar", "derivations": [{ "word": "arejar", "pos": "v." }, { "word": "aeroplano", "pos": "n." }, { "word": "aeroporto", "pos": "n." }, { "word": "ar condicionado", "pos": "n." }, { "word": "aeronave", "pos": "n." }, { "word": "aeroespacial", "pos": "adj." }], "meta": { "stability": 100.0 } }
     }
 };
 
@@ -379,6 +460,23 @@ export const SENSE_ALCHEMICAL_AIR_006: SenseEntity = {
         "es": [{ "text": { "value": "aire", "meta": { "stability": 100.0 } }, "pronunciation": { "value": "/ˈaj.ɾe/", "meta": { "stability": 100.0 } }, "pos": { "value": "n.", "meta": { "stability": 100.0 } }, "level": { "value": "A1", "meta": { "stability": 100.0 } }, "wordFrequency": { "value": 100, "meta": { "stability": 100.0 } }, "meta": { "stability": 100.0 } }],
         "it": [{ "text": { "value": "aria", "meta": { "stability": 100.0 } }, "pronunciation": { "value": "/ˈa.rja/", "meta": { "stability": 100.0 } }, "pos": { "value": "n.", "meta": { "stability": 100.0 } }, "level": { "value": "A1", "meta": { "stability": 100.0 } }, "wordFrequency": { "value": 100, "meta": { "stability": 100.0 } }, "meta": { "stability": 100.0 } }],
         "pt": [{ "text": { "value": "ar", "meta": { "stability": 100.0 } }, "pronunciation": { "value": "/ˈaɾ/", "meta": { "stability": 100.0 } }, "pos": { "value": "n.", "meta": { "stability": 100.0 } }, "level": { "value": "A1", "meta": { "stability": 100.0 } }, "wordFrequency": { "value": 100, "meta": { "stability": 100.0 } }, "meta": { "stability": 100.0 } }]
+    },
+    "traits": {
+        "fr": [{ "traitId": "gender", "value": "masculine", "meta": { "stability": 100.0 } }],
+        "de": [{ "traitId": "gender", "value": "feminine", "meta": { "stability": 100.0 } }],
+        "es": [{ "traitId": "gender", "value": "masculine", "meta": { "stability": 100.0 } }],
+        "it": [{ "traitId": "gender", "value": "feminine", "meta": { "stability": 100.0 } }],
+        "pt": [{ "traitId": "gender", "value": "masculine", "meta": { "stability": 100.0 } }]
+    },
+    "wordFamily": {
+        "en": { "root": "air", "derivations": [{ "word": "airy", "pos": "adj." }, { "word": "airborne", "pos": "adj." }, { "word": "aircraft", "pos": "n." }, { "word": "airfield", "pos": "n." }, { "word": "airmail", "pos": "n." }, { "word": "aerial", "pos": "adj." }], "meta": { "stability": 100.0 } },
+        "zh-CN": { "root": "风", "derivations": [{ "word": "风力", "pos": "n." }, { "word": "风景", "pos": "n." }, { "word": "风车", "pos": "n." }, { "word": "风潮", "pos": "n." }, { "word": "台风", "pos": "n." }, { "word": "风波", "pos": "n." }], "meta": { "stability": 100.0 } },
+        "fr": { "root": "air", "derivations": [{ "word": "aérien", "pos": "adj." }, { "word": "aérer", "pos": "v." }, { "word": "aéroport", "pos": "n." }, { "word": "aéronautique", "pos": "n." }, { "word": "plein-air", "pos": "n." }, { "word": "courant-d'air", "pos": "n." }], "meta": { "stability": 100.0 } },
+        "de": { "root": "Luft", "derivations": [{ "word": "luftig", "pos": "adj." }, { "word": "Luftfahrt", "pos": "n." }, { "word": "Flughafen", "pos": "n." }, { "word": "lüften", "pos": "v." }, { "word": "Luftpost", "pos": "n." }, { "word": "Luftballon", "pos": "n." }], "meta": { "stability": 100.0 } },
+        "ja": { "root": "風", "derivations": [{ "word": "風景", "pos": "n." }, { "word": "風車", "pos": "n." }, { "word": "風邪", "pos": "n." }, { "word": "扇風機", "pos": "n." }, { "word": "台風", "pos": "n." }], "meta": { "stability": 100.0 } },
+        "es": { "root": "aire", "derivations": [{ "word": "airado", "pos": "adj." }, { "word": "airear", "pos": "v." }, { "word": "aeroplano", "pos": "n." }, { "word": "aire acondicionado", "pos": "n." }, { "word": "aereopuerto", "pos": "n." }, { "word": "aeroespacial", "pos": "adj." }], "meta": { "stability": 100.0 } },
+        "it": { "root": "aria", "derivations": [{ "word": "arieggiare", "pos": "v." }, { "word": "aeroplano", "pos": "n." }, { "word": "aeroporto", "pos": "n." }, { "word": "aria condizionata", "pos": "n." }, { "word": "aereo", "pos": "n." }, { "word": "aerodinamico", "pos": "adj." }], "meta": { "stability": 100.0 } },
+        "pt": { "root": "ar", "derivations": [{ "word": "arejar", "pos": "v." }, { "word": "aeroplano", "pos": "n." }, { "word": "aeroporto", "pos": "n." }, { "word": "ar condicionado", "pos": "n." }, { "word": "aeronave", "pos": "n." }, { "word": "aeroespacial", "pos": "adj." }], "meta": { "stability": 100.0 } }
     }
 };
 
@@ -442,6 +540,23 @@ export const SENSE_PHYSICAL_EARTH_007: SenseEntity = {
         "es": [{ "text": { "value": "tierra", "meta": { "stability": 100.0 } }, "pronunciation": { "value": "/ˈtjera/", "meta": { "stability": 100.0 } }, "pos": { "value": "n.", "meta": { "stability": 100.0 } }, "level": { "value": "A1", "meta": { "stability": 100.0 } }, "wordFrequency": { "value": 97, "meta": { "stability": 100.0 } }, "meta": { "stability": 100.0 } }],
         "it": [{ "text": { "value": "terra", "meta": { "stability": 100.0 } }, "pronunciation": { "value": "/ˈtɛrra/", "meta": { "stability": 100.0 } }, "pos": { "value": "n.", "meta": { "stability": 100.0 } }, "level": { "value": "A1", "meta": { "stability": 100.0 } }, "wordFrequency": { "value": 96, "meta": { "stability": 100.0 } }, "meta": { "stability": 100.0 } }],
         "pt": [{ "text": { "value": "terra", "meta": { "stability": 100.0 } }, "pronunciation": { "value": "/ˈtɛʁɐ/", "meta": { "stability": 100.0 } }, "pos": { "value": "n.", "meta": { "stability": 100.0 } }, "level": { "value": "A1", "meta": { "stability": 100.0 } }, "wordFrequency": { "value": 96, "meta": { "stability": 100.0 } }, "meta": { "stability": 100.0 } }]
+    },
+    "traits": {
+        "fr": [{ "traitId": "gender", "value": "feminine", "meta": { "stability": 100.0 } }],
+        "de": [{ "traitId": "gender", "value": "feminine", "meta": { "stability": 100.0 } }],
+        "es": [{ "traitId": "gender", "value": "feminine", "meta": { "stability": 100.0 } }],
+        "it": [{ "traitId": "gender", "value": "feminine", "meta": { "stability": 100.0 } }],
+        "pt": [{ "traitId": "gender", "value": "feminine", "meta": { "stability": 100.0 } }]
+    },
+    "wordFamily": {
+        "en": { "root": "earth", "derivations": [{ "word": "earthy", "pos": "adj." }, { "word": "earthquake", "pos": "n." }, { "word": "earthworm", "pos": "n." }, { "word": "earthlings", "pos": "n." }, { "word": "Mother Earth", "pos": "n." }, { "word": "unearth", "pos": "v." }], "meta": { "stability": 100.0 } },
+        "zh-CN": { "root": "土", "derivations": [{ "word": "土地", "pos": "n." }, { "word": "土壤", "pos": "n." }, { "word": "土著", "pos": "n." }, { "word": "泥土", "pos": "n." }, { "word": "出土", "pos": "v." }, { "word": "领土", "pos": "n." }], "meta": { "stability": 100.0 } },
+        "fr": { "root": "terre", "derivations": [{ "word": "terrestre", "pos": "adj." }, { "word": "terrain", "pos": "n." }, { "word": "terrasse", "pos": "n." }, { "word": "déterrer", "pos": "v." }, { "word": "terreau", "pos": "n." }, { "word": "souterrain", "pos": "adj." }], "meta": { "stability": 100.0 } },
+        "de": { "root": "Erde", "derivations": [{ "word": "erdig", "pos": "adj." }, { "word": "Erdbeben", "pos": "n." }, { "word": "Erdhörnchen", "pos": "n." }, { "word": "Erdnuss", "pos": "n." }, { "word": "unterirdisch", "pos": "adj." }, { "word": "Erdkunde", "pos": "n." }], "meta": { "stability": 100.0 } },
+        "ja": { "root": "土", "derivations": [{ "word": "土地", "pos": "n." }, { "word": "土壌", "pos": "n." }, { "word": "土器", "pos": "n." }, { "word": "土曜日", "pos": "n." }, { "word": "出土", "pos": "v." }], "meta": { "stability": 100.0 } },
+        "es": { "root": "tierra", "derivations": [{ "word": "terrestre", "pos": "adj." }, { "word": "terreno", "pos": "n." }, { "word": "terraza", "pos": "n." }, { "word": "desenterrar", "pos": "v." }, { "word": "terremoto", "pos": "n." }, { "word": "subterráneo", "pos": "adj." }], "meta": { "stability": 100.0 } },
+        "it": { "root": "terra", "derivations": [{ "word": "terrestre", "pos": "adj." }, { "word": "terreno", "pos": "n." }, { "word": "terrazza", "pos": "n." }, { "word": "dissotterrare", "pos": "v." }, { "word": "terremoto", "pos": "n." }, { "word": "sotterraneo", "pos": "adj." }], "meta": { "stability": 100.0 } },
+        "pt": { "root": "terra", "derivations": [{ "word": "terrestre", "pos": "adj." }, { "word": "terreno", "pos": "n." }, { "word": "terraço", "pos": "n." }, { "word": "desenterrar", "pos": "v." }, { "word": "terremoto", "pos": "n." }, { "word": "subterrâneo", "pos": "adj." }], "meta": { "stability": 100.0 } }
     }
 };
 
@@ -505,6 +620,23 @@ export const SENSE_ALCHEMICAL_EARTH_008: SenseEntity = {
         "es": [{ "text": { "value": "tierra", "meta": { "stability": 100.0 } }, "pronunciation": { "value": "/ˈtjera/", "meta": { "stability": 100.0 } }, "pos": { "value": "n.", "meta": { "stability": 100.0 } }, "level": { "value": "A1", "meta": { "stability": 100.0 } }, "wordFrequency": { "value": 97, "meta": { "stability": 100.0 } }, "meta": { "stability": 100.0 } }],
         "it": [{ "text": { "value": "terra", "meta": { "stability": 100.0 } }, "pronunciation": { "value": "/ˈtɛrra/", "meta": { "stability": 100.0 } }, "pos": { "value": "n.", "meta": { "stability": 100.0 } }, "level": { "value": "A1", "meta": { "stability": 100.0 } }, "wordFrequency": { "value": 96, "meta": { "stability": 100.0 } }, "meta": { "stability": 100.0 } }],
         "pt": [{ "text": { "value": "terra", "meta": { "stability": 100.0 } }, "pronunciation": { "value": "/ˈtɛʁɐ/", "meta": { "stability": 100.0 } }, "pos": { "value": "n.", "meta": { "stability": 100.0 } }, "level": { "value": "A1", "meta": { "stability": 100.0 } }, "wordFrequency": { "value": 96, "meta": { "stability": 100.0 } }, "meta": { "stability": 100.0 } }]
+    },
+    "traits": {
+        "fr": [{ "traitId": "gender", "value": "feminine", "meta": { "stability": 100.0 } }],
+        "de": [{ "traitId": "gender", "value": "feminine", "meta": { "stability": 100.0 } }],
+        "es": [{ "traitId": "gender", "value": "feminine", "meta": { "stability": 100.0 } }],
+        "it": [{ "traitId": "gender", "value": "feminine", "meta": { "stability": 100.0 } }],
+        "pt": [{ "traitId": "gender", "value": "feminine", "meta": { "stability": 100.0 } }]
+    },
+    "wordFamily": {
+        "en": { "root": "earth", "derivations": [{ "word": "earthy", "pos": "adj." }, { "word": "earthquake", "pos": "n." }, { "word": "earthworm", "pos": "n." }, { "word": "earthlings", "pos": "n." }, { "word": "Mother Earth", "pos": "n." }, { "word": "unearth", "pos": "v." }], "meta": { "stability": 100.0 } },
+        "zh-CN": { "root": "土", "derivations": [{ "word": "土地", "pos": "n." }, { "word": "土壤", "pos": "n." }, { "word": "土著", "pos": "n." }, { "word": "泥土", "pos": "n." }, { "word": "出土", "pos": "v." }, { "word": "领土", "pos": "n." }], "meta": { "stability": 100.0 } },
+        "fr": { "root": "terre", "derivations": [{ "word": "terrestre", "pos": "adj." }, { "word": "terrain", "pos": "n." }, { "word": "terrasse", "pos": "n." }, { "word": "déterrer", "pos": "v." }, { "word": "terreau", "pos": "n." }, { "word": "souterrain", "pos": "adj." }], "meta": { "stability": 100.0 } },
+        "de": { "root": "Erde", "derivations": [{ "word": "erdig", "pos": "adj." }, { "word": "Erdbeben", "pos": "n." }, { "word": "Erdhörnchen", "pos": "n." }, { "word": "Erdnuss", "pos": "n." }, { "word": "unterirdisch", "pos": "adj." }, { "word": "Erdkunde", "pos": "n." }], "meta": { "stability": 100.0 } },
+        "ja": { "root": "土", "derivations": [{ "word": "土地", "pos": "n." }, { "word": "土壌", "pos": "n." }, { "word": "土器", "pos": "n." }, { "word": "土曜日", "pos": "n." }, { "word": "出土", "pos": "v." }], "meta": { "stability": 100.0 } },
+        "es": { "root": "tierra", "derivations": [{ "word": "terrestre", "pos": "adj." }, { "word": "terreno", "pos": "n." }, { "word": "terraza", "pos": "n." }, { "word": "desenterrar", "pos": "v." }, { "word": "terremoto", "pos": "n." }, { "word": "subterráneo", "pos": "adj." }], "meta": { "stability": 100.0 } },
+        "it": { "root": "terra", "derivations": [{ "word": "terrestre", "pos": "adj." }, { "word": "terreno", "pos": "n." }, { "word": "terrazza", "pos": "n." }, { "word": "dissotterrare", "pos": "v." }, { "word": "terremoto", "pos": "n." }, { "word": "sotterraneo", "pos": "adj." }], "meta": { "stability": 100.0 } },
+        "pt": { "root": "terra", "derivations": [{ "word": "terrestre", "pos": "adj." }, { "word": "terreno", "pos": "n." }, { "word": "terraço", "pos": "n." }, { "word": "desenterrar", "pos": "v." }, { "word": "terremoto", "pos": "n." }, { "word": "subterrâneo", "pos": "adj." }], "meta": { "stability": 100.0 } }
     }
 };
 
@@ -513,7 +645,7 @@ export const INITIAL_SENSES: SenseEntity[] = [
     SENSE_PHYSICAL_FIRE_001,
     SENSE_ALCHEMICAL_FIRE_002,
     SENSE_PHYSICAL_WATER_003,
-    SENSE_ALCHEMICAL_WATER_003,
+    SENSE_ALCHEMICAL_WATER_004,
     SENSE_PHYSICAL_AIR_005,
     SENSE_ALCHEMICAL_AIR_006,
     SENSE_PHYSICAL_EARTH_007,

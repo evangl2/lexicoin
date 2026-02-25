@@ -11,9 +11,12 @@
  * 3. Capacity Constraints: Qualia slots and WordShell arrays are limited to 20 items per language.
  * 4. High Fidelity: Visual entries store complete, indivisible payloads preserving logic and state.
  * 5. Identity Anchors: 'uid' and 'fingerprint' remain raw values without metadata wrapping.
+ * 6. Cross-Linguistic Universality: Language-specific grammatical traits use a flexible
+ *    key-value container (LinguisticTrait) instead of fixed fields, enabling support for
+ *    any language without schema migration.
  * 
  * Metadata Strategy:
- * - Default: 'stability' only for most modifiable items.
+ * - Default: 'stability' only for most modifiable items (including LinguisticTraits).
  * - Enhanced: 'stability' + 'firstDiscoverer' for high-value items (Qualia text, Visual, Ontology).
  * - Nuances: Single metadata controls the entire set of nuance tags (not per-tag).
  * 
@@ -36,8 +39,13 @@ export type Language = 'en' | 'zh-CN' | 'fr' | 'de' | 'ja' | 'es' | 'it' | 'pt' 
 /**
  * Part-of-Speech enumeration.
  * Defines grammatical categories for word classification.
+ * 
+ * Verb transitivity:
+ * - 'v.'   = ambitransitive (can be both transitive and intransitive, e.g., "eat")
+ * - 'v.t.' = transitive only (requires direct object, e.g., "make", ja: 他動詞)
+ * - 'v.i.' = intransitive only (no direct object, e.g., "arrive", ja: 自動詞)
  */
-export type POS = 'n.' | 'v.' | 'adj.' | 'adv.' | 'prep.' | 'conj.' | 'pron.' | 'int.';
+export type POS = 'n.' | 'v.' | 'v.t.' | 'v.i.' | 'adj.' | 'adv.' | 'prep.' | 'conj.' | 'pron.' | 'int.';
 
 /**
  * Word difficulty level based on CEFR (Common European Framework of Reference).
@@ -50,6 +58,21 @@ export type WordLevel = 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2';
  * Defines the fundamental nature of what the concept represents.
  */
 export type OntologyType = 'OBJECT' | 'PROCESS' | 'PROPERTY' | 'STATE' | 'LOCATION' | 'ABSTRACT';
+
+/**
+ * Standardized trait identifiers for language-specific grammatical metadata.
+ * 
+ * Uses the same extensibility pattern as Language:
+ * known values for IDE autocompletion + string fallback for future expansion.
+ * 
+ * Standard vocabulary:
+ * - 'gender'       : Grammatical gender (masculine/feminine/neuter)
+ * - 'plural_form'  : Irregular plural form (only when non-derivable from rules)
+ * - 'verb_group'   : Verb conjugation class label (e.g., "1st group (-er)", "五段動詞")
+ * - 'case_pattern' : Noun declension class label (e.g., "strong masculine", "2nd declension")
+ * - 'key_forms'    : Irregular inflected forms array (positions defined by language-level static dictionary)
+ */
+export type TraitId = 'gender' | 'plural_form' | 'verb_group' | 'case_pattern' | 'key_forms' | string;
 
 // ============================================================================
 // METADATA SYSTEM
@@ -311,6 +334,120 @@ export interface FlavorTextEntry {
 }
 
 // ============================================================================
+// LINGUISTIC TRAITS (Cross-linguistic Grammar)
+// ============================================================================
+
+/**
+ * Linguistic Trait: A single language-specific grammatical fact.
+ * 
+ * Universal container for ALL language-specific grammatical metadata.
+ * Uses key-value pairs where keys come from the TraitId vocabulary.
+ * Only traits relevant to a given language are populated — no empty fields.
+ * 
+ * Examples:
+ * - German noun:  [{ traitId: "gender", value: "neuter" }, { traitId: "plural_form", value: "Wässer" }]
+ * - French verb:  [{ traitId: "verb_group", value: "1st group (-er)" }]
+ * - Irregular:    [{ traitId: "verb_group", value: "3rd group (irregular)" },
+ *                  { traitId: "key_forms", value: ["été", "suis", "est", "sont"] }]
+ * - English noun: [{ traitId: "plural_form", value: "children" }]
+ * - Chinese/Japanese: [] (no applicable word-level grammar traits)
+ * 
+ * Design Philosophy:
+ * - Traits are OBJECTIVE grammatical facts (a word's gender doesn't change by context).
+ * - Distinct from Nuance Matrix tags which are SUBJECTIVE usage dimensions.
+ * - key_forms arrays have positional semantics defined by language-level static
+ *   dictionaries (not stored per-word), enabling compact irregular form storage.
+ * 
+ * Metadata: Stability only (no discoverer tracking for grammatical facts).
+ */
+export interface LinguisticTrait {
+    /** Standardized trait identifier from the TraitId vocabulary. */
+    traitId: TraitId;
+
+    /** 
+     * The trait value.
+     * - string for single-valued traits (gender, verb_group, case_pattern, plural_form)
+     * - string[] for multi-valued traits (key_forms: irregular inflected forms)
+     */
+    value: string | string[];
+
+    /** Quality metadata (stability only). */
+    meta: EntryMetadata;
+}
+
+// ============================================================================
+// WORD FAMILY (Morphological Links)
+// ============================================================================
+
+/**
+ * Word Family Derivation: A single derived word in a morphological family.
+ * 
+ * Records a word derived from the same root, along with its part of speech.
+ * Used for learning aids ("you know 'create'? then recognize 'creation', 'creative'")
+ * A single entry in a word family's derivation list.
+ * 
+ * Each derivation represents a morphologically related word sharing the same
+ * etymological root. The relationship is POSITION-INSENSITIVE: "actor" is a
+ * valid derivation of "act", and "act" is a valid derivation of "actor".
+ * 
+ * CRITERIA for inclusion (ALL must be met):
+ * 1. Semantic Relatedness — the derived word shares core meaning with the root
+ * 2. Affixation — the word is formed via prefix/suffix/compounding from the root
+ * 3. Morphological Hierarchy — the word belongs to the same derivational family
+ * 
+ * EXCLUSION: Inflected forms (walked, walks, walking) are NOT derivations.
+ * Inflection is handled by the traits/key_forms system.
+ */
+export interface WordFamilyDerivation {
+    /** The derived word in the target language */
+    word: string;
+
+    /** Part of speech of the derived word */
+    pos: POS;
+}
+
+/**
+ * Morphological word family for a specific language.
+ * 
+ * Captures the etymological root and all derivationally related words for
+ * the word found in shells[lang].text.value.
+ * 
+ * MANDATORY on every SenseEntity (set to null per language if no derivations exist).
+ * 
+ * Example for shell word "firefighter" (en):
+ *   root: "fire"               ← irreducible etymological root
+ *   derivations: [
+ *     { word: "fiery", pos: "adj." },        ← close (3-6 recommended)
+ *     { word: "firefighter", pos: "n." },
+ *     { word: "firework", pos: "n." },
+ *     { word: "campfire", pos: "n." },        ← distant (1-3 recommended)
+ *   ]
+ * 
+ * ROOT RULE: The root is the shell's text.value reduced to its irreducible
+ * etymological base. E.g., "firefighter" → root "fire", "création" → root "créer".
+ * 
+ * DERIVATION COUNT: No hard cap. Aim for 3-6 closely related + 1-3 distantly related.
+ */
+export interface WordFamily {
+    /** 
+     * The irreducible etymological root of the shell word.
+     * Derived by reducing shells[lang].text.value to its base morpheme.
+     * E.g., en: "firefighter" → "fire", fr: "enflammer" → "flamme", de: "Feuerwehr" → "Feuer"
+     */
+    root: string;
+
+    /** 
+     * Morphologically derived words sharing the same root.
+     * Position-insensitive: both "act → actor" and "actor → act" are valid.
+     * Inflections (walked, walks) are excluded — use traits/key_forms instead.
+     */
+    derivations: WordFamilyDerivation[];
+
+    /** Quality metadata */
+    meta: EntryMetadata;
+}
+
+// ============================================================================
 // WORD SHELL (Language Mappings)
 // ============================================================================
 
@@ -536,6 +673,36 @@ export interface SenseEntity {
      * Optional: May be undefined if no language mappings exist.
      */
     shells?: Record<Language, WordShell[]>;
+
+    /**
+     * Linguistic Traits: Language-specific grammatical metadata.
+     * 
+     * Universal container for grammar facts that vary by language:
+     * - gender, plural_form, verb_group, case_pattern, key_forms
+     * 
+     * Parallel to shells (same structural level). With the singleton
+     * constraint on shells, there is a 1:1 mapping between a language's
+     * traits and its shell.
+     * 
+     * Only languages with applicable traits are populated.
+     * Chinese and Japanese may have empty arrays or be omitted.
+     * 
+     * Optional: May be undefined if no traits generated.
+     */
+    traits?: Record<Language, LinguisticTrait[]>;
+
+    /**
+     * Word Family: Morphological derivation links.
+     * 
+     * MANDATORY field. Maps each language to its root word and derived forms.
+     * Set to null for languages where no morphological derivations exist.
+     * 
+     * root: shells[lang].text.value reduced to its irreducible etymological base.
+     * derivations: Position-insensitive, criteria: SR + Affixation + Morphological Hierarchy.
+     * Aim for 3-6 closely related + 1-3 distantly related. Inflections excluded.
+     * See WordFamily interface for full specification.
+     */
+    wordFamily: Record<Language, WordFamily | null>;
 }
 
 // ============================================================================
