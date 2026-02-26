@@ -29,9 +29,10 @@ function buildTraitsSection(target_languages: string[]): string {
   const nounBlocks = target_languages
     .map(lang => {
       const lines: string[] = [];
+      // plural_form applies to ALL languages (e.g. en: children, de: Kinder)
+      lines.push(`  - plural_form (only if irregular plural): string`);
       if (GENDERED_LANGS.has(lang)) {
         lines.push(`  - gender (REQUIRED): "masculine" | "feminine" | "neuter"`);
-        lines.push(`  - plural_form (only if irregular plural): string`);
       }
       if (lang === 'de') {
         lines.push(
@@ -43,11 +44,11 @@ function buildTraitsSection(target_languages: string[]): string {
         if (forms.length > 0) {
           lines.push(
             `  - key_forms (only if irregular declension): string[] positions:\n` +
-            forms.map((f, i) => `      [${i}] ${f}`).join('\n')
+            forms.map((f, i) => `      [${i}] ${f}`).join('\n') +
+            `\n    Example: "Herz" (mixed) → ["Herz", "Herz", "Herzen", "Herzens", "Herzen"]`
           );
         }
       }
-      if (lines.length === 0) return null;
       return `**${lang}**:\n${lines.join('\n')}`;
     })
     .filter(Boolean)
@@ -62,9 +63,18 @@ function buildTraitsSection(target_languages: string[]): string {
       }
       const verbForms = VERB_KEY_FORMS[lang];
       if (verbForms && verbForms.length > 0) {
+        const example = lang === 'fr' ? `\n    Example: "être" → ["été", "suis", "est", "sont"]`
+          : lang === 'en' ? `\n    Example: "go" → ["went", "gone"]`
+            : lang === 'de' ? `\n    Example: "gehen" → ["ging", "gegangen", "sein"]`
+              : lang === 'ja' ? `\n    Example: "する" → ["して", "した", "しない"]`
+                : lang === 'es' ? `\n    Example: "ir" → ["ido", "voy", "fui"]`
+                  : lang === 'it' ? `\n    Example: "andare" → ["andato", "vado", "vanno"]`
+                    : lang === 'pt' ? `\n    Example: "ir" → ["ido", "vou", "fui"]`
+                      : '';
         lines.push(
           `  - key_forms (only if irregular): string[] positions:\n` +
-          verbForms.map((f, i) => `      [${i}] ${f}`).join('\n')
+          verbForms.map((f, i) => `      [${i}] ${f}`).join('\n') +
+          example
         );
       }
       if (lines.length === 0) return null;
@@ -78,10 +88,15 @@ function buildTraitsSection(target_languages: string[]): string {
     .map(lang => {
       const adjForms = ADJ_KEY_FORMS[lang];
       if (!adjForms || adjForms.length === 0) return null;
+      const adjExample = lang === 'en' ? `\n    Example: "good" → ["better", "best"]`
+        : lang === 'fr' ? `\n    Example: "bon" → ["meilleur", "le meilleur", "bel", "belle", "beaux", "belles"]`
+          : lang === 'de' ? `\n    Example: "gut" → ["besser", "am besten"]`
+            : '';
       return (
         `**${lang}**:\n` +
         `  - key_forms (only if irregular comparison): string[] positions:\n` +
-        adjForms.map((f, i) => `      [${i}] ${f}`).join('\n')
+        adjForms.map((f, i) => `      [${i}] ${f}`).join('\n') +
+        adjExample
       );
     })
     .filter(Boolean)
@@ -103,7 +118,8 @@ ${verbBlocks || '(No verb-group or key-forms languages in target_languages)'}
 ${adjBlocks || '(No adjective key-forms languages in target_languages)'}
 
 CRITICAL: key_forms only for genuinely IRREGULAR forms that standard rules cannot derive.
-Regular words need no key_forms.`;
+Regular words need no key_forms.
+Decision test: "Can a learner derive this form from the base word + verb_group/case_pattern?" If YES → omit key_forms.`;
 }
 
 export function buildSensePrompt(params: SensePromptParams): { systemPrompt: string; userPrompt: string } {
@@ -134,34 +150,26 @@ You must strictly output the JSON according to this structure:
       { "word": "lemma_form", "tier": 1 | 2 | 3 }
     ]
   },
-  "frequency": { "value": 0, "meta": { "stability": 100.0 } },
-  "ontology": { "value": "OBJECT | PROCESS | PROPERTY | STATE | LOCATION | ABSTRACT", "meta": { "stability": 100.0 } },
+  "frequency": 0,
+  "ontology": "OBJECT | PROCESS | PROPERTY | STATE | LOCATION | ABSTRACT",
   "meaning": {
-    "lang_code": { 
-      "value": "Detailed dictionary definition (max 40 words/chars)", 
-      "meta": { "stability": 100.0 } 
-    }
+    "lang_code": "Detailed dictionary definition (max 40 words/chars)"
   },
   "flavorText": [
     {
       "persona": "${personaId}",
-      "text": { 
-        "lang_code": { "value": "...", "meta": { "stability": 100.0 } } 
-      },
-      "example": { 
-        "lang_code": { "value": "...", "meta": { "stability": 100.0 } } 
-      }
+      "text": { "lang_code": "..." },
+      "example": { "lang_code": "..." }
     }
   ],
   "shells": {
     "lang_code": [
       {
-        "text": { "value": "word_or_phrase", "meta": { "stability": 100.0 } },
-        "pronunciation": { "value": "...", "meta": { "stability": 100.0 } },
-        "pos": { "value": "n. | v. | v.t. | v.i. | adj. | adv. | prep. | conj. | pron. | int.", "meta": { "stability": 100.0 } },
-        "level": { "value": "A1-C2", "meta": { "stability": 100.0 } },
-        "wordFrequency": { "value": 0, "meta": { "stability": 100.0 } },
-        "meta": { "stability": 100.0 }
+        "text": "word_or_phrase",
+        "pronunciation": "...",
+        "pos": "n. | v. | v.t. | v.i. | adj. | adv. | prep. | conj. | pron. | int.",
+        "level": "A1-C2",
+        "wordFrequency": 0
       }
     ]
   },
@@ -170,19 +178,20 @@ You must strictly output the JSON according to this structure:
       "root": "irreducible_root_morpheme",
       "derivations": [
         { "word": "derived_word", "pos": "n. | v. | adj. | ..." }
-      ],
-      "meta": { "stability": 100.0 }
+      ]
     }
   },
   "traits": {
-    "lang_code (only if this language has applicable traits)": [
-      { "traitId": "gender | verb_group | case_pattern | plural_form | key_forms", "value": "string or string[]", "meta": { "stability": 100.0 } }
+    "lang_code (only if applicable)": [
+      { "traitId": "gender | verb_group | case_pattern | plural_form | key_forms", "value": "string or string[]" }
     ]
   }
 }
 
 > **SCHEMA CONSTRAINT**: Every \`lang_code\` in meaning / shells / wordFamily MUST be populated for: [${target_languages.join(', ')}]. Do not miss any language.
 > For traits: only include a language key if it has at least one applicable trait. Omit languages with no traits.
+> If NO language has any applicable trait, OMIT the "traits" key entirely from the JSON. Never output "traits": {}.
+> **DO NOT output any \`meta\` fields.** Meta data is injected automatically by the backend after your response is received.
 
 ### **2. COMPREHENSIVE FILLING INSTRUCTIONS**
 
@@ -228,6 +237,7 @@ You must strictly output the JSON according to this structure:
 Fill "wordFamily" for EVERY language in [${target_languages.join(', ')}].
 - **"root"**: Reduce shells[lang].text.value to its irreducible etymological base.
   (e.g. "firefighter" → "fire", "création" → "créer", "Feuerwehr" → "Feuer")
+  **ROOT RULE**: The root must be the DIRECT etymological base of shells[lang].text.value within the SAME language. Do NOT cross into another word's etymology. If the word is a borrowing or learned term with no productive morphological root in that language (e.g. "entropy", "エントロピー"), use the word itself as root.
 - **"derivations"**: 3–6 closely related + 1–3 distantly related morphological relatives.
   Each: { "word": string, "pos": one of the exact POS strings above }
   Every language has real morphological derivations — always provide actual words.
