@@ -50,7 +50,7 @@ export function delay(ms: number): Promise<void> {
  * Deep clone an object
  */
 export function deepClone<T>(obj: T): T {
-    return JSON.parse(JSON.stringify(obj));
+    return structuredClone(obj);
 }
 
 /**
