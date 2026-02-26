@@ -1,6 +1,7 @@
 import React, { useRef } from 'react';
 import { useGesture } from '@use-gesture/react';
 import { motion, useTransform } from 'motion/react';
+import { useWindowDimensions } from '@/app/hooks/useWindowDimensions';
 import { useCanvasPersona } from '@/app/context/PersonaContext';
 import { Slot } from '@/app/components/persona/slots';
 
@@ -16,6 +17,7 @@ export const Canvas: React.FC<CanvasProps> = ({ children, scale, x, y, onDoubleC
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasPersona = useCanvasPersona();
   const { palette: { colors }, slots } = canvasPersona;
+  const { windowWidth, windowHeight } = useWindowDimensions();
 
   // ============================================================
   // WORLD DIMENSIONS
@@ -33,8 +35,8 @@ export const Canvas: React.FC<CanvasProps> = ({ children, scale, x, y, onDoubleC
 
   const clampCamera = (currentX: number, currentY: number, currentScale: number) => {
     if (typeof window === 'undefined') return { x: currentX, y: currentY };
-    const screenW = window.innerWidth;
-    const screenH = window.innerHeight;
+    const screenW = windowWidth.get();
+    const screenH = windowHeight.get();
 
     // Canvas Overscroll Distance (Allow users to see slightly beyond the edge)
     const OVERSCROLL_X = 300;
@@ -105,8 +107,8 @@ export const Canvas: React.FC<CanvasProps> = ({ children, scale, x, y, onDoubleC
           const currentScale = scale.get();
           const currentX = x.get();
           const currentY = y.get();
-          const screenW = window.innerWidth;
-          const screenH = window.innerHeight;
+          const screenW = windowWidth.get();
+          const screenH = windowHeight.get();
           const minScaleW = screenW / WORLD_W;
           const minScaleH = screenH / WORLD_H;
           const dynamicMinScale = Math.max(minScaleW, minScaleH);
