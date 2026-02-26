@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { animate, motionValue } from "motion/react";
 import type { CardEntity } from "@/types/CardEntity";
 import type { CardItem } from "@/app/hooks/logic/useCardManager";
+import type { CardLocation } from "@core/storage/db";
 import type { Language } from '@schemas/schemas/SenseEntity.schema';
 
 // Helper Hook for previous value
@@ -126,14 +127,14 @@ export const useCardGrouping = ({ items, setItems, learningLang }: UseCardGroupi
             let targetY: number = 0;
             // Persistence Option A: Anchor Dominance
             // If Anchor existed, keep its location. Else default to canvas (or inherit if spawning)
-            let targetLocation: any = 'canvas';
+            let targetLocation: CardLocation = 'canvas';
 
             // Case A: Anchor was already an Anchor
             if (anchorPositions.has(anchor.uid)) {
                 const pos = anchorPositions.get(anchor.uid)!;
                 targetX = pos.x;
                 targetY = pos.y;
-                targetLocation = anchorLocations.get(anchor.uid) || 'canvas';
+                targetLocation = (anchorLocations.get(anchor.uid) as CardLocation) || 'canvas';
             }
             // Case B: Anchor was a Variant (Split or Promotion)
             else {
@@ -170,7 +171,8 @@ export const useCardGrouping = ({ items, setItems, learningLang }: UseCardGroupi
                         mx: motionValue(startX),
                         my: motionValue(startY),
                         scale: motionValue(1),
-                        location: targetLocation
+                        location: targetLocation,
+                        isVisible: targetLocation === 'canvas'
                     });
                     return; // Skip default push
                 } else {
@@ -188,7 +190,8 @@ export const useCardGrouping = ({ items, setItems, learningLang }: UseCardGroupi
                 mx: motionValue(targetX),
                 my: motionValue(targetY),
                 scale: motionValue(1),
-                location: targetLocation
+                location: targetLocation,
+                isVisible: targetLocation === 'canvas'
             });
         });
 

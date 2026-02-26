@@ -262,7 +262,7 @@ const SlottedCard: React.FC<{ card: any, variants: any[] }> = ({ card, variants 
     return (
         <CompactCardVisual
             mode="icon"
-            learningData={currentCardData.displayData[DEFAULT_LANGUAGE] || Object.values(currentCardData.displayData)[0]}
+            learningData={currentCardData.displayData[DEFAULT_LANGUAGE]!}
             senseInfo={currentCardData.senseInfo}
             visual={currentCardData.visual}
             persona={DefaultCardPersona}
