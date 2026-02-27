@@ -1,4 +1,4 @@
-import { VISUAL_DICTIONARY } from './VisualDictionary';
+import { VISUAL_DICTIONARY } from './VisualDictionary.ts';
 
 export interface VisualPromptParams {
     concept: string;

@@ -30,12 +30,12 @@
  * 失败策略：失败/超时直接返回 GENERATION_FAILED，拒绝降级。
  */
 
-import { PERSONA_DICTIONARY } from './PersonaDictionary';
+import { PERSONA_DICTIONARY } from './PersonaDictionary.ts';
 import {
     VERB_KEY_FORMS,
     NOUN_KEY_FORMS,
     ADJ_KEY_FORMS,
-} from '@schemas/schemas/KeyFormsDictionary.config';
+} from '@schemas/schemas/KeyFormsDictionary.config.ts';
 
 // ── Languages that have grammatical gender ───────────────────────────────────
 const GENDERED_LANGS = new Set(['fr', 'de', 'es', 'it', 'pt']);

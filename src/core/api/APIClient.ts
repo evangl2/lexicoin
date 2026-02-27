@@ -5,7 +5,7 @@
  * Provides typed methods for each API endpoint
  */
 
-import { logger } from '@utils/logger';
+import { logger } from '@utils/logger.ts';
 import type {
     APIResponse,
     SynthesisRequest,
@@ -26,7 +26,7 @@ import type {
     FeedbackSubmissionResponse,
     AnalyticsEventRequest,
     AnalyticsEventResponse,
-} from '@app-types/api';
+} from '@app-types/api.ts';
 
 class APIClient {
     private static instance: APIClient;

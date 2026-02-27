@@ -1,9 +1,9 @@
-import { PERSONA_DICTIONARY } from './PersonaDictionary';
+import { PERSONA_DICTIONARY } from './PersonaDictionary.ts';
 import {
   VERB_KEY_FORMS,
   NOUN_KEY_FORMS,
   ADJ_KEY_FORMS,
-} from '@schemas/schemas/KeyFormsDictionary.config';
+} from '@schemas/schemas/KeyFormsDictionary.config.ts';
 
 export interface SensePromptParams {
   concept: string;
