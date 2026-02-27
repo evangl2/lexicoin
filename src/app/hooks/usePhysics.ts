@@ -10,8 +10,9 @@ interface PhysicsItem {
 }
 
 // Internal cache structure for optimization
+// Changed 'item' to be optional/nullable to support object pooling initialization
 interface CachedItem {
-  item: PhysicsItem;
+  item: PhysicsItem | null;
   x: number;
   y: number;
   r: number;
@@ -22,7 +23,12 @@ interface CachedItem {
 export const usePhysics = (items: PhysicsItem[], draggingId: string | null) => {
   const requestRef = useRef<number>();
 
-  // World Boundaries (Step 1 & 4)
+  // OPTIMIZATION: Object Pooling
+  // Persist the cache array between frames to avoid garbage collection pressure.
+  // We reuse the objects inside this array instead of allocating new ones every frame.
+  const cacheRef = useRef<CachedItem[]>([]);
+
+  // World Boundaries
   const WORLD_W = 16000;
   const WORLD_H = 10000;
   const HALF_W = WORLD_W / 2;
@@ -34,35 +40,54 @@ export const usePhysics = (items: PhysicsItem[], draggingId: string | null) => {
     const padding = 20; // Extra space between cards
     const count = items.length;
 
-    // OPTIMIZATION: Read-Calculate-Write Pattern
-    // 1. READ: Cache all positions and dimensions to avoid expensive MotionValue.get() calls
-    // and redundant calculations inside the O(N^2) loop.
-    const cache: (CachedItem | undefined)[] = new Array(count);
+    // 1. POOL MANAGEMENT
+    // Ensure the pool is large enough. We only grow, rarely shrink (for stability).
+    const cache = cacheRef.current;
+    if (cache.length < count) {
+      for (let i = cache.length; i < count; i++) {
+        cache.push({
+          item: null,
+          x: 0,
+          y: 0,
+          r: 0,
+          w: 0,
+          h: 0
+        });
+      }
+    }
 
+    // 2. READ: Update pool with current frame data
     for (let i = 0; i < count; i++) {
       const item = items[i];
       // Skip invalid items if any
-      if (!item) continue;
+      if (!item) {
+        if (cache[i]) cache[i].item = null;
+        continue;
+      }
 
-      cache[i] = {
-        item,
-        x: item.x.get(),
-        y: item.y.get(),
-        // Pre-calculate radius once per frame
-        r: Math.min(item.width, item.height) / 2 + padding,
-        w: item.width,
-        h: item.height
-      };
+      const c = cache[i];
+      c.item = item;
+      c.x = item.x.get();
+      c.y = item.y.get();
+      c.r = Math.min(item.width, item.height) / 2 + padding;
+      c.w = item.width;
+      c.h = item.height;
     }
 
-    // 2. CALCULATE: Resolve Collisions on cached data
+    // 2b. CLEAR: Nullify items in the pool that are no longer active
+    // This allows garbage collection of removed items and prevents phantom references
+    for (let i = count; i < cache.length; i++) {
+        cache[i].item = null;
+    }
+
+    // 3. CALCULATE: Resolve Collisions on cached data
     for (let i = 0; i < count; i++) {
       const a = cache[i];
-      if (!a) continue;
+      if (!a.item) continue;
 
       for (let j = i + 1; j < count; j++) {
         const b = cache[j];
-        if (!b) continue;
+        if (!b.item) continue;
 
         // Optimized Collision Check
         const minDist = a.r + b.r;
@@ -77,7 +102,7 @@ export const usePhysics = (items: PhysicsItem[], draggingId: string | null) => {
         const distSq = dx * dx + dy * dy;
 
         if (distSq < minDist * minDist && distSq > 0) {
-          if (draggingId === a.item.id || draggingId === b.item.id) {
+          if (draggingId === a.item!.id || draggingId === b.item!.id) {
             continue;
           }
 
@@ -99,10 +124,10 @@ export const usePhysics = (items: PhysicsItem[], draggingId: string | null) => {
       }
     }
 
-    // 3. CALCULATE & WRITE: Enforce Boundaries and Flush changes
+    // 4. CALCULATE & WRITE: Enforce Boundaries and Flush changes
     for (let i = 0; i < count; i++) {
       const c = cache[i];
-      if (!c) continue;
+      if (!c.item) continue;
 
       // Skip boundary enforcement if dragging
       if (draggingId !== c.item.id) {
