@@ -1,0 +1,3 @@
+## 2024-05-24 - React State vs Framer Motion `MotionValue` for Resizing
+**Learning:** Attaching native resize listeners that trigger React state updates (e.g. `useState`) causes synchronous re-renders of the entire component tree and potential jank during window resizing, especially with complex UI components like SVG SVGs.
+**Action:** Replace React state with `useWindowDimensions` (or equivalent `MotionValue`) and derive layout scaling via `useTransform`. Apply the resulting `MotionValue` to a `<motion.div>` `style` prop to completely bypass the React render cycle while ensuring buttery smooth animations.
