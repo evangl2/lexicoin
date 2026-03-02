@@ -161,10 +161,10 @@ export const Dock: React.FC<DockProps> = ({
          </div>
 
          {/* Inner Container: Handles Scaling and Layout */}
-         <motion.div
+         <div
             className="relative flex flex-col items-center justify-end transition-all duration-500 ease-out"
             style={{
-               transform: dockTransform,
+               transform: `scale(${scale * (isZoomed ? 0.75 : 1)})`,
                opacity: isZoomed ? 0.4 : 1,
                transformOrigin: 'bottom center',
                filter: isZoomed ? 'blur(2px)' : 'none'
@@ -254,7 +254,7 @@ export const Dock: React.FC<DockProps> = ({
 
                </motion.div>
             </div>
-         </motion.div>
+         </div>
       </div>
    );
 };
@@ -295,8 +295,8 @@ const RuneLockNode: React.FC<RuneLockNodeProps> = ({ icon: Icon, label, isActive
 
             {/* Complex Inner Ring */}
             <div className={`
-             absolute rounded-full border-dashed 
-             transition-all duration-1000 
+             absolute rounded-full border-dashed
+             transition-all duration-1000
              ${isVisuallyActive ? '' : 'rotate-0 opacity-20'}
          `}
                style={{
@@ -308,9 +308,9 @@ const RuneLockNode: React.FC<RuneLockNodeProps> = ({ icon: Icon, label, isActive
 
             {/* Complex Outer Ring (Runes) */}
             <div className={`
-             absolute rounded-full border-dotted 
+             absolute rounded-full border-dotted
              flex items-center justify-center
-             transition-all duration-1000 
+             transition-all duration-1000
              ${isVisuallyActive ? 'opacity-100 scale-100' : 'opacity-0 scale-50'}
          `}
                style={{
