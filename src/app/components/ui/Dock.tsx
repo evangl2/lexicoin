@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'motion/react';
+import { motion, useTransform } from 'motion/react';
+import { useWindowDimensions } from '@/app/hooks/useWindowDimensions';
 import { Layers, LayoutTemplate, Target, Library, Settings, LucideIcon } from 'lucide-react';
 import { DeckRepository } from './DeckRepository';
 import { ConfigMenu } from './ConfigMenu';
@@ -83,23 +84,20 @@ export const Dock: React.FC<DockProps> = ({
    }, [isHovered, isDeckOpen, isConfigOpen, interfacePersona.dock.behavior.fadeDelay]);
 
    // --- Auto-Resize Logic (HUD Scaling) ---
-   const [scale, setScale] = useState<number>(1);
+   const { windowWidth } = useWindowDimensions();
 
-   useEffect(() => {
-      const handleResize = () => {
+   const scale = useTransform(
+      windowWidth,
+      (width) => {
          const baseWidth = interfacePersona.dock.layout.baseWidth;
-         const currentWidth = window.innerWidth;
-         const newScale = Math.max(
+         return Math.max(
             interfacePersona.dock.metrics.scaleMin,
-            Math.min(interfacePersona.dock.metrics.scaleMax, currentWidth / baseWidth)
+            Math.min(interfacePersona.dock.metrics.scaleMax, width / baseWidth)
          );
-         setScale(newScale);
-      };
+      }
+   );
 
-      handleResize();
-      window.addEventListener('resize', handleResize);
-      return () => window.removeEventListener('resize', handleResize);
-   }, [interfacePersona.dock.layout.baseWidth, interfacePersona.dock.metrics.scaleMin, interfacePersona.dock.metrics.scaleMax]);
+   const combinedScale = useTransform(scale, (s) => s * (isZoomed ? 0.75 : 1));
 
    const handleNodeClick = (index: number) => {
       // 0 = DECK, 1 = CANVAS
@@ -161,10 +159,10 @@ export const Dock: React.FC<DockProps> = ({
          </div>
 
          {/* Inner Container: Handles Scaling and Layout */}
-         <div
+         <motion.div
             className="relative flex flex-col items-center justify-end transition-all duration-500 ease-out"
             style={{
-               transform: `scale(${scale * (isZoomed ? 0.75 : 1)})`,
+               scale: combinedScale,
                opacity: isZoomed ? 0.4 : 1,
                transformOrigin: 'bottom center',
                filter: isZoomed ? 'blur(2px)' : 'none'
@@ -254,7 +252,7 @@ export const Dock: React.FC<DockProps> = ({
 
                </motion.div>
             </div>
-         </div>
+         </motion.div>
       </div>
    );
 };
