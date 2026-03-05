@@ -1,0 +1,3 @@
+## 2024-03-05 - Optimize O(N) array search on render
+**Learning:** Found a potential performance bottleneck in `SynthesisCircle.tsx` where an O(N) `.find()` operation was running on every render for both card slots against the `inputCards` array, which can be large if it contains all the game's cards. Even though `mx` and `my` updates use `MotionValue`s to avoid re-renders during dragging, the component re-renders on other state changes (like drag events updating collision targets), which triggers the O(N) lookup.
+**Action:** When finding a specific element in an array based on derived state or props inside a functional component, memoize the O(N) operation using `React.useMemo` if the input array is large. This avoids redundant traversal.

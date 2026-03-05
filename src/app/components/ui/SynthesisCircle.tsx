@@ -88,8 +88,14 @@ export const SynthesisCircle: React.FC<SynthesisCircleProps> = ({
     }, []);
 
     // Logic
-    const card1 = inputCards.find(c => c.cardData.rawSense.uid === state.slot1_uid);
-    const card2 = inputCards.find(c => c.cardData.rawSense.uid === state.slot2_uid);
+    const card1 = React.useMemo(() =>
+        state.slot1_uid ? inputCards.find(c => c.cardData.rawSense.uid === state.slot1_uid) : undefined,
+        [inputCards, state.slot1_uid]
+    );
+    const card2 = React.useMemo(() =>
+        state.slot2_uid ? inputCards.find(c => c.cardData.rawSense.uid === state.slot2_uid) : undefined,
+        [inputCards, state.slot2_uid]
+    );
     const canSynthesize = !!card1 && !!card2 && !state.isProcessing;
 
     const handleSynthesize = () => {
