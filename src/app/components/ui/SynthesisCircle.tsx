@@ -87,9 +87,13 @@ export const SynthesisCircle: React.FC<SynthesisCircleProps> = ({
         circleRef.current = node;
     }, []);
 
-    // Logic
-    const card1 = inputCards.find(c => c.cardData.rawSense.uid === state.slot1_uid);
-    const card2 = inputCards.find(c => c.cardData.rawSense.uid === state.slot2_uid);
+    // ⚡ Bolt: Performance Optimization
+    // Problem: inputCards.find() runs O(N) on every render, which is triggered frequently
+    // by react-dnd useDrop state changes (isOver1, isOver2) during any drag operation on the canvas.
+    // Solution: Memoize the slot lookups.
+    // Impact: Eliminates redundant O(N) lookups against the full card catalog during drag events.
+    const card1 = React.useMemo(() => inputCards.find(c => c.cardData.rawSense.uid === state.slot1_uid), [inputCards, state.slot1_uid]);
+    const card2 = React.useMemo(() => inputCards.find(c => c.cardData.rawSense.uid === state.slot2_uid), [inputCards, state.slot2_uid]);
     const canSynthesize = !!card1 && !!card2 && !state.isProcessing;
 
     const handleSynthesize = () => {
