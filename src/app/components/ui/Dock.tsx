@@ -5,6 +5,8 @@ import { DeckRepository } from './DeckRepository';
 import { ConfigMenu } from './ConfigMenu';
 import { useInterfacePersona } from '@/app/context/PersonaContext';
 import { Slot } from '@/app/components/persona/slots';
+import { useWindowDimensions } from '@/app/hooks/useWindowDimensions';
+import { useTransform } from 'motion/react';
 import type { CardItem } from '@/app/hooks/logic/useCardManager';
 import type { DeviceItem } from '@/app/hooks/logic/useDeviceManager'; // Added
 
@@ -83,23 +85,17 @@ export const Dock: React.FC<DockProps> = ({
    }, [isHovered, isDeckOpen, isConfigOpen, interfacePersona.dock.behavior.fadeDelay]);
 
    // --- Auto-Resize Logic (HUD Scaling) ---
-   const [scale, setScale] = useState<number>(1);
-
-   useEffect(() => {
-      const handleResize = () => {
-         const baseWidth = interfacePersona.dock.layout.baseWidth;
-         const currentWidth = window.innerWidth;
-         const newScale = Math.max(
-            interfacePersona.dock.metrics.scaleMin,
-            Math.min(interfacePersona.dock.metrics.scaleMax, currentWidth / baseWidth)
-         );
-         setScale(newScale);
-      };
-
-      handleResize();
-      window.addEventListener('resize', handleResize);
-      return () => window.removeEventListener('resize', handleResize);
-   }, [interfacePersona.dock.layout.baseWidth, interfacePersona.dock.metrics.scaleMin, interfacePersona.dock.metrics.scaleMax]);
+   // ⚡ Bolt: Replaced React state & window listener with Framer Motion useTransform
+   // This eliminates React re-renders on window resize, updating the DOM directly via MotionValues
+   const { windowWidth } = useWindowDimensions();
+   const scale = useTransform(windowWidth, (width) => {
+      const baseWidth = interfacePersona.dock.layout.baseWidth;
+      return Math.max(
+         interfacePersona.dock.metrics.scaleMin,
+         Math.min(interfacePersona.dock.metrics.scaleMax, width / baseWidth)
+      );
+   });
+   const finalTransform = useTransform(scale, (s) => `scale(${s * (isZoomed ? 0.75 : 1)})`);
 
    const handleNodeClick = (index: number) => {
       // 0 = DECK, 1 = CANVAS
@@ -161,10 +157,10 @@ export const Dock: React.FC<DockProps> = ({
          </div>
 
          {/* Inner Container: Handles Scaling and Layout */}
-         <div
+         <motion.div
             className="relative flex flex-col items-center justify-end transition-all duration-500 ease-out"
             style={{
-               transform: `scale(${scale * (isZoomed ? 0.75 : 1)})`,
+               transform: finalTransform,
                opacity: isZoomed ? 0.4 : 1,
                transformOrigin: 'bottom center',
                filter: isZoomed ? 'blur(2px)' : 'none'
@@ -254,7 +250,7 @@ export const Dock: React.FC<DockProps> = ({
 
                </motion.div>
             </div>
-         </div>
+         </motion.div>
       </div>
    );
 };
