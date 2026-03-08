@@ -220,6 +220,10 @@ function InnerApp() {
     setFocusedCardCount(prev => Math.max(0, prev - 1));
   }, []);
 
+  // Performance Optimization: Memoize language mapping to prevent O(N) recalculations on every render
+  const mappedLearningLang = useMemo(() => mapLanguageCode(learningLang), [learningLang]);
+  const mappedSystemLang = useMemo(() => mapLanguageCode(systemLang), [systemLang]);
+
   return (
     <div
       ref={drop}
@@ -243,8 +247,8 @@ function InnerApp() {
               key={item.cardData.rawSense.uid}
               cardData={item.cardData}
               variants={grouping.mergedVariants[item.cardData.uid] || EMPTY_VARIANTS}
-              learningLanguage={mapLanguageCode(learningLang)}
-              systemLanguage={mapLanguageCode(systemLang)}
+              learningLanguage={mappedLearningLang}
+              systemLanguage={mappedSystemLang}
               x={item.mx}
               y={item.my}
               width={item.width}
@@ -288,8 +292,8 @@ function InnerApp() {
               key={'exiting-' + item.cardData.rawSense.uid}
               cardData={item.cardData}
               variants={[]}
-              learningLanguage={mapLanguageCode(learningLang)}
-              systemLanguage={mapLanguageCode(systemLang)}
+              learningLanguage={mappedLearningLang}
+              systemLanguage={mappedSystemLang}
               x={item.mx}
               y={item.my}
               width={item.width}
