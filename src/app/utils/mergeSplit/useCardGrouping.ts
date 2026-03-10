@@ -97,11 +97,28 @@ export const useCardGrouping = ({ items, setItems, learningLang }: UseCardGroupi
         // Track positions and LOCATIONS of existing anchors to preserve state
         const anchorPositions = new Map<string, { x: number, y: number }>();
         const anchorLocations = new Map<string, string>(); // 'canvas' | 'repository'
+
+        // OPTIMIZATION: Create an O(1) lookup Map for current items to quickly find Old Anchors
+        const currentItemsMap = new Map<string, CardItem>();
         items.forEach(i => {
             anchorPositions.set(i.cardData.uid, { x: i.mx.get(), y: i.my.get() });
             anchorLocations.set(i.cardData.uid, i.location);
+            currentItemsMap.set(i.cardData.uid, i);
         });
-        const currentItems = [...items]; // Snapshot for lookups
+
+        // OPTIMIZATION: Pre-calculate a flat map of Variant UID -> Parent Anchor Item
+        // This turns an O(N * M) nested search inside the main loop into an O(1) lookup
+        const variantToOldAnchorMap = new Map<string, CardItem>();
+        if (prevMergedVariants) {
+            for (const [anchorID, variants] of Object.entries(prevMergedVariants)) {
+                const anchorItem = currentItemsMap.get(anchorID);
+                if (anchorItem) {
+                    for (let j = 0; j < variants.length; j++) {
+                        variantToOldAnchorMap.set(variants[j].uid, anchorItem);
+                    }
+                }
+            }
+        }
 
         // Process each group
         Object.values(groups).forEach(group => {
@@ -139,11 +156,8 @@ export const useCardGrouping = ({ items, setItems, learningLang }: UseCardGroupi
             // Case B: Anchor was a Variant (Split or Promotion)
             else {
                 // Try to find the position of the OLD Anchor this card belonged to
-                // We look through 'currentItems' (snapshot) to find who held this card
-                const oldAnchorItem = currentItems.find(i => {
-                    const v = prevMergedVariants?.[i.cardData.uid]; // Use prev merged variants
-                    return v && v.some((vc: CardEntity) => vc.uid === anchor.uid);
-                });
+                // We use our pre-calculated O(1) lookup map instead of nested loops
+                const oldAnchorItem = variantToOldAnchorMap.get(anchor.uid);
 
                 if (oldAnchorItem) {
                     // Spawning from Old Anchor -> Inherit Location
@@ -310,22 +324,15 @@ export const useCardGrouping = ({ items, setItems, learningLang }: UseCardGroupi
                     processedNewItems.add(newUID);
 
                     // Find Source (The Anchor it came from)
-                    // Look in prevMergedVariants
-                    if (prevMergedVariants) {
-                        for (const [anchorID, variants] of Object.entries(prevMergedVariants)) {
-                            // Check if this new item was a variant in a previous anchor
-                            // AND that anchor (or a card with that UID) still exists in the new view
-                            // (If the anchor itself disappeared, we might have a full explosion, but let's assume one survives)
-                            if (variants.some(v => v.uid === newUID)) {
-                                // Found origin!
-                                // Check if anchorID (the Source) is in newItems
-                                const sourceItem = newItems.find(i => i.cardData.uid === anchorID);
-                                if (sourceItem) {
-                                    splitUIDs.add(anchorID); // Highlight source too
-                                    connections.push({ from: anchorID, to: newUID });
-                                }
-                                break;
-                            }
+                    // We use our pre-calculated O(1) lookup map instead of nested loops
+                    const oldAnchorItem = variantToOldAnchorMap.get(newUID);
+                    if (oldAnchorItem) {
+                        const anchorID = oldAnchorItem.cardData.uid;
+                        // Check if anchorID (the Source) is in newItems
+                        const sourceItem = newItems.find(i => i.cardData.uid === anchorID);
+                        if (sourceItem) {
+                            splitUIDs.add(anchorID); // Highlight source too
+                            connections.push({ from: anchorID, to: newUID });
                         }
                     }
                 }
