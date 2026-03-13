@@ -116,6 +116,10 @@ function InnerApp() {
 
   usePhysics(physicsItems, draggingId);
 
+  // Memoize language codes to prevent redundant calculations during renders
+  const learningLanguageCode = useMemo(() => mapLanguageCode(learningLang), [learningLang]);
+  const systemLanguageCode = useMemo(() => mapLanguageCode(systemLang), [systemLang]);
+
   // 6. Persistence Binding (Robustness Fix)
   // Ensure we auto-save whenever items (Anchors) or groupings (Variants) change.
   // This replaces the internal auto-save in useCardManager to ensure mergedVariants are always included.
@@ -243,8 +247,8 @@ function InnerApp() {
               key={item.cardData.rawSense.uid}
               cardData={item.cardData}
               variants={grouping.mergedVariants[item.cardData.uid] || EMPTY_VARIANTS}
-              learningLanguage={mapLanguageCode(learningLang)}
-              systemLanguage={mapLanguageCode(systemLang)}
+              learningLanguage={learningLanguageCode}
+              systemLanguage={systemLanguageCode}
               x={item.mx}
               y={item.my}
               width={item.width}
@@ -288,8 +292,8 @@ function InnerApp() {
               key={'exiting-' + item.cardData.rawSense.uid}
               cardData={item.cardData}
               variants={[]}
-              learningLanguage={mapLanguageCode(learningLang)}
-              systemLanguage={mapLanguageCode(systemLang)}
+              learningLanguage={learningLanguageCode}
+              systemLanguage={systemLanguageCode}
               x={item.mx}
               y={item.my}
               width={item.width}
