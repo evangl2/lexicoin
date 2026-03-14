@@ -75,6 +75,10 @@ export const TEXT_TIERS: TextTier[] = [
 // HELPER FUNCTIONS
 // ============================================================================
 
+// Pre-compiled set for O(1) lookups in high-frequency text tier calculations.
+// Replaces expensive regex compilation and matching for narrow characters.
+const NARROW_CHARS = new Set(['i', 'l', '1', ' ', '\t', '\n', '\r', '.', ',', ';', ':', "'", '"', '!', '|', '(', ')', '[', ']', '{', '}']);
+
 /**
  * Calculates the "Visual Length" of a string.
  * Supports a wide range of scripts and emojis.
@@ -112,7 +116,7 @@ export const getVisualLength = (text: string): number => {
         }
 
         // 3. Narrow Characters (Latin narrow, punctuation) ~ 0.5 units
-        if (char.match(/[il1\s\.,;:'"!|()\[\]{}]/)) {
+        if (NARROW_CHARS.has(char)) {
             length += 0.5;
             continue;
         }
