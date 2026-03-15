@@ -195,6 +195,15 @@ export const useCardGrouping = ({ items, setItems, learningLang }: UseCardGroupi
             });
         });
 
+        // ⚡ Performance Optimization: Pre-calculate variant to anchor mapping
+        // Replaces O(N * M) nested loops below with O(1) Map lookups
+        const variantToAnchorMap = new Map<string, string>();
+        for (const [anchorID, variants] of Object.entries(newMergedVariants)) {
+            for (const v of variants) {
+                variantToAnchorMap.set(v.uid, anchorID);
+            }
+        }
+
         // 3.5 Detect Merging Items (Exiting)
         // Find items that are currently visible (Anchors) but will become Variants in the new state.
         // GUARD: Only animate if we had items before (not on startup)
@@ -210,16 +219,8 @@ export const useCardGrouping = ({ items, setItems, learningLang }: UseCardGroupi
 
                 // Did it merge into someone?
                 // Find the Anchor that contains this UID in its variants
-                let targetAnchorUID: string | undefined;
+                const targetAnchorUID = variantToAnchorMap.get(uid);
                 let targetAnchorItem: CardItem | undefined;
-
-                // Look in newMergedVariants
-                for (const [anchorID, variants] of Object.entries(newMergedVariants)) {
-                    if (variants.some(v => v.uid === uid)) {
-                        targetAnchorUID = anchorID;
-                        break;
-                    }
-                }
 
                 if (targetAnchorUID) {
                     // Find the visible item for this anchor
@@ -289,11 +290,9 @@ export const useCardGrouping = ({ items, setItems, learningLang }: UseCardGroupi
         // Optimization: We could have collected this during the loop above, but separating is cleaner for now.
         exiting.forEach(item => {
             const uid = item.cardData.rawSense.uid;
-            for (const [anchorID, variants] of Object.entries(newMergedVariants)) {
-                if (variants.some(v => v.uid === uid)) {
-                    mergeUIDs.add(anchorID);
-                    break;
-                }
+            const targetAnchorUID = variantToAnchorMap.get(uid);
+            if (targetAnchorUID) {
+                mergeUIDs.add(targetAnchorUID);
             }
         });
 
