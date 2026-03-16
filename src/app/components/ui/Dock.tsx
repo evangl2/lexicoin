@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'motion/react';
+import { motion, useTransform, useMotionValue } from 'motion/react';
 import { Layers, LayoutTemplate, Target, Library, Settings, LucideIcon } from 'lucide-react';
+import { useWindowDimensions } from '@/app/hooks/useWindowDimensions';
 import { DeckRepository } from './DeckRepository';
 import { ConfigMenu } from './ConfigMenu';
 import { useInterfacePersona } from '@/app/context/PersonaContext';
@@ -83,23 +84,31 @@ export const Dock: React.FC<DockProps> = ({
    }, [isHovered, isDeckOpen, isConfigOpen, interfacePersona.dock.behavior.fadeDelay]);
 
    // --- Auto-Resize Logic (HUD Scaling) ---
-   const [scale, setScale] = useState<number>(1);
+   const { windowWidth } = useWindowDimensions();
 
+   // ⚡ Bolt: Replaced React state with Framer Motion useTransform for layout scaling
+   // This eliminates expensive re-renders during window resizing while still smoothly adjusting the UI
+
+   // Create a motion value for the zoomed state
+   const zoomedScaleMultiplier = useMotionValue(isZoomed ? 0.75 : 1);
+
+   // Keep it synced with the prop
    useEffect(() => {
-      const handleResize = () => {
-         const baseWidth = interfacePersona.dock.layout.baseWidth;
-         const currentWidth = window.innerWidth;
-         const newScale = Math.max(
-            interfacePersona.dock.metrics.scaleMin,
-            Math.min(interfacePersona.dock.metrics.scaleMax, currentWidth / baseWidth)
-         );
-         setScale(newScale);
-      };
+      zoomedScaleMultiplier.set(isZoomed ? 0.75 : 1);
+   }, [isZoomed]);
 
-      handleResize();
-      window.addEventListener('resize', handleResize);
-      return () => window.removeEventListener('resize', handleResize);
-   }, [interfacePersona.dock.layout.baseWidth, interfacePersona.dock.metrics.scaleMin, interfacePersona.dock.metrics.scaleMax]);
+   // Calculate final scale combining window width and zoom state
+   const finalScale = useTransform(
+      [windowWidth, zoomedScaleMultiplier],
+      ([w = 0, z = 1]: number[]) => {
+         const baseWidth = interfacePersona.dock.layout.baseWidth;
+         const baseScale = Math.max(
+            interfacePersona.dock.metrics.scaleMin,
+            Math.min(interfacePersona.dock.metrics.scaleMax, w / baseWidth)
+         );
+         return baseScale * z;
+      }
+   );
 
    const handleNodeClick = (index: number) => {
       // 0 = DECK, 1 = CANVAS
@@ -161,10 +170,10 @@ export const Dock: React.FC<DockProps> = ({
          </div>
 
          {/* Inner Container: Handles Scaling and Layout */}
-         <div
+         <motion.div
             className="relative flex flex-col items-center justify-end transition-all duration-500 ease-out"
             style={{
-               transform: `scale(${scale * (isZoomed ? 0.75 : 1)})`,
+               scale: finalScale,
                opacity: isZoomed ? 0.4 : 1,
                transformOrigin: 'bottom center',
                filter: isZoomed ? 'blur(2px)' : 'none'
@@ -254,7 +263,7 @@ export const Dock: React.FC<DockProps> = ({
 
                </motion.div>
             </div>
-         </div>
+         </motion.div>
       </div>
    );
 };
