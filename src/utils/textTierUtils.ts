@@ -75,6 +75,9 @@ export const TEXT_TIERS: TextTier[] = [
 // HELPER FUNCTIONS
 // ============================================================================
 
+// Pre-compiled regex for narrow characters to prevent reallocation in the hot loop
+const NARROW_CHAR_REGEX = /[il1\s\.,;:'"!|()\[\]{}]/;
+
 /**
  * Calculates the "Visual Length" of a string.
  * Supports a wide range of scripts and emojis.
@@ -112,7 +115,7 @@ export const getVisualLength = (text: string): number => {
         }
 
         // 3. Narrow Characters (Latin narrow, punctuation) ~ 0.5 units
-        if (char.match(/[il1\s\.,;:'"!|()\[\]{}]/)) {
+        if (NARROW_CHAR_REGEX.test(char)) {
             length += 0.5;
             continue;
         }

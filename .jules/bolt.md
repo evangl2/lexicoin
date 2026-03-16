@@ -1,0 +1,3 @@
+## 2024-05-18 - Memoize string regex test
+**Learning:** Evaluating characters with inline regex `char.match(/[...]/)` causes significant reallocation per character inside the visual length string calculation loop. Using pre-compiled global regex with `.test()` improves performance for hot string operations.
+**Action:** When performing regex checks per character inside string processing loops, define the regex outside the loop and use `.test()` instead of `.match()`.
