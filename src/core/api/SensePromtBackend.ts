@@ -241,7 +241,6 @@ Fill "wordFamily" for EVERY language in [${target_languages.join(', ')}].
 - **"derivations"**: 3–6 closely related + 1–3 distantly related morphological relatives.
   Each: { "word": string, "pos": one of the exact POS strings above }
   Every language has real morphological derivations — always provide actual words.
-- **"meta"**: { "stability": 100.0 }
 
 ${sectionF}`;
 
