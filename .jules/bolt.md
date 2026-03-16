@@ -1,3 +1,4 @@
-## 2024-05-24 - [Replace O(N * M) nested loop with O(1) hash map lookup in useCardGrouping]
-**Learning:** In React components that iterate through large sets of nested state arrays (e.g. `items` and `mergedVariants`), repeatedly doing nested `Array.find` inside a `.forEach` or `.map` can create significant performance bottlenecks O(N * M).
-**Action:** When searching for an item's origin from the previous render state across many items, always pre-calculate an O(1) lookup Map at the beginning of the effect/computation. I replaced a `currentItems.find(...)` nested loop which checked against an array lookup of variants with a single pre-calculated `variantToOldAnchorMap` reducing execution time from ~480ms to ~100ms for large item sets in benchmarks.
+
+## 2024-03-24 - [Avoid Regex Recreation in Hot Loops]
+**Learning:** Recreating a regex (e.g. `char.match(/[...]/)`) inside a hot loop (like measuring text character-by-character for visual length) incurs significant performance overhead due to repeated regex compilation and garbage collection. In V8, moving the regex outside the loop and using `.test(char)` reduced execution time by nearly 40-50% in benchmarks.
+**Action:** When evaluating characters or small strings in tight loops (e.g., text rendering, physics), compile regex patterns once as module-level constants and use `.test()` instead of `.match()`.
