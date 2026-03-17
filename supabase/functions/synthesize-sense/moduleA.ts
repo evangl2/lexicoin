@@ -1,171 +1,198 @@
 import { callGemini } from './utils/gemini.ts';
-import { buildSensePrompt } from '../../../src/core/api/SensePromtBackend.ts';
-import { buildVisualPrompt } from '../../../src/core/api/VisualPromptsBackend.ts';
-// We assume we can import these ts files directly in Deno as long as paths resolve
-import { injectSenseMeta } from '../../../src/core/api/injectSenseMeta.ts';
-import { RawSenseAIOutput, SenseAIPayload, SynthesisRequest } from './types.ts';
+import { buildSensePrompt } from './lib/SensePromtBackend.ts';
+import { buildVisualPrompt } from './lib/VisualPromptsBackend.ts';
+import { injectSenseMeta } from './lib/injectSenseMeta.ts';
+import type { RawSenseAIOutput, SenseAIPayload, SynthesisRequest } from './types.ts';
 
-// Web crypto API runs in Deno Edge Functions
-export const generateUUID = () => crypto.randomUUID();
+/** Strip any markdown code fences Gemini might wrap around JSON or TSX */
+function stripMarkdown(raw: string): string {
+    return raw.replace(/^```[a-z]*\n?/im, '').replace(/\n?```$/m, '').trim();
+}
 
-/**
- * 验证并清理 AI 返回的 JSON 字符串
- */
+/** Parse Gemini JSON output safely */
 function parseGeminiJson<T>(rawText: string): T {
-    // 移除可能存在的 markdown 代码块
-    const cleaned = rawText.replace(/^```[a-z]*\n/i, '').replace(/\n```$/, '').trim();
-    return JSON.parse(cleaned) as T;
+    return JSON.parse(stripMarkdown(rawText)) as T;
 }
 
 /**
- * Basic security / structure check for generated TSX payload
+ * Validate TSX visual payload for safety constraints.
+ * Returns true only if all rules pass.
  */
 function validateVisualPayload(payload: string): boolean {
-    // Check if it exports default
-    if (!payload.includes('export default')) return false;
-    // Disallow hooks as per secure rules
-    if (payload.includes('useEffect') || payload.includes('useState')) {
-        console.warn('VisualPrompt validation failed: found hooks hook');
-        // Currently we just log, but let's strictly reject it
+    if (!payload.includes('export default')) {
+        console.warn('[Visual] Missing export default');
+        return false;
+    }
+    if (payload.includes('useEffect') || payload.includes('useState') || payload.includes('useRef')) {
+        console.warn('[Visual] Forbidden React hooks found');
+        return false;
+    }
+    if (!payload.includes("from 'motion/react'") && !payload.includes('from "motion/react"')) {
+        console.warn('[Visual] Missing required motion/react import');
+        return false;
+    }
+    if (payload.length < 200 || payload.length > 20000) {
+        console.warn('[Visual] Payload length out of expected range:', payload.length);
         return false;
     }
     return true;
 }
 
 /**
- * Module A: 核心 Sense 生成业务流
- * - 调用 SensePrompt 生成概念本身 (Blocking)
- * - 注入 Meta, 写入 3 张表 (senses, sense_word_shells, sense_flavor_texts)
- * - 立刻返回已生成的 Sense 内容
- * - 后台异步触发 VisualPrompt (Non-blocking), 并写 sense_visuals
+ * Module A: Full Sense generation flow.
+ *
+ * ① Generate UID
+ * ② Call SensePrompt → AI returns raw JSON
+ * ③ injectSenseMeta() → wrap all values in { value, meta }
+ * ④ Write senses, sense_word_shells, sense_flavor_texts (blocking)
+ * ⑤ Return immediately with visual: null
+ * ⑥ Fire-and-forget: VisualPrompt → validate → write sense_visuals
  */
 export async function generateSense(
     concept: string,
     definition: string,
     request: SynthesisRequest,
     discovererUserId: string,
-    supabaseAdmin: any // uses service_role client for DB inserts
-): Promise<{ sense: SenseAIPayload & { uid: string }; visual: any }> {
-    const { max_level = 'B2', target_languages = ['en'], personaId = 'default', personaNarrative, visual_id = 'default' } = request;
+    supabaseAdmin: any
+): Promise<{ sense: SenseAIPayload & { uid: string }; visual: null }> {
+    const {
+        max_level = 'B2',
+        target_languages = ['en', 'zh-CN', 'fr', 'de', 'ja', 'es', 'it', 'pt'],
+        personaId = 'default',
+        personaNarrative,
+        visual_id = 'default',
+    } = request;
 
-    // ① 生成新 UID
-    const uid = generateUUID();
+    // ① Generate UUID via Web Crypto (available in Deno Edge Functions)
+    const uid = crypto.randomUUID();
 
-    // ② 构建并发送 Sense Prompt
+    // ② Build and call SensePrompt
     const { systemPrompt, userPrompt } = buildSensePrompt({
         concept,
         definition,
-        maxLevel: max_level,
         target_languages,
         personaId,
-        personaNarrative
+        personaNarrative,
     });
 
-    const aiRawText = await callGemini({ systemPrompt, userPrompt });
+    const aiRawText = await callGemini({
+        systemPrompt,
+        userPrompt,
+        temperature: 0.4,
+        maxTokens: 10000,
+        responseMimeType: 'application/json',
+    });
 
-    // ③ 解析 JSON 并注入 UID
+    // ③ Parse AI output and inject meta
     let rawJson: RawSenseAIOutput;
     try {
         rawJson = parseGeminiJson<RawSenseAIOutput>(aiRawText);
     } catch (err) {
-        console.error('Failed to parse Sense AI JSON:', aiRawText);
+        console.error('[moduleA] Failed to parse SensePrompt JSON output:', aiRawText.slice(0, 500));
         throw new Error('GENERATION_FAILED');
     }
 
-    // 立即调用 injectSenseMeta 注入 `{ stability: 100.0 }` 等元数据
     const sensePayload: SenseAIPayload = injectSenseMeta(rawJson);
 
     const now = Date.now();
 
-    // ④ 写入 DB
-    // A. senses 表
+    // ④-A Write senses table
+    // DB columns: uid, fingerprint (jsonb), ontology (jsonb), meaning (jsonb), frequency (jsonb), word_family (jsonb)
+    // fingerprint and ontology/frequency are stored as their full injected shapes
     const { error: senseError } = await supabaseAdmin.from('senses').insert({
         uid,
-        fingerprint: sensePayload.fingerprint.value, // value extract
-        ontology: sensePayload.ontology.value,
-        meaning: Object.fromEntries(Object.entries(sensePayload.meaning).map(([k, v]) => [k, v.value])),
-        frequency: sensePayload.frequency.value,
-        // word_family 使用注入 meta 后的完整字段
-        word_family: sensePayload.wordFamily,
-
-        // 核心：由后端在这里直接写入第一发现人元数据，防篡改
-        meta: {
-            firstDiscoverer: discovererUserId,
-            firstDiscoveredAt: now,
-        }
+        fingerprint: sensePayload.fingerprint,      // { items: [...] }
+        ontology: sensePayload.ontology,            // { value, meta }
+        meaning: Object.fromEntries(               // { lang: { value, meta } }
+            Object.entries(sensePayload.meaning).map(([k, v]) => [k, v])
+        ),
+        frequency: sensePayload.frequency,          // { value, meta }
+        word_family: sensePayload.wordFamily,       // { lang: { root, derivations, meta } }
     });
 
     if (senseError) {
-        console.error('Failed to insert senses DB', senseError);
+        console.error('[moduleA] senses INSERT error:', senseError);
         throw new Error('GENERATION_FAILED');
     }
 
-    // B. sense_word_shells 表
+    // ④-B Write sense_word_shells table (single row per sense, shells=JSONB, traits=JSONB)
     const { error: shellsError } = await supabaseAdmin.from('sense_word_shells').insert({
         sense_id: uid,
-        shells: sensePayload.shells, // 包含 meta 注入后的整个 shells 对象
-        traits: sensePayload.traits || null // traits 可能可选
+        shells: sensePayload.shells,                // { lang: [InjectedShell] }
+        traits: sensePayload.traits ?? null,        // { lang: [InjectedTrait] } or null
     });
 
     if (shellsError) {
-        console.error('Failed to insert sense_word_shells DB', shellsError);
-        // Best effort continuation or abort? Usually better to fail loudly.
+        console.error('[moduleA] sense_word_shells INSERT error:', shellsError);
         throw new Error('GENERATION_FAILED');
     }
 
-    // C. sense_flavor_texts 表
-    // 每 persona 插入一行
-    const flavorInserts = sensePayload.flavorText.map((flavor: any) => ({
-        sense_id: uid,
-        persona: flavor.persona,
-        texts: Object.fromEntries(Object.entries(flavor.text).map(([k, v]: [string, any]) => [k, v.value])),
-        examples: Object.fromEntries(Object.entries(flavor.example).map(([k, v]: [string, any]) => [k, v.value])),
-    }));
+    // ④-C Write sense_flavor_texts table (one row per persona)
+    if (sensePayload.flavorText.length > 0) {
+        const flavorInserts = sensePayload.flavorText.map((flavor) => ({
+            sense_id: uid,
+            persona: flavor.persona,
+            text: flavor.text,       // { lang: { value, meta } } — column name is "text"
+            example: flavor.example, // { lang: { value, meta } } — column name is "example"
+        }));
 
-    if (flavorInserts.length > 0) {
         const { error: flavorError } = await supabaseAdmin.from('sense_flavor_texts').insert(flavorInserts);
-        if (flavorError) console.error('Failed to insert sense_flavor_texts DB', flavorError);
+        if (flavorError) {
+            // Non-fatal for flavor text, but log it
+            console.error('[moduleA] sense_flavor_texts INSERT error (non-fatal):', flavorError);
+        }
     }
 
-    // ⑤ 异步 Non-blocking Visual 补全
-    // Fire and forget
+    // ⑤ Return immediately with visual: null (VisualPrompt is non-blocking)
+    const result = { sense: { ...sensePayload, uid }, visual: null } as const;
+
+    // ⑥ Fire-and-forget: async visual generation
     (async () => {
         try {
             const { systemPrompt: vSys, userPrompt: vUser } = buildVisualPrompt({
                 concept,
                 definition,
-                visualId: visual_id
+                visualId: visual_id,
             });
-            const visualRawText = await callGemini({ systemPrompt: vSys, userPrompt: vUser });
 
-            // Extract code:
-            const codeMatch = visualRawText.split('// --- CODE BELOW ---');
-            let code = codeMatch.length > 1 ? codeMatch[1].trim() : visualRawText.trim();
-            // remove markdown wrappers if any
-            code = code.replace(/^```(tsx|jsx|ts|js)?\n/i, '').replace(/\n```$/, '').trim();
+            const visualRawText = await callGemini({
+                systemPrompt: vSys,
+                userPrompt: vUser,
+                temperature: 0.6,
+                maxTokens: 6000,
+                responseMimeType: 'text/plain',
+            });
 
-            if (validateVisualPayload(code)) {
-                // 写 DB
-                const { error: visErr } = await supabaseAdmin.from('sense_visuals').insert({
-                    sense_id: uid,
-                    id: visual_id,
-                    payload: code,
-                    meta: {
-                        stability: 50.0,
-                        firstDiscoverer: discovererUserId,
-                        firstDiscoveredAt: now
-                    }
-                });
-                if (visErr) console.error('Silent failure writing visual DB:', visErr);
+            // Extract TSX code after the delimiter
+            const parts = visualRawText.split('// --- CODE BELOW ---');
+            let code = (parts.length > 1 ? parts[1] : visualRawText).trim();
+            code = stripMarkdown(code);
+
+            if (!validateVisualPayload(code)) {
+                console.warn('[moduleA] Visual validation failed — discarding');
+                return;
+            }
+
+            const { error: visErr } = await supabaseAdmin.from('sense_visuals').insert({
+                sense_id: uid,
+                id: visual_id,
+                payload: code,
+                meta: {
+                    stability: 50.0,
+                    firstDiscoverer: discovererUserId,
+                    firstDiscoveredAt: now,
+                },
+            });
+
+            if (visErr) {
+                console.error('[moduleA] sense_visuals INSERT error (async, non-fatal):', visErr);
+            } else {
+                console.log('[moduleA] Visual written for sense:', uid);
             }
         } catch (e) {
-            console.error('Silent failure in Visual async task:', e);
+            console.error('[moduleA] Visual async task failed (non-fatal):', e);
         }
     })();
 
-    // ⑥ 立即返回核心文本结构
-    return {
-        sense: { ...sensePayload, uid },
-        visual: null // loading placeholder
-    };
+    return result;
 }

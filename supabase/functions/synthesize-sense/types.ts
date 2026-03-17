@@ -1,6 +1,9 @@
 /**
- * Edge Function Type Definitions for Synthesize-Sense
+ * Edge Function Type Definitions for synthesize-sense
+ * Aligned with TDD v3, injectSenseMeta.ts, and actual Supabase DB schema.
  */
+
+// ── Synthesis Request / Response ─────────────────────────────────────────────
 
 export type ArchetypeId = 1 | 2 | 3 | 4 | 5 | 6;
 
@@ -24,33 +27,32 @@ export type SynthesisErrorCode =
     | 'LLM_ERROR';
 
 export interface SynthesisFailureResponse {
-    error: SynthesisErrorCode;
-    message?: string;
+    success: false;
+    error: {
+        code: SynthesisErrorCode;
+        message: string;
+    };
 }
 
-// ============================================================================
-// AI Prompt Outputs
-// ============================================================================
+// ── AI Prompt Outputs ─────────────────────────────────────────────────────────
 
 export interface GeminiSynthesisOutput {
     outcome: 'success' | 'failure';
-    result_concept: string;
-    result_definition_en: string;
-    archetype_used: number;
-    synthesis_reason: string | Record<string, string>;
-    failure_code?: string;
+    result_concept: string | null;
+    result_definition_en: string | null;
+    archetype_used: string;
+    synthesis_reason: string;
+    failure_code?: string | null;
 }
 
-// ============================================================================
-// Payload Types
-// ============================================================================
+// ── Raw AI Output (meta-free, straight from AI) ───────────────────────────────
 
 export interface RawShell {
-    text: string;
-    pronunciation: string;
-    pos: string;
-    level: string;
-    wordFrequency: number;
+    text: string | { value: string };
+    pronunciation: string | { value: string };
+    pos: string | { value: string };
+    level: string | { value: string };
+    wordFrequency: number | { value: number };
 }
 
 export interface RawWordFamilyDerivation {
@@ -58,7 +60,7 @@ export interface RawWordFamilyDerivation {
     pos: string;
 }
 
-export interface RawWordFamily {
+export interface RawWordFamilyEntry {
     root: string;
     derivations: RawWordFamilyDerivation[];
 }
@@ -68,85 +70,111 @@ export interface RawTrait {
     value: string | string[];
 }
 
+export interface RawFlavorTextEntry {
+    persona: string;
+    text: Record<string, string | { value: string }>;
+    example: Record<string, string | { value: string }>;
+}
+
 /**
- * RawSenseAIOutput (AI 纯值输出，无 meta 字段)
+ * RawSenseAIOutput: pure values from AI (no meta fields).
+ * Must be passed through injectSenseMeta() before writing to DB.
  */
 export interface RawSenseAIOutput {
-    fingerprint: string;
-    frequency: number;
-    ontology: string;
-    meaning: Record<string, string>;
-    flavorText: Array<{
-        persona: string;
-        text: Record<string, string>;
-        example: Record<string, string>;
-    }>;
+    fingerprint: { items: { word: string; tier: 1 | 2 | 3 }[] };
+    frequency: number | { value: number };
+    ontology: string | { value: string };
+    meaning: Record<string, string | { value: string }>;
+    flavorText: RawFlavorTextEntry[];
     shells: Record<string, RawShell[]>;
-    wordFamily: Record<string, RawWordFamily>;
+    wordFamily: Record<string, RawWordFamilyEntry>;
     traits?: Record<string, RawTrait[]>;
 }
 
-// ============================================================================
-// Meta-Injected Types
-// ============================================================================
+// ── Meta-Injected Types (after injectSenseMeta) ───────────────────────────────
 
 export interface EntryMetadata {
     stability: number;
 }
 
-export interface MetaInjected<T> {
+export interface InjectedValue<T> {
     value: T;
     meta: EntryMetadata;
 }
 
-export interface MetaShell {
-    text: MetaInjected<string>;
-    pronunciation: MetaInjected<string>;
-    pos: MetaInjected<string>;
-    level: MetaInjected<string>;
-    wordFrequency: MetaInjected<number>;
-    meta: EntryMetadata; // Shell-level meta
-}
-
-export interface MetaWordFamilyDerivation {
-    word: string;
-    pos: string;
-}
-
-export interface MetaWordFamily {
-    root: string;
-    derivations: MetaWordFamilyDerivation[];
+export interface InjectedShell {
+    text: InjectedValue<string>;
+    pronunciation: InjectedValue<string>;
+    pos: InjectedValue<string>;
+    level: InjectedValue<string>;
+    wordFrequency: InjectedValue<number>;
     meta: EntryMetadata;
 }
 
-export interface MetaTrait {
+export interface InjectedWordFamilyEntry {
+    root: string;
+    derivations: { word: string; pos: string }[];
+    meta: EntryMetadata;
+}
+
+export interface InjectedTrait {
     traitId: string;
     value: string | string[];
     meta: EntryMetadata;
 }
 
-/**
- * SenseAIPayload (后端注入 meta 后)
- */
-export interface SenseAIPayload {
-    fingerprint: MetaInjected<string>;
-    frequency: MetaInjected<number>;
-    ontology: MetaInjected<string>;
-    meaning: Record<string, MetaInjected<string>>;
-    flavorText: Array<{
-        persona: string;
-        text: Record<string, MetaInjected<string>>;
-        example: Record<string, MetaInjected<string>>;
-        meta: EntryMetadata;
-    }>;
-    shells: Record<string, MetaShell[]>;
-    wordFamily: Record<string, MetaWordFamily>;
-    traits?: Record<string, MetaTrait[]>;
+export interface InjectedFlavorTextEntry {
+    persona: string;
+    text: Record<string, InjectedValue<string>>;
+    example: Record<string, InjectedValue<string>>;
 }
 
+/**
+ * SenseAIPayload: output of injectSenseMeta(). All nodes have meta injected.
+ */
+export interface SenseAIPayload {
+    fingerprint: { items: { word: string; tier: 1 | 2 | 3 }[] };
+    frequency: InjectedValue<number>;
+    ontology: InjectedValue<string>;
+    meaning: Record<string, InjectedValue<string>>;
+    flavorText: InjectedFlavorTextEntry[];
+    shells: Record<string, InjectedShell[]>;
+    wordFamily: Record<string, InjectedWordFamilyEntry>;
+    traits?: Record<string, InjectedTrait[]>;
+}
+
+// ── Visual Payload ────────────────────────────────────────────────────────────
+
+export interface VisualPayload {
+    uid: string;        // sense_id
+    id: string;         // visual variant id, e.g. "default"
+    payload: string;    // TSX component string
+    meta: {
+        stability: number;
+        firstDiscoverer: string;
+        firstDiscoveredAt: number;
+    };
+}
+
+// ── Success Response ──────────────────────────────────────────────────────────
+
 export interface SynthesisSuccessResponse {
-    synthesisReason: string | Record<string, string>;
-    sense: SenseAIPayload & { uid: string };
-    visual: any; // visual details or null if pending
-    cached: boolean;
+    success: true;
+    data: {
+        sense: SenseAIPayload & { uid: string };
+        visual: VisualPayload | null;
+        cached: boolean;
+        isNewDiscovery: boolean;
+        archetypeUsed: string;
+        synthesisReason: string;
+    };
+}
+
+// ── DeltaMissing (used by buildDeltaPrompt) ───────────────────────────────────
+
+export interface DeltaMissing {
+    langs: string[];            // entirely missing language data
+    personas: string[];         // existing langs, missing specific persona FlavorText
+    wordFamilyLangs: string[];  // existing shells, missing wordFamily
+    traitLangs: string[];       // existing shells, missing/incomplete traits
 }

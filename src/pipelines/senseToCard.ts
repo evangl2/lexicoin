@@ -31,6 +31,7 @@ import type {
 
 // Import supported languages constant
 // Note: Using explicit import path for clarity
+import { SUPPORTED_LANGUAGES, DEFAULT_LANGUAGE } from '../types/CardEntity';
 export { SUPPORTED_LANGUAGES, DEFAULT_LANGUAGE } from '../types/CardEntity';
 import { visualForCard } from './visualForCard';
 
@@ -65,19 +66,28 @@ export function extractDisplayData(
     const primaryShell = shells[0];
 
     // Extract word (with fallback)
-    const word = primaryShell?.text.value || "Missing";
+    const word = primaryShell?.text.value ||
+        sense.shells?.[DEFAULT_LANGUAGE]?.[0]?.text.value ||
+        "Missing";
 
     // Extract pronunciation (optional field)
-    const pronunciation = primaryShell?.pronunciation?.value;
+    const pronunciation = primaryShell?.pronunciation?.value ||
+        sense.shells?.[DEFAULT_LANGUAGE]?.[0]?.pronunciation?.value;
 
     // Extract part of speech (with fallback)
-    const pos = primaryShell?.pos.value || "n.";
+    const pos = primaryShell?.pos.value ||
+        sense.shells?.[DEFAULT_LANGUAGE]?.[0]?.pos.value ||
+        "n.";
 
     // Extract difficulty level (with fallback)
-    const level = primaryShell?.level.value || "A1";
+    const level = primaryShell?.level.value ||
+        sense.shells?.[DEFAULT_LANGUAGE]?.[0]?.level.value ||
+        "A1";
 
     // Extract dictionary definition (with fallback)
-    const definition = sense.meaning?.[lang]?.value || "No definition available";
+    const definition = sense.meaning?.[lang]?.value ||
+        sense.meaning?.[DEFAULT_LANGUAGE]?.value ||
+        "No definition available";
 
     // Extract flavor text contents (description + example)
     const flavorContents: FlavorContentItem[] = (() => {
@@ -88,28 +98,33 @@ export function extractDisplayData(
         for (const flavorEntry of flavorEntries) {
             if (!flavorEntry.persona) continue;
 
-            // 1. Add Description
-            const descriptionText = flavorEntry.text[lang]?.value;
+            // 1. Add Description (with fallback)
+            const descriptionText = flavorEntry.text[lang]?.value ||
+                flavorEntry.text[DEFAULT_LANGUAGE]?.value;
+            
             if (descriptionText) {
                 contents.push({
-                    id: `flavor-desc-${flavorEntry.persona}`,
+                    id: `flavor-desc-${flavorEntry.persona}-${lang}`,
                     type: 'description',
                     text: descriptionText,
                     persona: flavorEntry.persona
                 });
             }
 
-            // 2. Add Example
-            const exampleText = flavorEntry.example[lang]?.value;
+            // 2. Add Example (with fallback)
+            const exampleText = flavorEntry.example[lang]?.value ||
+                flavorEntry.example[DEFAULT_LANGUAGE]?.value;
+            
             if (exampleText) {
                 contents.push({
-                    id: `flavor-ex-${flavorEntry.persona}`,
+                    id: `flavor-ex-${flavorEntry.persona}-${lang}`,
                     type: 'example',
                     text: exampleText,
                     persona: flavorEntry.persona
                 });
             }
         }
+        // ... rest of sort logic remains same
 
         // Sort items: 'default' first, then alphabetical by persona
         // This ensures the default view is always correct

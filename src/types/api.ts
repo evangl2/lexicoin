@@ -5,6 +5,7 @@
  */
 
 import type { UUID, Sense, LocalizedText, CEFRLevel, ConstructionLevel } from './index';
+import type { SenseEntity, Language, WordLevel, VisualEntry } from '@schemas/schemas/SenseEntity.schema';
 
 // ============================================================================
 // API BASE TYPES
@@ -33,23 +34,31 @@ export interface PaginatedResponse<T> {
 // SYNTHESIS API (AI-powered word combination)
 // ============================================================================
 
+export type SynthesisErrorCode = 
+    | 'INVALID_INPUT' 
+    | 'MODEL_TIMEOUT' 
+    | 'AI_PARSE_ERROR' 
+    | 'UPSERT_FAILED' 
+    | 'UNKNOWN_ERROR';
+
 export interface SynthesisRequest {
-    inputSenseIds: UUID[];
-    context?: string;
-    targetLevel?: CEFRLevel;
-    userId: UUID;
+    input_1_id: UUID;
+    input_2_id: UUID;
+    lang: Language;
+    max_level?: WordLevel;
+    target_languages?: Language[];
+    personaId?: string;
+    personaNarrative?: string;
+    visual_id?: string;
 }
 
 export interface SynthesisResponse {
-    success: boolean;
-    result?: {
-        sense: Sense;
-        archetypeUsed: string;
-        cached: boolean;
-        isNewDiscovery: boolean;
-    };
-    failureReason?: 'INCOMPATIBLE' | 'NO_SYNERGY' | 'OFFENSIVE' | 'INVALID';
-    failureMessage?: LocalizedText;
+    sense: SenseEntity;
+    visual: VisualEntry | null;
+    cached: boolean;
+    isNewDiscovery: boolean;
+    archetypeUsed: string;
+    synthesisReason: string;
 }
 
 // ============================================================================

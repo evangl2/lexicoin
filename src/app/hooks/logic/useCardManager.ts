@@ -1,8 +1,9 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { useMotionValue, motionValue, MotionValue } from "motion/react";
 import type { CardEntity } from "@/types/CardEntity";
-import { sensesToCards } from "@/pipelines/senseToCard";
+import { sensesToCards, senseToCard } from "@/pipelines/senseToCard";
 import { senseRepository } from "@core/storage/SenseRepository";
+import { messageBus } from "@core/protocol/MessageBus";
 import type { CardLocation } from "@core/storage/db";
 import { db } from "@core/storage/db";
 import { logger } from "@utils/logger";
@@ -239,6 +240,43 @@ export const useCardManager = () => {
     }, []);
 
 
+
+    // ==== MessageBus Subscriptions ====
+    useEffect(() => {
+        if (!isLoaded) return;
+
+        const handleNewSense = (msg: any) => {
+            const sense = msg.payload as any;
+            if (!sense?.uid) return;
+
+            // Check if already exists to avoid duplicates
+            if (items.some(i => i.cardData.rawSense.uid === sense.uid)) return;
+
+            // Transform new sense to CardEntity
+            // Default position near center or context-specific
+            const cardData = senseToCard(sense, items.length);
+            
+            const newItem: CardItem = {
+                cardData,
+                mx: motionValue(0),
+                my: motionValue(0),
+                scale: motionValue(1),
+                width: 250,
+                height: 350,
+                location: 'canvas',
+                isVisible: true
+            };
+
+            setItems(prev => [...prev, newItem]);
+            logger.info(`Added new card ${sense.uid} to canvas from SENSE_CREATED`, undefined, 'useCardManager');
+        };
+
+        const sub = messageBus.subscribe('SENSE_CREATED', handleNewSense);
+        
+        return () => {
+            messageBus.unsubscribe('SENSE_CREATED', sub);
+        };
+    }, [isLoaded, items]);
 
     // Cleanup debounce timer on unmount
     useEffect(() => {

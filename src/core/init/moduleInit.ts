@@ -11,8 +11,10 @@ import { platformAdapter } from '@core/platform/PlatformAdapter';
 import { levelModule } from '@modules/level/LevelModule';
 import { useGameStore } from '@store/index';
 import { logger } from '@utils/logger';
-import { initializeVisuals } from './initializeVisuals';
+import { libraryModule } from '@modules/library/LibraryModule';
 import { INITIAL_SENSES } from '@schemas/data/initialSenses';
+import { initializeVisuals } from './initializeVisuals';
+import { realtimeService } from '@core/api/RealtimeService';
 
 /**
  * Initialize all modules and set up MessageBus subscriptions
@@ -21,6 +23,9 @@ export async function initializeModules(): Promise<void> {
     logger.info('Initializing all modules...', undefined, 'ModuleInit');
 
     try {
+        // Initialize Supabase Realtime
+        realtimeService.init();
+
         // Seed initial senses into IndexedDB (no-op if already seeded)
         await senseRepository.seed(INITIAL_SENSES);
 

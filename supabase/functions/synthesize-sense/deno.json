@@ -1,5 +1,5 @@
 {
     "imports": {
-        "@schemas/": "../../../schemas/"
+        "@schemas/schemas/KeyFormsDictionary.config.ts": "./lib/KeyFormsDictionary.config.ts"
     }
 }
