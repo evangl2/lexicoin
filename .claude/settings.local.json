@@ -11,7 +11,9 @@
       "Bash(perl -i -pe \"s|Modify \\\\`schemas/data/initialSenses\\\\.ts\\\\`|Modify \\\\`src/schemas/data/initialSenses.ts\\\\`|g\" docs/card-data-pipeline.md)",
       "Bash(grep -rn \"src/store\\\\b\\\\|src/pipelines\\\\b\\\\|hooks/logic/\\\\|utils/mergeSplit/\\\\|^schemas/\" docs/*.md)",
       "Bash(npx tsc:*)",
-      "mcp__Claude_Preview__preview_start"
+      "mcp__Claude_Preview__preview_start",
+      "Bash(npx supabase:*)",
+      "Bash(xargs grep:*)"
     ]
   }
 }

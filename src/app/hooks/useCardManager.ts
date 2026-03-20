@@ -249,13 +249,7 @@ export const useCardManager = () => {
             const sense = msg.payload as any;
             if (!sense?.uid) return;
 
-            // Check if already exists to avoid duplicates
-            if (items.some(i => i.cardData.rawSense.uid === sense.uid)) return;
-
-            // Transform new sense to CardEntity
-            // Default position near center or context-specific
-            const cardData = senseToCard(sense, items.length);
-            
+            const cardData = senseToCard(sense, 0);
             const newItem: CardItem = {
                 cardData,
                 mx: motionValue(0),
@@ -267,16 +261,43 @@ export const useCardManager = () => {
                 isVisible: true
             };
 
-            setItems(prev => [...prev, newItem]);
-            logger.info(`Added new card ${sense.uid} to canvas from SENSE_CREATED`, undefined, 'useCardManager');
+            // 去重检查放在 setItems 函数式更新器内部，确保原子性
+            // 避免 stale closure 导致多个 handler 同时通过检查而重复添加
+            setItems(prev => {
+                if (prev.some(i => i.cardData.rawSense.uid === sense.uid)) return prev;
+                logger.info(`Added new card ${sense.uid} to canvas from SENSE_CREATED`, undefined, 'useCardManager');
+                return [...prev, newItem];
+            });
+        };
+
+        const handleAssetLoaded = (msg: any) => {
+            const entry = msg.payload as any;
+            if (!entry?.uid || !entry?.payload) return;
+
+            setItems(prev => {
+                const idx = prev.findIndex(i => i.cardData.rawSense.uid === entry.uid);
+                if (idx === -1) return prev; // 该卡片不在当前列表中，忽略
+                const updated = [...prev];
+                updated[idx] = {
+                    ...updated[idx],
+                    cardData: {
+                        ...updated[idx].cardData,
+                        visual: { status: 'loaded' as const, payload: entry.payload }
+                    }
+                };
+                logger.info(`Visual updated for card ${entry.uid}`, undefined, 'useCardManager');
+                return updated;
+            });
         };
 
         const sub = messageBus.subscribe('SENSE_CREATED', handleNewSense);
-        
+        const subVisual = messageBus.subscribe('ASSET_LOADED', handleAssetLoaded);
+
         return () => {
             messageBus.unsubscribe('SENSE_CREATED', sub);
+            messageBus.unsubscribe('ASSET_LOADED', subVisual);
         };
-    }, [isLoaded, items]);
+    }, [isLoaded]);
 
     // Cleanup debounce timer on unmount
     useEffect(() => {

@@ -42,6 +42,38 @@ function stripMarkdown(raw: string): string {
     return raw.replace(/^```[a-z]*\n?/im, '').replace(/\n?```$/m, '').trim();
 }
 
+/**
+ * Repair malformed JSON produced by Gemini:
+ * replaces literal newlines/tabs inside string values with proper escape sequences.
+ */
+function repairJsonString(raw: string): string {
+    let result = '';
+    let inString = false;
+    let escaped = false;
+    for (let i = 0; i < raw.length; i++) {
+        const ch = raw[i];
+        if (escaped) {
+            result += ch;
+            escaped = false;
+        } else if (ch === '\\' && inString) {
+            result += ch;
+            escaped = true;
+        } else if (ch === '"') {
+            result += ch;
+            inString = !inString;
+        } else if (inString && ch === '\n') {
+            result += '\\n';
+        } else if (inString && ch === '\r') {
+            result += '\\r';
+        } else if (inString && ch === '\t') {
+            result += '\\t';
+        } else {
+            result += ch;
+        }
+    }
+    return result;
+}
+
 /** Languages that require grammatical gender for nouns */
 const GENDERED_LANGS = new Set(['fr', 'de', 'es', 'it', 'pt']);
 /** Languages that use verb conjugation groups */
@@ -104,6 +136,8 @@ Deno.serve(async (req: Request) => {
     }
 
     try {
+        const t0 = Date.now();
+        console.log('[TIMING] 1_start');
         const body: SynthesisRequest = await req.json();
         const {
             input_1_id,
@@ -479,6 +513,7 @@ Deno.serve(async (req: Request) => {
         const defA = extractEnDef(sense1Row.meaning);
         const nameB = extractEnName(shell2Row?.shells);
         const defB = extractEnDef(sense2Row.meaning);
+        console.log(`[TIMING] 3_input_fetch +${Date.now() - t0}ms`);
 
         // Module B — SynthesisPrompt, attempt 1: random archetype
         const archetypeIds = [1, 2, 3, 4, 5, 6] as const;
@@ -497,15 +532,22 @@ Deno.serve(async (req: Request) => {
             archetype: archetypeName,
         });
 
+        const t4 = Date.now();
         let synthesisText = await callGemini({
             systemPrompt: p1.systemPrompt,
             userPrompt: p1.userPrompt,
             temperature: 0.7,
-            maxTokens: 1000,
             responseMimeType: 'application/json',
         });
+        console.log(`[TIMING] 4_moduleB_gemini +${Date.now() - t0}ms (took ${Date.now() - t4}ms)`);
 
-        let synthesisOutput: GeminiSynthesisOutput = JSON.parse(stripMarkdown(synthesisText));
+        let synthesisOutput: GeminiSynthesisOutput;
+        try {
+            synthesisOutput = JSON.parse(repairJsonString(stripMarkdown(synthesisText)));
+        } catch (parseErr) {
+            console.error('[Module B] Failed to parse synthesis JSON (attempt 1):', synthesisText.slice(0, 300));
+            synthesisOutput = { outcome: 'failure', failure_code: 'NO_SYNERGY' } as GeminiSynthesisOutput;
+        }
 
         // Attempt 2: let AI self-select archetype if first attempt fails NO_SYNERGY
         if (synthesisOutput.outcome === 'failure' && synthesisOutput.failure_code === 'NO_SYNERGY') {
@@ -515,10 +557,14 @@ Deno.serve(async (req: Request) => {
                 systemPrompt: p2.systemPrompt,
                 userPrompt: p2.userPrompt,
                 temperature: 0.7,
-                maxTokens: 1000,
                 responseMimeType: 'application/json',
             });
-            synthesisOutput = JSON.parse(stripMarkdown(synthesisText));
+            try {
+                synthesisOutput = JSON.parse(repairJsonString(stripMarkdown(synthesisText)));
+            } catch (parseErr) {
+                console.error('[Module B] Failed to parse synthesis JSON (attempt 2):', synthesisText.slice(0, 300));
+                throw new Error('LLM_ERROR');
+            }
         }
 
         // Both attempts failed
@@ -561,6 +607,7 @@ Deno.serve(async (req: Request) => {
         // has an 'en' shell whose text value matches (case-insensitive).
         let existingUid: string | null = null;
 
+        const t7 = Date.now();
         const { data: shellMatches } = await supabase
             .from('sense_word_shells')
             .select('sense_id, shells');
@@ -576,6 +623,7 @@ Deno.serve(async (req: Request) => {
                 }
             }
         }
+        console.log(`[TIMING] 7_dedup_check +${Date.now() - t0}ms (took ${Date.now() - t7}ms, rows=${shellMatches?.length ?? 0})`);
 
         let senseFinal: any;
         let visualFinal: any = null;
@@ -601,7 +649,7 @@ Deno.serve(async (req: Request) => {
             visualFinal = (existingVisualsRows ?? []).find((v: any) => v.id === visual_id) ?? null;
 
             // Write synthesis_cache to record this combination → existing sense
-            await supabase.from('synthesis_cache').insert({
+            const { error: cacheWriteErr1 } = await supabase.from('synthesis_cache').insert({
                 sense_uid_1: uid1,
                 sense_uid_2: uid2,
                 method_id: methodId,
@@ -610,7 +658,11 @@ Deno.serve(async (req: Request) => {
                 word_text_a: nameA,
                 word_text_b: nameB,
                 synthesis_reason: synthesisReason,
+                meta: {},
             });
+            if (cacheWriteErr1) {
+                console.error('[index] synthesis_cache INSERT error (existing sense path):', cacheWriteErr1);
+            }
 
             isNewDiscovery = false;
         } else {
@@ -628,7 +680,7 @@ Deno.serve(async (req: Request) => {
             visualFinal = visual; // null (async pending)
 
             // Write synthesis_cache
-            await supabase.from('synthesis_cache').insert({
+            const { error: cacheWriteErr2 } = await supabase.from('synthesis_cache').insert({
                 sense_uid_1: uid1,
                 sense_uid_2: uid2,
                 method_id: methodId,
@@ -637,9 +689,14 @@ Deno.serve(async (req: Request) => {
                 word_text_a: nameA,
                 word_text_b: nameB,
                 synthesis_reason: synthesisReason,
+                meta: {},
             });
+            if (cacheWriteErr2) {
+                console.error('[index] synthesis_cache INSERT error (new sense path):', cacheWriteErr2);
+            }
         }
 
+        console.log(`[TIMING] 9_total +${Date.now() - t0}ms`);
         return json({
             success: true,
             data: {

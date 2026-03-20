@@ -75,6 +75,7 @@ export async function generateSense(
         personaNarrative,
     });
 
+    const t10 = Date.now();
     const aiRawText = await callGemini({
         systemPrompt,
         userPrompt,
@@ -82,6 +83,7 @@ export async function generateSense(
         maxTokens: 10000,
         responseMimeType: 'application/json',
     });
+    console.log(`[TIMING] 10_moduleA_gemini took ${Date.now() - t10}ms`);
 
     // ③ Parse AI output and inject meta
     let rawJson: RawSenseAIOutput;
@@ -155,6 +157,7 @@ export async function generateSense(
                 visualId: visual_id,
             });
 
+            const t14 = Date.now();
             const visualRawText = await callGemini({
                 systemPrompt: vSys,
                 userPrompt: vUser,
@@ -162,6 +165,7 @@ export async function generateSense(
                 maxTokens: 6000,
                 responseMimeType: 'text/plain',
             });
+            console.log(`[TIMING] 14_visual_gemini took ${Date.now() - t14}ms`);
 
             // Extract TSX code after the delimiter
             const parts = visualRawText.split('// --- CODE BELOW ---');
@@ -187,7 +191,7 @@ export async function generateSense(
             if (visErr) {
                 console.error('[moduleA] sense_visuals INSERT error (async, non-fatal):', visErr);
             } else {
-                console.log('[moduleA] Visual written for sense:', uid);
+                console.log(`[TIMING] 15_visual_insert done (took ${Date.now() - t14}ms since visual_gemini start)`);
             }
         } catch (e) {
             console.error('[moduleA] Visual async task failed (non-fatal):', e);
