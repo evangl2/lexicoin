@@ -14,7 +14,7 @@ import { logger } from '@utils/logger';
 import { libraryModule } from '@modules/library/LibraryModule';
 import { INITIAL_SENSES } from '@schemas/data/initialSenses';
 import { initializeVisuals } from './initializeVisuals';
-import { realtimeService } from '@core/api/RealtimeService';
+import { realtimeService } from '@core/infra/RealtimeService';
 
 /**
  * Initialize all modules and set up MessageBus subscriptions

@@ -1,4 +1,4 @@
-import { VisualEntry } from '../../../schemas/schemas/SenseEntity.schema';
+import { VisualEntry } from '../../schemas/schemas/SenseEntity.schema';
 
 /**
  * Visual Registry

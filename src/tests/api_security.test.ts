@@ -1,7 +1,7 @@
 /**
  * Security test for APIClient logging
  */
-import { apiClient } from '../core/api/APIClient';
+import { apiClient } from '../core/infra/APIClient';
 import { logger } from '../utils/logger';
 
 async function runTest() {

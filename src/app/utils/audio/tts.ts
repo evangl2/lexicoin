@@ -1,4 +1,4 @@
-import type { Language } from '../../../../schemas/schemas/SenseEntity.schema';
+import type { Language } from '../../../schemas/schemas/SenseEntity.schema';
 
 /**
  * Interface for TTS Providers.

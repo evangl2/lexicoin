@@ -50,18 +50,17 @@
                 "./src/types/*"
             ],
             "@store/*": [
-                "./src/store/*"
+                "./src/core/store/*"
             ],
             "@schemas/*": [
-                "./schemas/*"
+                "./src/schemas/*"
             ]
         }
     },
     "include": [
-        "src",
-        "schemas"
+        "src"
     ],
     "exclude": [
-        "schemas/data/InitialItem"
+        "src/schemas/data/InitialItem"
     ]
 }

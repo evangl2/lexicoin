@@ -8,26 +8,26 @@ import { DndProvider, useDrop } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
 import { useMotionValue } from "motion/react";
 
-import { Canvas } from "@/app/components/ui/Canvas";
-import { Card } from "@/app/components/ui/Card";
-import { Dock } from "@/app/components/ui/Dock";
+import { Canvas } from "@/app/components/ui/canvas/Canvas";
+import { Card } from "@/app/components/ui/card/Card";
+import { Dock } from "@/app/components/ui/shell/Dock";
 import { PersonaProvider } from "@/app/context/PersonaContext";
 import { AudioProvider } from "@/app/context/AudioContext";
 
 // Hooks
-import { useCanvasCamera } from "@/app/hooks/logic/useCanvasCamera";
-import { useCardManager } from "@/app/hooks/logic/useCardManager";
-import { useDeviceManager } from "@/app/hooks/logic/useDeviceManager"; // Added
-import { useCardGrouping } from "@/app/utils/mergeSplit/useCardGrouping";
+import { useCanvasCamera } from "@/app/hooks/useCanvasCamera";
+import { useCardManager } from "@/app/hooks/useCardManager";
+import { useDeviceManager } from "@/app/hooks/useDeviceManager"; // Added
+import { useCardGrouping } from "@/app/hooks/useCardGrouping";
 import { usePhysics } from "@/app/hooks/usePhysics";
 
 // UI Components
-import { DragLayer } from "@/app/components/ui/DragLayer";
-import { CanvasControl } from "@/app/components/ui/CanvasControl";
-import { SynthesisCircle } from "@/app/components/ui/SynthesisCircle"; // Added
+import { DragLayer } from "@/app/components/ui/canvas/DragLayer";
+import { CanvasControl } from "@/app/components/ui/canvas/CanvasControl";
+import { SynthesisCircle } from "@/app/components/ui/visual/SynthesisCircle"; // Added
 
 // Store & Utils
-import { useGameStore } from "@/store/index";
+import { useGameStore } from "@store/index";
 import { getLoc, mapLanguageCode } from "@/app/utils/localization";
 
 const EMPTY_VARIANTS: any[] = [];

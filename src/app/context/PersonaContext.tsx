@@ -21,7 +21,7 @@
  */
 
 import React, { createContext, useContext, useState, useMemo, ReactNode, useCallback } from 'react';
-import { useGameStore } from '@/store/index';
+import { useGameStore } from '@store/index';
 import type {
     CardPersona,
     CanvasPersona,
