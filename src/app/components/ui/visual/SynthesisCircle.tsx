@@ -7,6 +7,9 @@ import { DeviceState } from '@/types/DeviceEntity';
 import { CompactCardVisual } from '../card/CompactCardVisual';
 import { DefaultCardPersona } from '../../persona/default/Card.persona.default';
 import { DEFAULT_LANGUAGE } from '@/types/CardEntity';
+import type { CardEntity } from '@/types/CardEntity';
+import type { Language } from '@/types';
+import { useSynthesis } from '@/app/hooks/useSynthesis';
 
 interface SynthesisCircleProps {
     uid: string;
@@ -21,12 +24,17 @@ interface SynthesisCircleProps {
     onCardEject?: (cardUid: string) => void;
     mergedVariants?: Record<string, any[]>; // Added prop
     onDropIntoRepository?: (uid: string) => void;
+    onSynthesisComplete?: (card: CardEntity) => void;
+    currentLang: Language;
 }
 
 export const SynthesisCircle: React.FC<SynthesisCircleProps> = ({
     uid, x, y, state, updateState, inputCards, canvasScale, onDragEnd,
-    onCardEnter, onCardEject, mergedVariants = {}, onDropIntoRepository
+    onCardEnter, onCardEject, mergedVariants = {}, onDropIntoRepository,
+    onSynthesisComplete, currentLang
 }) => {
+    const { synthesize, state: synthState, card: synthCard, error: synthError } = useSynthesis();
+
     // Drop Targets (Slots)
     const [{ isOver1 }, drop1] = useDrop(() => ({
         accept: 'CARD',
@@ -87,25 +95,48 @@ export const SynthesisCircle: React.FC<SynthesisCircleProps> = ({
         circleRef.current = node;
     }, []);
 
+    // Handle synthesis state transitions
+    useEffect(() => {
+        if (synthState === 'success' && synthCard) {
+            if (state.slot1_uid) onCardEject?.(state.slot1_uid);
+            if (state.slot2_uid) onCardEject?.(state.slot2_uid);
+            updateState(uid, {
+                slot1_uid: null,
+                slot2_uid: null,
+                isProcessing: false,
+                lastResult: synthCard,
+            });
+            onSynthesisComplete?.(synthCard);
+        }
+        if (synthState === 'error') {
+            updateState(uid, {
+                isProcessing: false,
+                errorMessage: synthError ?? 'Synthesis failed',
+            });
+            const t = setTimeout(() => updateState(uid, { errorMessage: undefined }), 3000);
+            return () => clearTimeout(t);
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [synthState]);
+
     // Logic
     const card1 = inputCards.find(c => c.cardData.rawSense.uid === state.slot1_uid);
     const card2 = inputCards.find(c => c.cardData.rawSense.uid === state.slot2_uid);
-    const canSynthesize = !!card1 && !!card2 && !state.isProcessing;
+    const isSynthesizing = synthState === 'processing' || synthState === 'processing-long';
+    const canSynthesize = !!card1 && !!card2 && !state.isProcessing && !isSynthesizing;
 
     const handleSynthesize = () => {
         if (!canSynthesize) return;
-        console.log('Synthesizing:', card1?.cardData.uid, '+', card2?.cardData.uid);
-        updateState(uid, { isProcessing: true });
-
-        // Mock async
-        setTimeout(() => {
-            updateState(uid, { isProcessing: false });
-            console.log('Synthesis Complete (Mock)');
-        }, 2000);
+        updateState(uid, { isProcessing: true, errorMessage: undefined });
+        synthesize({
+            input_1_id: card1!.cardData.uid,
+            input_2_id: card2!.cardData.uid,
+            lang: currentLang,
+        });
     };
 
     const handleEject = (slot: 1 | 2) => {
-        if (state.isProcessing) return;
+        if (state.isProcessing || isSynthesizing) return;
 
         let targetUid: string | null = null;
         if (slot === 1) {
@@ -121,6 +152,14 @@ export const SynthesisCircle: React.FC<SynthesisCircleProps> = ({
         }
     };
 
+    const statusText = (() => {
+        if (state.errorMessage) return state.errorMessage;
+        if (synthState === 'processing-long') return 'Still processing...';
+        if (synthState === 'processing' || state.isProcessing) return 'Synthesizing...';
+        if (synthState === 'success') return 'Complete';
+        return 'Awaiting Reagents';
+    })();
+
     return (
         <motion.div
             ref={setRefs} // Use stable callback ref
@@ -132,7 +171,7 @@ export const SynthesisCircle: React.FC<SynthesisCircleProps> = ({
                 left: '50%',
                 top: '50%',
                 marginLeft: -225, // -width / 2 (450/2)
-                marginTop: -225,  // -height / 2 (450/2) 
+                marginTop: -225,  // -height / 2 (450/2)
                 touchAction: 'none' // Direct style instead of class
             }}
             onPointerDown={(e) => e.stopPropagation()}
@@ -157,7 +196,7 @@ export const SynthesisCircle: React.FC<SynthesisCircleProps> = ({
                         card={card1}
                         variants={card1 ? (mergedVariants[card1.cardData.uid] || []) : []}
                         onEject={() => handleEject(1)}
-                        disabled={state.isProcessing}
+                        disabled={state.isProcessing || isSynthesizing}
                         slotId={1}
                         deviceUid={uid}
                     />
@@ -173,7 +212,7 @@ export const SynthesisCircle: React.FC<SynthesisCircleProps> = ({
                                     : 'bg-white/5 border-white/10 text-zinc-600 cursor-not-allowed'}
                             `}
                         >
-                            {state.isProcessing ? <Loader2 className="animate-spin" /> : <Sparkles size={24} />}
+                            {(state.isProcessing || isSynthesizing) ? <Loader2 className="animate-spin" /> : <Sparkles size={24} />}
                         </button>
                     </div>
 
@@ -183,15 +222,15 @@ export const SynthesisCircle: React.FC<SynthesisCircleProps> = ({
                         card={card2}
                         variants={card2 ? (mergedVariants[card2.cardData.uid] || []) : []}
                         onEject={() => handleEject(2)}
-                        disabled={state.isProcessing}
+                        disabled={state.isProcessing || isSynthesizing}
                         slotId={2}
                         deviceUid={uid}
                     />
                 </div>
 
                 <div className="absolute bottom-12 text-center w-full">
-                    <span className="text-[10px] uppercase tracking-[0.2em] text-white/30 font-mono">
-                        {state.isProcessing ? 'Synthesizing...' : 'Awaiting Reagents'}
+                    <span className={`text-[10px] uppercase tracking-[0.2em] font-mono ${state.errorMessage ? 'text-red-400' : 'text-white/30'}`}>
+                        {statusText}
                     </span>
                 </div>
             </div>
@@ -220,7 +259,7 @@ const Slot = React.forwardRef<HTMLDivElement, SlotProps>((props, ref) => {
             data-device-uid={props.deviceUid}
             className={`
                 synthesis-slot w-[120px] h-[120px] rounded-[22px] transition-all duration-300 relative group
-                ${card ? '' : 'border-2'} 
+                ${card ? '' : 'border-2'}
                 ${isOver && !card ? 'border-[#D4AF37] bg-[#D4AF37]/10' : ''}
                 ${!isOver && !card ? 'border-white/10 bg-black/20' : ''}
             `}

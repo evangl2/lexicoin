@@ -3,7 +3,7 @@ import { supabase } from '@core/infra/supabaseClient';
 import { messageBus } from '@core/protocol/MessageBus';
 import { logger } from '@utils/logger';
 import { senseToCard } from '@core/pipelines/senseToCard';
-import type { SynthesisRequest, SynthesisResponse } from '@app-types/api';
+import type { SynthesisRequest, SynthesisResponse, APIResponse } from '@app-types/api';
 import type { CardEntity } from '@app-types/CardEntity';
 
 export type SynthesisState = 'idle' | 'processing' | 'processing-long' | 'success' | 'error';
@@ -49,7 +49,13 @@ export function useSynthesis(): UseSynthesisResult {
 
       if (invokeError) throw invokeError;
 
-      const response = data as SynthesisResponse;
+      const apiResponse = data as APIResponse<SynthesisResponse>;
+      
+      if (!apiResponse.success || !apiResponse.data) {
+        throw new Error(apiResponse.error?.message || 'Synthesis failed on server');
+      }
+
+      const response = apiResponse.data;
       
       // Transform to UI card
       const newCard = senseToCard(response.sense, 0);
