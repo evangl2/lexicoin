@@ -244,15 +244,15 @@ class ReviewModule {
 
         session.completedAt = Date.now();
 
-        // Update mastery for all reviewed senses
-        for (const senseId of session.senseIds) {
+        // Update mastery for all reviewed senses concurrently
+        await Promise.all(session.senseIds.map(async (senseId) => {
             const gamesForSense = session.miniGames.filter(g => g.senseId === senseId);
             const correctCount = gamesForSense.filter(g => g.correct).length;
             const totalCount = gamesForSense.length;
             const avgTime = gamesForSense.reduce((sum, g) => sum + (g.timeSpent || 0), 0) / totalCount;
 
             await this.updateMastery(senseId, correctCount, totalCount, avgTime);
-        }
+        }));
 
         await messageBus.send('REVIEW_SESSION_COMPLETED', session, 'ReviewModule');
         logger.info(`Review session completed`, {
