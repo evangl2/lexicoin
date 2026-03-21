@@ -225,10 +225,19 @@ export const useCardGrouping = ({ items, setItems, learningLang }: UseCardGroupi
         const exiting: CardItem[] = [];
 
         if (shouldAnimate) {
+            // ⚡ Performance Optimization: Pre-calculate newItems map
+            // Replaces O(N) .some() and .find() checks inside the loop with O(1) Map lookups,
+            // reducing the overall complexity from O(N^2) to O(N).
+            const newItemsMap = new Map<string, CardItem>();
+            for (let i = 0; i < newItems.length; i++) {
+                const item = newItems[i];
+                if (item) newItemsMap.set(item.cardData.rawSense.uid, item);
+            }
+
             items.forEach(oldItem => {
                 const uid = oldItem.cardData.rawSense.uid;
                 // Is it still an anchor?
-                const isStillAnchor = newItems.some(ni => ni.cardData.rawSense.uid === uid);
+                const isStillAnchor = newItemsMap.has(uid);
                 if (isStillAnchor) return;
 
                 // Did it merge into someone?
@@ -238,7 +247,7 @@ export const useCardGrouping = ({ items, setItems, learningLang }: UseCardGroupi
 
                 if (targetAnchorUID) {
                     // Find the visible item for this anchor
-                    targetAnchorItem = newItems.find(ni => ni.cardData.rawSense.uid === targetAnchorUID);
+                    targetAnchorItem = newItemsMap.get(targetAnchorUID);
                 }
 
                 if (targetAnchorItem) {
