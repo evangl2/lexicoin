@@ -13,7 +13,15 @@
       "Bash(npx tsc:*)",
       "mcp__Claude_Preview__preview_start",
       "Bash(npx supabase:*)",
-      "Bash(xargs grep:*)"
+      "Bash(xargs grep:*)",
+      "Skill(update-config)",
+      "Skill(update-config:*)",
+      "Bash(grep -r \"preview_start\\\\|Preview Required\\\\|verification_workflow\" C:/Users/admin/.claude/ --include=*.json)",
+      "Bash(cat C:/Users/admin/.claude/plugins/*.json)",
+      "Bash(cat C:/Users/admin/.claude/ide/*.json)",
+      "Bash(find C:/Users/admin/.claude -name *.json -not -path */.jsonl -not -name *.jsonl)",
+      "Read(//a//**)",
+      "Read(//c/Users/admin/**)"
     ]
   }
 }

@@ -44,15 +44,22 @@ function stripMarkdown(raw: string): string {
 
 /**
  * Repair malformed JSON produced by Gemini:
- * replaces literal newlines/tabs inside string values with proper escape sequences.
+ * - Escapes all literal control characters (U+0000–U+001F) inside string values
+ * - Fixes invalid escape sequences (e.g. \s, \, → \\s, \\,)
  */
 function repairJsonString(raw: string): string {
+    const VALID_ESCAPE = new Set(['"', '\\', '/', 'b', 'f', 'n', 'r', 't', 'u']);
     let result = '';
     let inString = false;
     let escaped = false;
     for (let i = 0; i < raw.length; i++) {
-        const ch = raw[i];
+        const ch = raw[i]!;
+        const code = ch.charCodeAt(0);
         if (escaped) {
+            if (inString && !VALID_ESCAPE.has(ch)) {
+                // Invalid escape sequence — double the backslash
+                result += '\\';
+            }
             result += ch;
             escaped = false;
         } else if (ch === '\\' && inString) {
@@ -61,12 +68,14 @@ function repairJsonString(raw: string): string {
         } else if (ch === '"') {
             result += ch;
             inString = !inString;
-        } else if (inString && ch === '\n') {
-            result += '\\n';
-        } else if (inString && ch === '\r') {
-            result += '\\r';
-        } else if (inString && ch === '\t') {
-            result += '\\t';
+        } else if (inString && code < 0x20) {
+            // All control characters must be escaped in JSON strings
+            if (code === 0x0A) result += '\\n';
+            else if (code === 0x0D) result += '\\r';
+            else if (code === 0x09) result += '\\t';
+            else if (code === 0x08) result += '\\b';
+            else if (code === 0x0C) result += '\\f';
+            else result += `\\u${code.toString(16).padStart(4, '0')}`;
         } else {
             result += ch;
         }
@@ -94,13 +103,16 @@ function releaseDeltaLock(senseId: string): void {
     deltaLocks.delete(senseId);
 }
 
-// ── Validate TSX visual payload ───────────────────────────────────────────────
-function validateVisualPayload(payload: string): boolean {
-    if (!payload.includes('export default')) return false;
-    if (payload.includes('useEffect') || payload.includes('useState') || payload.includes('useRef')) return false;
-    if (!payload.includes("from 'motion/react'") && !payload.includes('from "motion/react"')) return false;
-    if (payload.length < 200 || payload.length > 20_000) return false;
-    return true;
+// ── Validate TSX visual payload — returns null if valid, reason string if invalid ─
+function validateVisualPayload(payload: string): string | null {
+    if (!payload.includes('export default')) return 'missing export default';
+    if (payload.includes('useEffect')) return 'contains forbidden hook: useEffect';
+    if (payload.includes('useState')) return 'contains forbidden hook: useState';
+    if (payload.includes('useRef')) return 'contains forbidden hook: useRef';
+    if (!payload.includes("from 'motion/react'") && !payload.includes('from "motion/react"')) return "missing import from 'motion/react'";
+    if (payload.length < 200) return `length ${payload.length} < 200`;
+    if (payload.length > 20_000) return `length ${payload.length} > 20000`;
+    return null;
 }
 
 // ── Assemble a full SenseEntityPayload from raw DB rows ──────────────────────
@@ -301,6 +313,7 @@ Deno.serve(async (req: Request) => {
                             temperature: 0.4,
                             maxTokens: 10000,
                             responseMimeType: 'application/json',
+                            tag: 'delta',
                         });
 
                         const deltaJson = injectSenseMeta(
@@ -409,7 +422,7 @@ Deno.serve(async (req: Request) => {
             // --- Non-blocking Visual delta ---
             const activeVisual = (visuals ?? []).find((v: any) => v.id === visual_id);
             if (!activeVisual) {
-                (async () => {
+                const visualTask = (async () => {
                     try {
                         // Use english name from shells for visual concept context
                         const shellsEn = existingShells['en'] as any;
@@ -428,14 +441,16 @@ Deno.serve(async (req: Request) => {
                             temperature: 0.6,
                             maxTokens: 6000,
                             responseMimeType: 'text/plain',
+                            tag: 'delta-visual',
                         });
 
                         const parts = visualRawText.split('// --- CODE BELOW ---');
                         let code = (parts.length > 1 ? parts[1] : visualRawText).trim();
                         code = stripMarkdown(code);
 
-                        if (!validateVisualPayload(code)) {
-                            console.warn('[Visual delta] Validation failed — discarding');
+                        const deltaVisualErr = validateVisualPayload(code);
+                        if (deltaVisualErr) {
+                            console.warn('[Visual delta] Validation failed:', deltaVisualErr);
                             return;
                         }
 
@@ -453,6 +468,7 @@ Deno.serve(async (req: Request) => {
                         console.error('[Visual delta] Async failed (non-fatal):', e);
                     }
                 })();
+                (globalThis as any).EdgeRuntime?.waitUntil(visualTask);
             }
 
             // Re-fetch updated data for response (simplified: use existing + delta merged)
@@ -514,6 +530,7 @@ Deno.serve(async (req: Request) => {
         const nameB = extractEnName(shell2Row?.shells);
         const defB = extractEnDef(sense2Row.meaning);
         console.log(`[TIMING] 3_input_fetch +${Date.now() - t0}ms`);
+        console.log(`[index] synthesizing: "${nameA}" + "${nameB}" → lang=${lang}`);
 
         // Module B — SynthesisPrompt, attempt 1: random archetype
         const archetypeIds = [1, 2, 3, 4, 5, 6] as const;
@@ -538,6 +555,7 @@ Deno.serve(async (req: Request) => {
             userPrompt: p1.userPrompt,
             temperature: 0.7,
             responseMimeType: 'application/json',
+            tag: 'moduleB-attempt1',
         });
         console.log(`[TIMING] 4_moduleB_gemini +${Date.now() - t0}ms (took ${Date.now() - t4}ms)`);
 
@@ -545,7 +563,8 @@ Deno.serve(async (req: Request) => {
         try {
             synthesisOutput = JSON.parse(repairJsonString(stripMarkdown(synthesisText)));
         } catch (parseErr) {
-            console.error('[Module B] Failed to parse synthesis JSON (attempt 1):', synthesisText.slice(0, 300));
+            console.error('[Module B] JSON parse error (attempt 1):', parseErr instanceof Error ? parseErr.message : String(parseErr));
+            console.error('[Module B] synthesisText (attempt 1):', synthesisText.slice(0, 1000));
             synthesisOutput = { outcome: 'failure', failure_code: 'NO_SYNERGY' } as GeminiSynthesisOutput;
         }
 
@@ -558,11 +577,13 @@ Deno.serve(async (req: Request) => {
                 userPrompt: p2.userPrompt,
                 temperature: 0.7,
                 responseMimeType: 'application/json',
+                tag: 'moduleB-attempt2',
             });
             try {
                 synthesisOutput = JSON.parse(repairJsonString(stripMarkdown(synthesisText)));
             } catch (parseErr) {
-                console.error('[Module B] Failed to parse synthesis JSON (attempt 2):', synthesisText.slice(0, 300));
+                console.error('[Module B] JSON parse error (attempt 2):', parseErr instanceof Error ? parseErr.message : String(parseErr));
+                console.error('[Module B] synthesisText (attempt 2):', synthesisText.slice(0, 1000));
                 throw new Error('LLM_ERROR');
             }
         }
@@ -662,6 +683,8 @@ Deno.serve(async (req: Request) => {
             });
             if (cacheWriteErr1) {
                 console.error('[index] synthesis_cache INSERT error (existing sense path):', cacheWriteErr1);
+            } else {
+                console.log('[index] synthesis_cache INSERT ok (existing sense path)');
             }
 
             isNewDiscovery = false;
@@ -693,9 +716,12 @@ Deno.serve(async (req: Request) => {
             });
             if (cacheWriteErr2) {
                 console.error('[index] synthesis_cache INSERT error (new sense path):', cacheWriteErr2);
+            } else {
+                console.log('[index] synthesis_cache INSERT ok (new sense path)');
             }
         }
 
+        console.log(`[RESULT] cached=false new=${isNewDiscovery} sense=${senseFinal?.uid ?? 'n/a'} visual=${visualFinal ? 'ready' : 'pending'} total=+${Date.now() - t0}ms`);
         console.log(`[TIMING] 9_total +${Date.now() - t0}ms`);
         return json({
             success: true,

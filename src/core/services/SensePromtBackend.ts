@@ -220,6 +220,9 @@ You must strictly output the JSON according to this structure:
 
 #### **C. Meaning & FlavorText**
 - **meaning**: meaning must be **dictionary-level detailed explanations, no more than 40 words/characters**.
+- **flavorText STRUCTURE (CRITICAL)**: Each element in \`flavorText\` represents ONE persona. Inside each element, \`text\` and \`example\` are language maps containing ALL languages as keys — NOT one array element per language.
+  - ✓ CORRECT: \`[{ "persona": "default", "text": {"en": "...", "zh-CN": "...", "fr": "..."}, "example": {"en": "...", "zh-CN": "...", "fr": "..."} }]\`
+  - ✗ WRONG: \`[{ "persona": "default", "text": {"en": "..."} }, { "persona": "default", "text": {"zh-CN": "..."} }]\`
 - **flavorText - text**: ${textInstruction}
 - **flavorText - example**: ${exampleInstruction}
 - **NATIVE AUTHENTICITY (CRITICAL)**: Write \`meaning\`, \`text\`, and \`example\` directly in the target language's native mindset. **Literal translations from English are strictly prohibited.** You must use culturally accurate idioms, natural phrasing, and authentic sentence structures. The output must be indistinguishable from a native speaker's original writing.

@@ -145,8 +145,9 @@ export function injectSenseMeta(raw: RawSenseAIOutput): SenseAIPayload {
     // ── shells ────────────────────────────────────────────────────────────
     const shells: Record<string, InjectedShell[]> = {};
     for (const lang of Object.keys(raw.shells)) {
-        const shellArr = raw.shells[lang];
-        if (!shellArr) continue;
+        const shellRaw = raw.shells[lang];
+        if (!shellRaw) continue;
+        const shellArr = Array.isArray(shellRaw) ? shellRaw : [shellRaw];
         shells[lang] = shellArr.map((sh): InjectedShell => ({
             text: wv<string>(sh.text as string),
             pronunciation: wv<string>(sh.pronunciation as string),

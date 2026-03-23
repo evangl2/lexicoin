@@ -82,6 +82,7 @@ export async function generateSense(
         temperature: 0.4,
         maxTokens: 10000,
         responseMimeType: 'application/json',
+        tag: 'moduleA-sense',
     });
     console.log(`[TIMING] 10_moduleA_gemini took ${Date.now() - t10}ms`);
 
@@ -116,6 +117,7 @@ export async function generateSense(
         console.error('[moduleA] senses INSERT error:', senseError);
         throw new Error('GENERATION_FAILED');
     }
+    console.log('[moduleA] senses INSERT ok:', uid);
 
     // ④-B Write sense_word_shells table (single row per sense, shells=JSONB, traits=JSONB)
     const { error: shellsError } = await supabaseAdmin.from('sense_word_shells').insert({
@@ -128,28 +130,38 @@ export async function generateSense(
         console.error('[moduleA] sense_word_shells INSERT error:', shellsError);
         throw new Error('GENERATION_FAILED');
     }
+    console.log('[moduleA] sense_word_shells INSERT ok');
 
     // ④-C Write sense_flavor_texts table (one row per persona)
     if (sensePayload.flavorText.length > 0) {
-        const flavorInserts = sensePayload.flavorText.map((flavor) => ({
-            sense_id: uid,
-            persona: flavor.persona,
-            text: flavor.text,       // { lang: { value, meta } } — column name is "text"
-            example: flavor.example, // { lang: { value, meta } } — column name is "example"
-        }));
+        // Deduplicate by persona — AI occasionally returns duplicate persona entries
+        const seenPersonas = new Set<string>();
+        const flavorInserts = sensePayload.flavorText
+            .filter((flavor) => {
+                if (seenPersonas.has(flavor.persona)) return false;
+                seenPersonas.add(flavor.persona);
+                return true;
+            })
+            .map((flavor) => ({
+                sense_id: uid,
+                persona: flavor.persona,
+                text: flavor.text,       // { lang: { value, meta } } — column name is "text"
+                example: flavor.example, // { lang: { value, meta } } — column name is "example"
+            }));
 
         const { error: flavorError } = await supabaseAdmin.from('sense_flavor_texts').insert(flavorInserts);
         if (flavorError) {
-            // Non-fatal for flavor text, but log it
             console.error('[moduleA] sense_flavor_texts INSERT error (non-fatal):', flavorError);
+        } else {
+            console.log(`[moduleA] sense_flavor_texts INSERT ok (${flavorInserts.length} personas)`);
         }
     }
 
     // ⑤ Return immediately with visual: null (VisualPrompt is non-blocking)
     const result = { sense: { ...sensePayload, uid }, visual: null } as const;
 
-    // ⑥ Fire-and-forget: async visual generation
-    (async () => {
+    // ⑥ Fire-and-forget: async visual generation (kept alive by EdgeRuntime.waitUntil)
+    const visualTask = (async () => {
         try {
             const { systemPrompt: vSys, userPrompt: vUser } = buildVisualPrompt({
                 concept,
@@ -164,6 +176,7 @@ export async function generateSense(
                 temperature: 0.6,
                 maxTokens: 6000,
                 responseMimeType: 'text/plain',
+                tag: 'moduleA-visual',
             });
             console.log(`[TIMING] 14_visual_gemini took ${Date.now() - t14}ms`);
 
@@ -172,8 +185,9 @@ export async function generateSense(
             let code = (parts.length > 1 ? parts[1] : visualRawText).trim();
             code = stripMarkdown(code);
 
-            if (!validateVisualPayload(code)) {
-                console.warn('[moduleA] Visual validation failed — discarding');
+            const visualErr = validateVisualPayload(code);
+            if (visualErr) {
+                console.warn('[moduleA] Visual validation failed:', visualErr);
                 return;
             }
 
@@ -197,6 +211,7 @@ export async function generateSense(
             console.error('[moduleA] Visual async task failed (non-fatal):', e);
         }
     })();
+    (globalThis as any).EdgeRuntime?.waitUntil(visualTask);
 
     return result;
 }

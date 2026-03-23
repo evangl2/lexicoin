@@ -14,5 +14,6 @@
       "runtimeArgs": ["run", "preview"],
       "port": 4173
     }
-  ]
+  ],
+  "autoVerify": false
 }

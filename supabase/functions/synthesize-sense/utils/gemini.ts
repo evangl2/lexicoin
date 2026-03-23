@@ -7,6 +7,8 @@ interface CallGeminiParams {
     temperature?: number;
     responseMimeType?: string;
     maxTokens?: number;
+    /** Caller label for logging (e.g. 'moduleB', 'moduleA-sense', 'moduleA-visual') */
+    tag?: string;
 }
 
 /**
@@ -43,6 +45,7 @@ export async function callGemini(params: CallGeminiParams): Promise<string> {
         temperature = 1.0,
         responseMimeType = 'application/json',
         maxTokens = 10000,
+        tag = 'unknown',
     } = params;
 
     const apiKey = Deno.env.get('GEMINI_API_KEY');
@@ -67,6 +70,7 @@ export async function callGemini(params: CallGeminiParams): Promise<string> {
             60000 // 60 seconds timeout
         );
         const text = result.response.text();
+        console.log(`[callGemini:${tag}] response ${text.length} chars: ${text.slice(0, 2000)}${text.length > 2000 ? '...(truncated)' : ''}`);
         return text;
     };
 
