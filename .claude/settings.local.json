@@ -21,7 +21,10 @@
       "Bash(cat C:/Users/admin/.claude/ide/*.json)",
       "Bash(find C:/Users/admin/.claude -name *.json -not -path */.jsonl -not -name *.jsonl)",
       "Read(//a//**)",
-      "Read(//c/Users/admin/**)"
+      "Read(//c/Users/admin/**)",
+      "Bash(node -e \":*)",
+      "Bash(supabase functions:*)",
+      "Bash(where supabase:*)"
     ]
   }
 }

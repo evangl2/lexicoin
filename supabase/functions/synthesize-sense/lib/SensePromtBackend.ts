@@ -254,7 +254,7 @@ Definition (Base): "${definition}"
 [EXECUTION]
 Construct the SenseEntity JSON. Ensure all ${target_languages.length} languages are filled in meaning, shells, and wordFamily with high precision.
 Fill traits per pos+language rules above; omit languages with no applicable traits.
-Output RAW JSON ONLY.`;
+Output a single RAW JSON OBJECT only. Do NOT wrap the output in an array. The response must start with { and end with }.`;
 
   return { systemPrompt, userPrompt };
 }

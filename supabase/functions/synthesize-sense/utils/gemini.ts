@@ -69,8 +69,13 @@ export async function callGemini(params: CallGeminiParams): Promise<string> {
             generativeModel.generateContent(userPrompt),
             60000 // 60 seconds timeout
         );
+        const candidate = result.response.candidates?.[0];
+        const finishReason = candidate?.finishReason;
         const text = result.response.text();
-        console.log(`[callGemini:${tag}] response ${text.length} chars: ${text.slice(0, 2000)}${text.length > 2000 ? '...(truncated)' : ''}`);
+        console.log(`[callGemini:${tag}] response ${text.length} chars (finishReason=${finishReason}): ${text.slice(0, 2000)}${text.length > 2000 ? '...(truncated)' : ''}`);
+        if (finishReason && finishReason !== 'STOP') {
+            throw new Error(`Gemini generation incomplete: finishReason=${finishReason}`);
+        }
         return text;
     };
 

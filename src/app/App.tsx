@@ -283,8 +283,8 @@ function InnerApp() {
               onCardEject={(cid) => data.setCardLocation(cid, 'canvas', { x: device.mx.get() + 80, y: device.my.get() + 50 })}
               mergedVariants={grouping.mergedVariants}
               onDropIntoRepository={handleDeviceDropIntoRepository}
-              systemlang={systemLang}
-              learninglang={learningLang}
+              systemlang={mappedSystemLang}
+              learninglang={mappedLearningLang}
               onSynthesisComplete={(newCard) => {
                 const spread = 50 + Math.random() * 50;
                 const angle = Math.random() * Math.PI * 2;
