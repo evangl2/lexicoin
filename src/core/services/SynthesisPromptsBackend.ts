@@ -49,13 +49,15 @@ export interface SynthesisPromptParams {
     defA: string;
     nameB: string;
     defB: string;
-    lang: string;
+    systemlang: string;
+    learninglang: string;
+    targetLanguages: string[];
     maxLevel: string;
     archetype?: string;
 }
 
 export function buildSynthesisPrompt(params: SynthesisPromptParams): { systemPrompt: string; userPrompt: string } {
-    const { nameA, defA, nameB, defB, lang, maxLevel, archetype } = params;
+    const { nameA, defA, nameB, defB, systemlang, learninglang, targetLanguages, maxLevel, archetype } = params;
 
     // 1. 构建 Archetypes 列表
     let archetypesList = '';
@@ -68,20 +70,23 @@ export function buildSynthesisPrompt(params: SynthesisPromptParams): { systemPro
         }
     });
 
-    // 2. 简化的 Trial 逻辑
+    // 2. Trial 逻辑（两轮）
     const trialInstruction = archetype
-        ? `Evaluate the inputs using the [!!! PRIMARY PRIORITY !!!] Archetype. Iterate through possible result candidates and evaluate them against "The Three Gates" below. 
-If absolutely no candidate from the Primary Archetype passes the gates, you MUST fall back to the MOST SUITABLE of the other 5 Archetypes. 
-If still no candidate passes the gates, return a "NO_SYNERGY" failure code.`
-        : `Evaluate the inputs and choose the MOST SUITABLE Archetype logic. Iterate candidates against "The Three Gates" below. Return a "NO_SYNERGY" failure code if none pass.`;
+        ? `ROUND 1: Generate your single best candidate using the [!!! PRIMARY PRIORITY !!!] Archetype. Apply the Full Viability Check below.
+If Round 1 fails, proceed to ROUND 2.
+ROUND 2: Self-select the most suitable Archetype. You may relax the level constraint by one CEFR step and use a semantically close but simpler alternative if needed. Apply the Full Viability Check.
+If Round 2 also fails, return the appropriate failure_code.`
+        : `ROUND 1: Choose the MOST SUITABLE Archetype and generate your single best candidate. Apply the Full Viability Check below.
+If Round 1 fails, proceed to ROUND 2.
+ROUND 2: Choose a different Archetype. You may relax the level constraint by one CEFR step. Apply the Full Viability Check.
+If Round 2 also fails, return the appropriate failure_code.`;
 
-    // 3. Cultural Lens 逻辑 (强化版)
+    // 3. Cultural Lens（简化版，learninglang优先）
     const isCulturalLensActive = archetype ? ['Metaphor', 'Gestalt', 'Culture'].includes(archetype) : true;
     const culturalLensInstruction = isCulturalLensActive
-        ? `\n[CONDITIONAL CULTURAL LENS: ACTIVE]
-1. **Total Immersion**: You MUST evaluate the entities from the perspective of native speakers of the "${lang}" language.
-2. **Linguistic Scavenging**: Are there specific idioms, proverbs, colloquialisms, or folklore in "${lang}" involving Entity A and B?
-3. **Cultural Metaphor**: If translating A and B into "${lang}" creates a unique cultural connection (e.g., a pun or historical reference), use that connection as the absolute basis for the synthesis, even if it seems non-obvious in English. Explain this brilliant connection in the synthesis_reason.\n`
+        ? `\n[CULTURAL LENS: ${learninglang}]
+When the synthesis archetype is Metaphor, Gestalt, or Culture: if an obvious cultural reference (idiom, historical event, cultural symbol, famous saying) in "${learninglang}" connects Entity A and Entity B, this MUST take absolute priority over a generic logical result.
+Otherwise, proceed with the strongest logical result that feels natural and meaningful to a "${learninglang}" speaker.\n`
         : '';
 
     // 4. 构建 System Prompt
@@ -92,13 +97,15 @@ Synthesize two input concepts (Entity A + Entity B) into a new, single English o
 
 [THE ALCHEMY LAWS (6 Archetypes)]
 ${archetypesList}${culturalLensInstruction}
-[CRITICAL PROCESS: THE SYNTHESIS TRIAL]
+[SYNTHESIS PROCESS]
 ${trialInstruction}
 
-[THE THREE GATES OF JUDGMENT] (Candidates MUST pass these gates sequentially)
-1. Gate 1: Resonance: Is the connection undeniably logical and instantly recognizable under the chosen Archetype? (If No, keep searching. If exhaustive -> 'NO_SYNERGY')
-2. Gate 2: Purity: Is it offensive/NSFW? (If Yes, keep searching. If exhaustive -> 'OFFENSIVE')
-3. Gate 3: Insight: Is the Candidate Level > CEFR ${maxLevel}? (If Yes, keep searching. If exhaustive -> 'TOO_COMPLEX'. Do NOT downgrade to a weak synonym. Fail instead.)
+[FULL VIABILITY CHECK]
+Your candidate must simultaneously satisfy ALL of the following:
+1. Logical fit: Clear and recognizable connection under the chosen Archetype
+2. Appropriate level: CEFR ≤ ${maxLevel}
+3. Clean content: Not offensive or NSFW
+If the candidate fails, identify which criterion failed and use that as the failure_code: NO_SYNERGY / TOO_COMPLEX / OFFENSIVE.
 
 [OUTPUT CONSTRAINTS]
 Output STRICTLY in the following JSON schema:
@@ -107,7 +114,6 @@ Output STRICTLY in the following JSON schema:
   "result_concept": "The synthesized English word or phrase (null if failure)",
   "result_definition_en": "A clear, concise dictionary definition in English (null if failure)",
   "archetype_used": "The name of the Archetype ultimately used (e.g., 'Metaphor', 'Culture')",
-  "synthesis_reason": "Provide a natural language explanation of exactly why and how A + B = Result, leveraging the chosen archetype logic. **MUST BE WRITTEN IN THE ${lang} LANGUAGE.**",
   "failure_code": null | "NO_SYNERGY" | "OFFENSIVE" | "TOO_COMPLEX"
 }
 `;
@@ -116,12 +122,13 @@ Output STRICTLY in the following JSON schema:
     const userPrompt = `[TASK DATA]
 Entity A: "${nameA}"
 > Definition: "${defA}"
-  
+
 Entity B: "${nameB}"
 > Definition: "${defB}"
 
 Target Level Maximum (CEFR): ${maxLevel}
-Target Cultural Lens Language: ${lang}
+System Language: ${systemlang}
+Learning Language: ${learninglang}
 
 [EXECUTION PROTOCOL]
 Please generate the synthesis result matching the exact JSON schema provided.`;

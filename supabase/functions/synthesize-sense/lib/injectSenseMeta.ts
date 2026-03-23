@@ -125,18 +125,18 @@ export function injectSenseMeta(raw: RawSenseAIOutput): SenseAIPayload {
 
     // ── meaning ───────────────────────────────────────────────────────────
     const meaning: Record<string, InjectedValue<string>> = {};
-    for (const lang of Object.keys(raw.meaning)) {
+    for (const lang of Object.keys(raw.meaning ?? {})) {
         meaning[lang] = wv<string>(raw.meaning[lang] as string);
     }
 
     // ── flavorText ────────────────────────────────────────────────────────
-    const flavorText: InjectedFlavorTextEntry[] = raw.flavorText.map(entry => {
+    const flavorText: InjectedFlavorTextEntry[] = (raw.flavorText ?? []).map(entry => {
         const text: Record<string, InjectedValue<string>> = {};
         const example: Record<string, InjectedValue<string>> = {};
-        for (const lang of Object.keys(entry.text)) {
+        for (const lang of Object.keys(entry.text ?? {})) {
             text[lang] = wv<string>(entry.text[lang] as string);
         }
-        for (const lang of Object.keys(entry.example)) {
+        for (const lang of Object.keys(entry.example ?? {})) {
             example[lang] = wv<string>(entry.example[lang] as string);
         }
         return { persona: entry.persona, text, example };
@@ -144,7 +144,7 @@ export function injectSenseMeta(raw: RawSenseAIOutput): SenseAIPayload {
 
     // ── shells ────────────────────────────────────────────────────────────
     const shells: Record<string, InjectedShell[]> = {};
-    for (const lang of Object.keys(raw.shells)) {
+    for (const lang of Object.keys(raw.shells ?? {})) {
         const shellRaw = raw.shells[lang];
         if (!shellRaw) continue;
         const shellArr = Array.isArray(shellRaw) ? shellRaw : [shellRaw];
@@ -160,7 +160,7 @@ export function injectSenseMeta(raw: RawSenseAIOutput): SenseAIPayload {
 
     // ── wordFamily ────────────────────────────────────────────────────────
     const wordFamily: Record<string, InjectedWordFamilyEntry> = {};
-    for (const lang of Object.keys(raw.wordFamily)) {
+    for (const lang of Object.keys(raw.wordFamily ?? {})) {
         const wf = raw.wordFamily[lang];
         if (!wf) continue;
         wordFamily[lang] = {

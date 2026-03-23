@@ -44,7 +44,8 @@ export type SynthesisErrorCode =
 export interface SynthesisRequest {
     input_1_id: UUID;
     input_2_id: UUID;
-    lang: Language;
+    systemlang: string;
+    learninglang: string;
     max_level?: WordLevel;
     target_languages?: Language[];
     personaId?: string;
@@ -58,7 +59,6 @@ export interface SynthesisResponse {
     cached: boolean;
     isNewDiscovery: boolean;
     archetypeUsed: string;
-    synthesisReason: string;
 }
 
 // ============================================================================

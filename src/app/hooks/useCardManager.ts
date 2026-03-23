@@ -290,12 +290,32 @@ export const useCardManager = () => {
             });
         };
 
+        const handleAssetError = (msg: any) => {
+            const { assetId } = msg.payload as any;
+            if (!assetId) return;
+            setItems(prev => {
+                const idx = prev.findIndex(i => i.cardData.rawSense.uid === assetId);
+                if (idx === -1) return prev;
+                const updated = [...prev];
+                updated[idx] = {
+                    ...updated[idx],
+                    cardData: {
+                        ...updated[idx].cardData,
+                        visual: { status: 'error' as const, payload: '' }
+                    }
+                };
+                return updated;
+            });
+        };
+
         const sub = messageBus.subscribe('SENSE_CREATED', handleNewSense);
         const subVisual = messageBus.subscribe('ASSET_LOADED', handleAssetLoaded);
+        const subVisualErr = messageBus.subscribe('ASSET_ERROR', handleAssetError);
 
         return () => {
             messageBus.unsubscribe('SENSE_CREATED', sub);
             messageBus.unsubscribe('ASSET_LOADED', subVisual);
+            messageBus.unsubscribe('ASSET_ERROR', subVisualErr);
         };
     }, [isLoaded]);
 

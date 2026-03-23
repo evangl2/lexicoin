@@ -154,7 +154,8 @@ Deno.serve(async (req: Request) => {
         const {
             input_1_id,
             input_2_id,
-            lang,
+            systemlang,
+            learninglang,
             max_level = 'B2',
             target_languages = ['en', 'zh-CN', 'fr', 'de', 'ja', 'es', 'it', 'pt'],
             personaId = 'default',
@@ -190,7 +191,7 @@ Deno.serve(async (req: Request) => {
         // DB columns: sense_uid_1, sense_uid_2, result_sense_uid, method_id, slot_index
         const { data: cacheRow, error: cacheErr } = await supabase
             .from('synthesis_cache')
-            .select('result_sense_uid, synthesis_reason, method_id, word_text_a, word_text_b')
+            .select('result_sense_uid, method_id, word_text_a, word_text_b')
             .eq('sense_uid_1', uid1)
             .eq('sense_uid_2', uid2)
             .eq('slot_index', 1)
@@ -454,7 +455,7 @@ Deno.serve(async (req: Request) => {
                             return;
                         }
 
-                        await supabase.from('sense_visuals').insert({
+                        const { error: visualInsertErr } = await supabase.from('sense_visuals').insert({
                             sense_id: resultSenseId,
                             id: visual_id,
                             payload: code,
@@ -464,6 +465,11 @@ Deno.serve(async (req: Request) => {
                                 firstDiscoveredAt: Date.now(),
                             },
                         });
+                        if (visualInsertErr) {
+                            console.error('[Visual delta] sense_visuals INSERT error:', visualInsertErr);
+                        } else {
+                            console.log('[Visual delta] sense_visuals INSERT ok:', resultSenseId);
+                        }
                     } catch (e) {
                         console.error('[Visual delta] Async failed (non-fatal):', e);
                     }
@@ -478,6 +484,7 @@ Deno.serve(async (req: Request) => {
 
             const senseEntityPayload = assembleFromDbRows(senseRow, shellRow, flavors ?? [], '');
 
+            console.log(`[RESULT] cached=true new=false sense=${resultSenseId} visual=${activeVisual ? 'ready' : 'pending'} total=+${Date.now() - t0}ms`);
             return json({
                 success: true,
                 data: {
@@ -486,7 +493,6 @@ Deno.serve(async (req: Request) => {
                     cached: true,
                     isNewDiscovery: false,
                     archetypeUsed: cacheRow.method_id ? String(cacheRow.method_id) : 'Unknown',
-                    synthesisReason: cacheRow.synthesis_reason ?? '',
                 },
             });
         }
@@ -530,7 +536,7 @@ Deno.serve(async (req: Request) => {
         const nameB = extractEnName(shell2Row?.shells);
         const defB = extractEnDef(sense2Row.meaning);
         console.log(`[TIMING] 3_input_fetch +${Date.now() - t0}ms`);
-        console.log(`[index] synthesizing: "${nameA}" + "${nameB}" → lang=${lang}`);
+        console.log(`[index] synthesizing: "${nameA}" + "${nameB}" → system=${systemlang} learning=${learninglang}`);
 
         // Module B — SynthesisPrompt, attempt 1: random archetype
         const archetypeIds = [1, 2, 3, 4, 5, 6] as const;
@@ -544,7 +550,9 @@ Deno.serve(async (req: Request) => {
             defA,
             nameB,
             defB,
-            lang,
+            systemlang,
+            learninglang,
+            targetLanguages: target_languages,
             maxLevel: max_level,
             archetype: archetypeName,
         });
@@ -571,7 +579,7 @@ Deno.serve(async (req: Request) => {
         // Attempt 2: let AI self-select archetype if first attempt fails NO_SYNERGY
         if (synthesisOutput.outcome === 'failure' && synthesisOutput.failure_code === 'NO_SYNERGY') {
             console.log('[Module B] Attempt 1 failed (NO_SYNERGY). Retrying with AI-selected archetype.');
-            const p2 = buildSynthesisPrompt({ nameA, defA, nameB, defB, lang, maxLevel: max_level });
+            const p2 = buildSynthesisPrompt({ nameA, defA, nameB, defB, systemlang, learninglang, targetLanguages: target_languages, maxLevel: max_level });
             synthesisText = await callGemini({
                 systemPrompt: p2.systemPrompt,
                 userPrompt: p2.userPrompt,
@@ -600,7 +608,6 @@ Deno.serve(async (req: Request) => {
         const resultConcept = synthesisOutput.result_concept!.trim();
         const resultDefinitionEn = synthesisOutput.result_definition_en!;
         const archetypeUsed = synthesisOutput.archetype_used;
-        const synthesisReason = synthesisOutput.synthesis_reason;
 
         // Map archetype name back to method_id (1-6)
         const archetypeNameToId: Record<string, number> = {
@@ -678,7 +685,6 @@ Deno.serve(async (req: Request) => {
                 result_sense_uid: existingUid,
                 word_text_a: nameA,
                 word_text_b: nameB,
-                synthesis_reason: synthesisReason,
                 meta: {},
             });
             if (cacheWriteErr1) {
@@ -711,7 +717,6 @@ Deno.serve(async (req: Request) => {
                 result_sense_uid: sense.uid,
                 word_text_a: nameA,
                 word_text_b: nameB,
-                synthesis_reason: synthesisReason,
                 meta: {},
             });
             if (cacheWriteErr2) {
@@ -731,7 +736,6 @@ Deno.serve(async (req: Request) => {
                 cached: false,
                 isNewDiscovery,
                 archetypeUsed,
-                synthesisReason,
             },
         });
 

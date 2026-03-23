@@ -8,7 +8,6 @@ import { CompactCardVisual } from '../card/CompactCardVisual';
 import { DefaultCardPersona } from '../../persona/default/Card.persona.default';
 import { DEFAULT_LANGUAGE } from '@/types/CardEntity';
 import type { CardEntity } from '@/types/CardEntity';
-import type { Language } from '@/types';
 import { useSynthesis } from '@/app/hooks/useSynthesis';
 
 interface SynthesisCircleProps {
@@ -25,13 +24,14 @@ interface SynthesisCircleProps {
     mergedVariants?: Record<string, any[]>; // Added prop
     onDropIntoRepository?: (uid: string) => void;
     onSynthesisComplete?: (card: CardEntity) => void;
-    currentLang: Language;
+    systemlang: string;
+    learninglang: string;
 }
 
 export const SynthesisCircle: React.FC<SynthesisCircleProps> = ({
     uid, x, y, state, updateState, inputCards, canvasScale, onDragEnd,
     onCardEnter, onCardEject, mergedVariants = {}, onDropIntoRepository,
-    onSynthesisComplete, currentLang
+    onSynthesisComplete, systemlang, learninglang
 }) => {
     const { synthesize, state: synthState, card: synthCard, error: synthError } = useSynthesis();
 
@@ -131,7 +131,8 @@ export const SynthesisCircle: React.FC<SynthesisCircleProps> = ({
         synthesize({
             input_1_id: card1!.cardData.uid,
             input_2_id: card2!.cardData.uid,
-            lang: currentLang,
+            systemlang,
+            learninglang,
         });
     };
 

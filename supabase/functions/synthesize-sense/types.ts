@@ -10,7 +10,8 @@ export type ArchetypeId = 1 | 2 | 3 | 4 | 5 | 6;
 export interface SynthesisRequest {
     input_1_id: string;
     input_2_id: string;
-    lang: string;
+    systemlang: string;
+    learninglang: string;
     max_level?: string;
     target_languages?: string[];
     personaId?: string;
@@ -41,7 +42,6 @@ export interface GeminiSynthesisOutput {
     result_concept: string | null;
     result_definition_en: string | null;
     archetype_used: string;
-    synthesis_reason: string;
     failure_code?: string | null;
 }
 
@@ -166,7 +166,6 @@ export interface SynthesisSuccessResponse {
         cached: boolean;
         isNewDiscovery: boolean;
         archetypeUsed: string;
-        synthesisReason: string;
     };
 }
 

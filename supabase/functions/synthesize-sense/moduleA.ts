@@ -18,24 +18,15 @@ function parseGeminiJson<T>(rawText: string): T {
  * Validate TSX visual payload for safety constraints.
  * Returns true only if all rules pass.
  */
-function validateVisualPayload(payload: string): boolean {
-    if (!payload.includes('export default')) {
-        console.warn('[Visual] Missing export default');
-        return false;
-    }
-    if (payload.includes('useEffect') || payload.includes('useState') || payload.includes('useRef')) {
-        console.warn('[Visual] Forbidden React hooks found');
-        return false;
-    }
-    if (!payload.includes("from 'motion/react'") && !payload.includes('from "motion/react"')) {
-        console.warn('[Visual] Missing required motion/react import');
-        return false;
-    }
-    if (payload.length < 200 || payload.length > 20000) {
-        console.warn('[Visual] Payload length out of expected range:', payload.length);
-        return false;
-    }
-    return true;
+function validateVisualPayload(payload: string): string | null {
+    if (!payload.includes('export default')) return 'missing export default';
+    if (payload.includes('useEffect')) return 'contains forbidden hook: useEffect';
+    if (payload.includes('useState')) return 'contains forbidden hook: useState';
+    if (payload.includes('useRef')) return 'contains forbidden hook: useRef';
+    if (!payload.includes("from 'motion/react'") && !payload.includes('from "motion/react"')) return "missing import from 'motion/react'";
+    if (payload.length < 200) return `length ${payload.length} < 200`;
+    if (payload.length > 20_000) return `length ${payload.length} > 20000`;
+    return null;
 }
 
 /**
