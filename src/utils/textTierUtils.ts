@@ -71,6 +71,12 @@ export const TEXT_TIERS: TextTier[] = [
     },
 ];
 
+// Pre-computed map for O(1) tier index lookups
+export const TIER_INDEX_MAP: Record<string, number> = TEXT_TIERS.reduce((acc, tier, index) => {
+    acc[tier.id] = index;
+    return acc;
+}, {} as Record<string, number>);
+
 // ============================================================================
 // HELPER FUNCTIONS
 // ============================================================================
@@ -163,8 +169,8 @@ export const predictTier = (text: string, containerWidth: number = 300): TextTie
  * Used when overflow is detected.
  */
 export const getNextSmallerTier = (currentTier: TextTier): TextTier => {
-    const idx = TEXT_TIERS.findIndex(t => t.id === currentTier.id);
-    if (idx === -1 || idx === TEXT_TIERS.length - 1) return currentTier; // Already smallest
+    const idx = TIER_INDEX_MAP[currentTier.id];
+    if (idx === undefined || idx === TEXT_TIERS.length - 1) return currentTier; // Already smallest
     return TEXT_TIERS[idx + 1]!;
 };
 
@@ -173,7 +179,7 @@ export const getNextSmallerTier = (currentTier: TextTier): TextTier => {
  * Used when massive underflow is detected.
  */
 export const getNextLargerTier = (currentTier: TextTier): TextTier => {
-    const idx = TEXT_TIERS.findIndex(t => t.id === currentTier.id);
-    if (idx <= 0) return currentTier; // Already largest
+    const idx = TIER_INDEX_MAP[currentTier.id];
+    if (idx === undefined || idx <= 0) return currentTier; // Already largest
     return TEXT_TIERS[idx - 1]!;
 };

@@ -2,6 +2,7 @@ import { useState, useLayoutEffect, useMemo } from 'react';
 import {
     predictTier,
     TEXT_TIERS,
+    TIER_INDEX_MAP,
     TextTier
 } from '@/utils/textTierUtils';
 
@@ -87,7 +88,7 @@ export const useTieredAutoType = (
             if (ratio > 1.5) jump = 2; // Massive overflow
             if (ratio > 2.0) jump = 3; // Catastrophic overflow
 
-            const currentIndex = TEXT_TIERS.findIndex(t => t.id === currentTier.id);
+            const currentIndex = TIER_INDEX_MAP[currentTier.id] ?? 0;
             const nextIndex = Math.min(TEXT_TIERS.length - 1, currentIndex + jump);
 
             if (nextIndex !== currentIndex) {
@@ -101,7 +102,7 @@ export const useTieredAutoType = (
         else if (ratio < 0.45) {
             // console.log(`[TieredText] Underflow detected (Ratio: ${ratio.toFixed(2)}). Upgrading.`);
 
-            const currentIndex = TEXT_TIERS.findIndex(t => t.id === currentTier.id);
+            const currentIndex = TIER_INDEX_MAP[currentTier.id] ?? 0;
             const nextIndex = Math.max(0, currentIndex - 1); // Only step up 1 tier at a time to be safe
 
             if (nextIndex !== currentIndex) {
