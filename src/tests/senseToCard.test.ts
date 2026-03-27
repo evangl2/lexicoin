@@ -5,8 +5,8 @@
  * to validate correct data extraction and card creation.
  */
 
-import { INITIAL_SENSES } from '../schemas/data/initialSenses';
-import { senseToCard, sensesToCards } from '../core/pipelines/senseToCard';
+import { INITIAL_SENSES } from '../schemas/data/initialSenses.ts';
+import { senseToCard, sensesToCards } from '../core/pipelines/senseToCard.ts';
 import type { CardEntity } from '../types/CardEntity';
 
 // ============================================================================
