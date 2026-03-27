@@ -323,6 +323,7 @@ export const useCardGrouping = ({ items, setItems, learningLang }: UseCardGroupi
         if (prevLang && prevLang !== learningLang) {
             const prevUIDs = new Set(items.map(i => i.cardData.uid));
             const processedNewItems = new Set<string>();
+            const newItemUIDs = new Set(newItems.map(i => i.cardData.uid)); // Pre-calculate for O(1) lookup
 
             newItems.forEach(ni => {
                 // Check if this is a newly appeared item
@@ -336,9 +337,9 @@ export const useCardGrouping = ({ items, setItems, learningLang }: UseCardGroupi
                     const oldAnchorItem = variantToOldAnchorMap.get(newUID);
                     if (oldAnchorItem) {
                         const anchorID = oldAnchorItem.cardData.uid;
-                        // Check if anchorID (the Source) is in newItems
-                        const sourceItem = newItems.find(i => i.cardData.uid === anchorID);
-                        if (sourceItem) {
+                        // Check if anchorID (the Source) is in newItems using O(1) lookup
+                        const hasSourceItem = newItemUIDs.has(anchorID);
+                        if (hasSourceItem) {
                             splitUIDs.add(anchorID); // Highlight source too
                             connections.push({ from: anchorID, to: newUID });
                         }
