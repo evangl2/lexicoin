@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware';
 import { indexedDBStorage } from './persistence';
 import { createConfigSlice } from './slices/createConfigSlice';
 import { createCardStateSlice } from './slices/createCardStateSlice';
+import { createProgressionSlice } from './slices/createProgressionSlice';
 
 import type {
     PlayerState,
@@ -31,9 +32,6 @@ const initialPlayer: PlayerState = {
     maxHp: 100,
     mp: 50,
     maxMp: 50,
-    level: 1,
-    xp: 0,
-    xpToNextLevel: 100,
     phase: 'GENESIS',
     settings: {
         interfaceLang: 'zh',
@@ -49,6 +47,8 @@ const initialPlayer: PlayerState = {
         sensesCollected: 0,
         tokensSpent: 0,
     },
+    languageProgress: {},
+    streak: { current: 0, best: 0, lastPlayDate: '' },
     createdAt: Date.now(),
     lastLoginAt: Date.now(),
 };
@@ -85,6 +85,7 @@ export const useGameStore = create<GameStore>()(
             // Include Slices
             ...createConfigSlice(set, get, api),
             ...createCardStateSlice(set, get, api),
+            ...createProgressionSlice(set, get, api),
 
             // Player State
             player: initialPlayer,

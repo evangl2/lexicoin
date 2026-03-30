@@ -250,6 +250,7 @@ class ReviewModule {
         const gamesBySense = new Map<string, { total: number; correct: number; time: number }>();
         for (let i = 0; i < session.miniGames.length; i++) {
             const game = session.miniGames[i];
+            if (!game) continue; // Guard: array element may be undefined with strict TS
             let stats = gamesBySense.get(game.senseId);
             if (!stats) {
                 stats = { total: 0, correct: 0, time: 0 };

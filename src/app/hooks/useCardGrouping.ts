@@ -114,7 +114,7 @@ export const useCardGrouping = ({ items, setItems, learningLang }: UseCardGroupi
                 const anchorItem = currentItemsMap.get(anchorID);
                 if (anchorItem) {
                     for (let j = 0; j < variants.length; j++) {
-                        variantToOldAnchorMap.set(variants[j].uid, anchorItem);
+                        variantToOldAnchorMap.set(variants[j]?.uid ?? '', anchorItem);
                     }
                 }
             }

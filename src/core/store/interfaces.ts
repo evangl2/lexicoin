@@ -1,5 +1,6 @@
 import type { ConfigState } from './slices/createConfigSlice';
 import type { CardState } from './slices/createCardStateSlice';
+import type { ProgressionState } from './slices/createProgressionSlice';
 import type {
     PlayerState,
     ViewMode,
@@ -20,7 +21,7 @@ export interface LibraryFilter {
     discovered?: boolean;
 }
 
-export interface GameStore extends ConfigState, CardState {
+export interface GameStore extends ConfigState, CardState, ProgressionState {
     // Player State
     player: PlayerState;
     updatePlayer: (updates: Partial<PlayerState>) => void;

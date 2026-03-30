@@ -5,16 +5,14 @@
  */
 
 import { messageBus } from '@core/protocol/MessageBus';
-// StorageManager removed - replaced by Zustand persist
 import { senseRepository } from '@core/storage/SenseRepository';
 import { platformAdapter } from '@core/platform/PlatformAdapter';
-import { levelModule } from '@modules/level/LevelModule';
 import { useGameStore } from '@store/index';
 import { logger } from '@utils/logger';
-import { libraryModule } from '@modules/library/LibraryModule';
 import { INITIAL_SENSES } from '@schemas/data/initialSenses';
 import { initializeVisuals } from './initializeVisuals';
 import { realtimeService } from '@core/infra/RealtimeService';
+import { xpRegistry } from '@core/services/XPRegistry';
 
 /**
  * Initialize all modules and set up MessageBus subscriptions
@@ -33,7 +31,7 @@ export async function initializeModules(): Promise<void> {
         senseRepository.initSubscriptions();
 
         // Note: Player state is automatically hydrated by Zustand persist middleware.
-        // We don't need to manually load and set it here anymore.
+        // LevelModule is initialized separately in App.tsx via levelModule.initialize().
 
         // Set up MessageBus subscriptions for store synchronization
         setupMessageBusSubscriptions();
@@ -86,15 +84,14 @@ function setupMessageBusSubscriptions(): void {
         store.setActiveReviewSession(message.payload.id);
     });
 
-    messageBus.subscribe('REVIEW_SESSION_COMPLETED', (message) => {
+    messageBus.subscribe('REVIEW_SESSION_COMPLETED', () => {
         store.setActiveReviewSession(undefined);
 
-        // Award XP for completed review
-        const session = message.payload;
-        const xpGained = Math.floor(session.totalScore / 10);
-        const currentPlayer = useGameStore.getState().player;
-        store.updatePlayer({
-            xp: currentPlayer.xp + xpGained,
+        // Award XP for completed review session via the new XPRegistry.
+        // LevelModule handles the level-up state updates & notifications internally.
+        const learningLang = useGameStore.getState().player.settings.learningLang;
+        xpRegistry.awardXP(learningLang, 'SENSE_COLLECTED').catch(err => {
+            logger.error('Failed to award XP for review session', err, 'ModuleInit');
         });
     });
 
@@ -118,7 +115,7 @@ function setupMessageBusSubscriptions(): void {
  */
 export async function saveAllModuleState(): Promise<void> {
     logger.info('Saving all module state... (Auto-handled by persistence)', undefined, 'ModuleInit');
-    // Zustand persist handles auto-saving. Logic here is no longer needed.
+    // Zustand persist handles auto-saving. No manual logic needed.
 }
 
 /**
@@ -134,78 +131,4 @@ export function getPlatformInfo() {
         prefersReducedMotion: platformAdapter.prefersReducedMotion(),
         prefersDarkMode: platformAdapter.prefersDarkMode(),
     };
-}
-
-/**
- * Calculate and award XP for an action
- */
-export async function awardXP(params: {
-    actionType: 'SYNTHESIS' | 'CONSTRUCTION' | 'REVIEW' | 'TASK';
-    complexity: number;
-    success: boolean;
-    timeSpent?: number;
-}): Promise<number> {
-    const xp = levelModule.calculateXPReward(params);
-    const store = useGameStore.getState();
-    const currentPlayer = store.player;
-
-    // Update player XP
-    const newXP = currentPlayer.xp + xp;
-    store.updatePlayer({ xp: newXP });
-
-    // Check for level up
-    const levelInfo = levelModule.calculateLevel(newXP);
-    if (levelInfo.level > currentPlayer.level) {
-        store.updatePlayer({
-            level: levelInfo.level,
-            xpToNextLevel: levelInfo.xpToNext,
-        });
-
-        store.addNotification(
-            {
-                en: `Level Up! You are now level ${levelInfo.level}`,
-                zh: `等级提升！你现在是第 ${levelInfo.level} 级`
-            },
-            'SUCCESS',
-            5000
-        );
-
-        // Check for new unlocks
-        const newUnlocks = levelModule.getUnlockedFeatures(levelInfo.level);
-        for (const unlock of newUnlocks) {
-            if (unlock.requiredLevel === levelInfo.level) {
-                store.addNotification(
-                    {
-                        en: `Unlocked: ${unlock.name}`,
-                        zh: `已解锁：${unlock.name}`
-                    },
-                    'INFO',
-                    4000
-                );
-            }
-        }
-    }
-
-    return xp;
-}
-
-/**
- * Update difficulty metrics based on player performance
- */
-export function updateDifficultyMetrics(success: boolean): void {
-    levelModule.updateDifficultyMetrics(success);
-}
-
-/**
- * Get recommended content difficulty
- */
-export function getRecommendedDifficulty() {
-    const store = useGameStore.getState();
-    const playerLevel = store.player.level;
-    const config = levelModule.getLevelConfig(playerLevel);
-
-    if (!config) return 'A1';
-
-    const metrics = levelModule.getDifficultyMetrics(config.cefrLevel);
-    return metrics.recommendedCEFR;
 }

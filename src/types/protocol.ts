@@ -308,9 +308,12 @@ export type ExtendedProtocolMessage =
     | LibraryEntryAddedMessage
     | LibraryEntryDiscoveredMessage
     | LibraryStabilityUpdatedMessage
-    | FavoriteAddedMessage
     | FavoriteRemovedMessage
     | AchievementUnlockedMessage
+    | XPEarnedMessage
+    | LevelUpMessage
+    | CardDurabilityChangedMessage
+    | CardDepletedMessage
     | FeedbackSubmittedMessage
     | MetaDataUpdatedMessage
     | ErrorReportedMessage
@@ -344,3 +347,57 @@ export interface TelemetryData {
     averageProcessingTime: number;
     errorCount: number;
 }
+
+// ============================================================================
+// XP & LEVEL SYSTEM MESSAGES (新增于 Phase 0.3)
+// ============================================================================
+
+export interface XPEarnedMessage extends BaseMessage<{
+    source: string;         // XPSourceId，如 'SENSE_COLLECTED'
+    amount: number;         // 本次获得的 XP 量
+    totalXp: number;        // 当前等级已积累的总 XP
+    language: Language;     // 归属语言
+}> { type: 'XP_EARNED'; }
+
+export interface LevelUpMessage extends BaseMessage<{
+    language: Language;     // 哪个语言等级升了
+    newLevel: number;
+    previousLevel: number;
+}> { type: 'LEVEL_UP'; }
+
+export interface CardDurabilityChangedMessage extends BaseMessage<{
+    uid: string;
+    delta: number;          // 负数为扣耐久，正数为恢复
+    newDurability: number;
+}> { type: 'CARD_DURABILITY_CHANGED'; }
+
+export interface CardDepletedMessage extends BaseMessage<{
+    uid: string;
+}> { type: 'CARD_DEPLETED'; }
+
+// RESERVED — 预留，本次不实现逻辑，仅声明类型
+export interface StreakUpdatedMessage extends BaseMessage<{
+    current: number;
+    best: number;
+}> { type: 'STREAK_UPDATED'; }
+
+// RESERVED — 预留，本次不实现逻辑，仅声明类型
+export interface GrimoireGeneratedMessage extends BaseMessage<{
+    grimoireId: string;
+    theme: string;
+    slotCount: number;
+}> { type: 'GRIMOIRE_GENERATED'; }
+
+// RESERVED — 预留，本次不实现逻辑，仅声明类型
+export interface GrimoireSlotFilledMessage extends BaseMessage<{
+    grimoireId: string;
+    slotId: string;
+    result: 'success' | 'fail';
+    feedback?: string;
+}> { type: 'GRIMOIRE_SLOT_FILLED'; }
+
+// RESERVED — 预留，本次不实现逻辑，仅声明类型
+export interface GrimoireCompletedMessage extends BaseMessage<{
+    grimoireId: string;
+    score: number;
+}> { type: 'GRIMOIRE_COMPLETED'; }

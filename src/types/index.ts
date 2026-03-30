@@ -12,8 +12,9 @@
 export type UUID = string;
 export type Timestamp = number;
 
-// CEFR Language Levels
-export type CEFRLevel = 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2';
+import type { CEFRLevel, CEFRDistribution } from '../config/balance';
+export type { CEFRLevel, CEFRDistribution };
+export { CEFR_LEVELS } from '../config/balance';
 
 // Supported Languages
 export type Language = 'en' | 'zh' | 'ja' | 'de' | 'fr' | 'es' | 'ko';
@@ -131,6 +132,55 @@ export interface EvolutionResult {
 
 export type GamePhase = 'GENESIS' | 'GOLDEN' | 'ENDLESS';
 
+// ============================================================================
+// LANGUAGE PROGRESS & STREAK (XP System)
+// ============================================================================
+
+export interface LanguageProgress {
+    /** 该语言的玩家等级（1–100） */
+    level: number;
+    /** 当前等级已积累的 XP */
+    xp: number;
+    /** 升到下一级所需的总 XP */
+    xpToNextLevel: number;
+    /** 该语言下已发现的不重复 Sense 数量（统计用） */
+    sensesCollected: number;
+    /** 首次在该语言下合成的时间戳 */
+    startedAt: Timestamp;
+}
+
+export interface StreakData {
+    current: number;        // 当前连续天数
+    best: number;           // 历史最高
+    lastPlayDate: string;   // 'YYYY-MM-DD'
+}
+
+// ============================================================================
+// LEVEL & UNLOCK ABLES (Shared Types)
+// ============================================================================
+
+export interface LevelConfig {
+    level: number;
+    xpRequired: number;
+    cefrLevel: CEFRLevel;
+    unlockedFeatures: string[];
+}
+
+export interface UnlockableFeature {
+    id: string;
+    name: string;
+    description: string;
+    requiredLevel: number;
+    type: 'CONSTRUCTION_TIER' | 'PERSONA' | 'ITEM' | 'GAME_MODE';
+}
+
+export interface DifficultyMetrics {
+    recentSuccessRate: number;  // 0-1
+    averageCompletionTime: number;  // milliseconds
+    consecutiveFailures: number;
+    recommendedCEFR: CEFRLevel;
+}
+
 export interface PlayerState {
     id: UUID;
 
@@ -141,10 +191,13 @@ export interface PlayerState {
     maxMp: number;
 
     // Progression
-    level: number;
-    xp: number;
-    xpToNextLevel: number;
     phase: GamePhase;
+
+    // Per-language progress (XP & Level system)
+    languageProgress: Partial<Record<Language, LanguageProgress>>;
+
+    // Daily streak
+    streak: StreakData;
 
     // Settings
     settings: {
@@ -275,8 +328,7 @@ export type { LibraryEntry, SearchFilters, PersonalShowcase } from '../modules/l
 // Sedimentation Module
 export type { FeedbackType, Feedback, MetaData, ErrorReport } from '../modules/sedimentation/SedimentationModule';
 
-// Level Module
-export type { LevelConfig, UnlockableFeature, DifficultyMetrics } from '../modules/level/LevelModule';
+// Level Module (Types now defined above in index.ts)
 
 // Platform Adapter
 export type { Platform, ViewportInfo, InputCapabilities } from '../core/platform/PlatformAdapter';

@@ -6,6 +6,7 @@ import { senseRepository } from "@core/storage/SenseRepository";
 import { messageBus } from "@core/protocol/MessageBus";
 import type { CardLocation } from "@core/storage/db";
 import { db } from "@core/storage/db";
+import { cardInventoryRepository } from "@core/storage/CardInventoryRepository";
 import { logger } from "@utils/logger";
 
 // Runtime types with MotionValues
@@ -68,6 +69,10 @@ export const useCardManager = () => {
                 logger.error('Failed to load canvas positions', err, 'useCardManager');
             }
 
+            // Load durabilities
+            const durabilities = await cardInventoryRepository.getAll();
+            const durMap = new Map(durabilities.map(d => [d.uid, d.durability]));
+
             // Guard against StrictMode double-mount
             if (cancelled) return;
 
@@ -87,7 +92,11 @@ export const useCardManager = () => {
                 return {
                     cardData: {
                         ...cardData,
-                        position: { x: posX, y: posY }
+                        position: { x: posX, y: posY },
+                        senseInfo: {
+                            ...cardData.senseInfo,
+                            durability: durMap.get(cardData.uid) ?? 100
+                        }
                     },
                     width: 250,
                     height: 350,
@@ -274,48 +283,61 @@ export const useCardManager = () => {
             const entry = msg.payload as any;
             if (!entry?.uid || !entry?.payload) return;
 
-            setItems(prev => {
-                const idx = prev.findIndex(i => i.cardData.rawSense.uid === entry.uid);
-                if (idx === -1) return prev; // 该卡片不在当前列表中，忽略
-                const updated = [...prev];
-                updated[idx] = {
-                    ...updated[idx],
+            setItems(prev => prev.map((item) => {
+                if (item.cardData.rawSense.uid !== entry.uid) return item;
+                return {
+                    ...item,
                     cardData: {
-                        ...updated[idx].cardData,
+                        ...item.cardData,
                         visual: { status: 'loaded' as const, payload: entry.payload }
                     }
                 };
-                logger.info(`Visual updated for card ${entry.uid}`, undefined, 'useCardManager');
-                return updated;
-            });
+            }));
+            logger.info(`Visual updated for card ${entry.uid}`, undefined, 'useCardManager');
         };
 
         const handleAssetError = (msg: any) => {
             const { assetId } = msg.payload as any;
             if (!assetId) return;
-            setItems(prev => {
-                const idx = prev.findIndex(i => i.cardData.rawSense.uid === assetId);
-                if (idx === -1) return prev;
-                const updated = [...prev];
-                updated[idx] = {
-                    ...updated[idx],
+            setItems(prev => prev.map((item) => {
+                if (item.cardData.rawSense.uid !== assetId) return item;
+                return {
+                    ...item,
                     cardData: {
-                        ...updated[idx].cardData,
+                        ...item.cardData,
                         visual: { status: 'error' as const, payload: '' }
                     }
                 };
-                return updated;
-            });
+            }));
         };
 
         const sub = messageBus.subscribe('SENSE_CREATED', handleNewSense);
         const subVisual = messageBus.subscribe('ASSET_LOADED', handleAssetLoaded);
         const subVisualErr = messageBus.subscribe('ASSET_ERROR', handleAssetError);
 
+        const handleDurabilityChanged = (msg: any) => {
+            const { uid, current } = msg.payload;
+            setItems(prev => prev.map((item) => {
+                if (item.cardData.rawSense.uid !== uid) return item;
+                return {
+                    ...item,
+                    cardData: {
+                        ...item.cardData,
+                        senseInfo: {
+                            ...item.cardData.senseInfo,
+                            durability: current
+                        }
+                    }
+                };
+            }));
+        };
+        const subDurability = messageBus.subscribe('CARD_DURABILITY_CHANGED', handleDurabilityChanged);
+
         return () => {
             messageBus.unsubscribe('SENSE_CREATED', sub);
             messageBus.unsubscribe('ASSET_LOADED', subVisual);
             messageBus.unsubscribe('ASSET_ERROR', subVisualErr);
+            messageBus.unsubscribe('CARD_DURABILITY_CHANGED', subDurability);
         };
     }, [isLoaded]);
 

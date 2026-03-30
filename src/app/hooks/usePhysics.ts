@@ -61,11 +61,14 @@ export const usePhysics = (items: PhysicsItem[], draggingId: string | null) => {
       const item = items[i];
       // Skip invalid items if any
       if (!item) {
-        if (cache[i]) cache[i].item = null;
+        const cached = cache[i];
+        if (cached) cached.item = null;
         continue;
       }
 
       const c = cache[i];
+      if (!c) continue;
+
       c.item = item;
       c.x = item.x.get();
       c.y = item.y.get();
@@ -77,17 +80,18 @@ export const usePhysics = (items: PhysicsItem[], draggingId: string | null) => {
     // 2b. CLEAR: Nullify items in the pool that are no longer active
     // This allows garbage collection of removed items and prevents phantom references
     for (let i = count; i < cache.length; i++) {
-        cache[i].item = null;
+      const cached = cache[i];
+      if (cached) cached.item = null;
     }
 
     // 3. CALCULATE: Resolve Collisions on cached data
     for (let i = 0; i < count; i++) {
       const a = cache[i];
-      if (!a.item) continue;
+      if (!a || !a.item) continue;
 
       for (let j = i + 1; j < count; j++) {
         const b = cache[j];
-        if (!b.item) continue;
+        if (!b || !b.item) continue;
 
         // Optimized Collision Check
         const minDist = a.r + b.r;
@@ -102,7 +106,7 @@ export const usePhysics = (items: PhysicsItem[], draggingId: string | null) => {
         const distSq = dx * dx + dy * dy;
 
         if (distSq < minDist * minDist && distSq > 0) {
-          if (draggingId === a.item!.id || draggingId === b.item!.id) {
+          if (draggingId === a.item.id || draggingId === b.item.id) {
             continue;
           }
 
@@ -127,7 +131,7 @@ export const usePhysics = (items: PhysicsItem[], draggingId: string | null) => {
     // 4. CALCULATE & WRITE: Enforce Boundaries and Flush changes
     for (let i = 0; i < count; i++) {
       const c = cache[i];
-      if (!c.item) continue;
+      if (!c || !c.item) continue;
 
       // Skip boundary enforcement if dragging
       if (draggingId !== c.item.id) {

@@ -24,7 +24,10 @@ import { usePhysics } from "@/app/hooks/usePhysics";
 // UI Components
 import { DragLayer } from "@/app/components/ui/canvas/DragLayer";
 import { CanvasControl } from "@/app/components/ui/canvas/CanvasControl";
-import { SynthesisCircle } from "@/app/components/ui/visual/SynthesisCircle"; // Added
+import { SynthesisCircle } from "@/app/components/ui/visual/SynthesisCircle";
+import { ProgressionHUD } from "@/app/components/ui/shell/ProgressionHUD";
+import { LevelUpOverlay } from "@/app/components/ui/system/LevelUpOverlay";
+import { levelModule } from "@/modules/level/LevelModule";
 
 // Store & Utils
 import { useGameStore } from "@store/index";
@@ -220,9 +223,13 @@ function InnerApp() {
     setFocusedCardCount(prev => Math.max(0, prev - 1));
   }, []);
 
-  // Performance Optimization: Memoize language mapping to prevent O(N) recalculations on every render
   const mappedLearningLang = useMemo(() => mapLanguageCode(learningLang), [learningLang]);
   const mappedSystemLang = useMemo(() => mapLanguageCode(systemLang), [systemLang]);
+
+  // 7. Initialize Progression System
+  useEffect(() => {
+    levelModule.initialize();
+  }, []);
 
   return (
     <div
@@ -343,6 +350,10 @@ function InnerApp() {
         systemLang={systemLang}
         getLoc={getLoc}
       />
+
+      {/* Progression Shell */}
+      <ProgressionHUD />
+      <LevelUpOverlay />
 
       {/* Bottom Dock */}
       <Dock
