@@ -244,15 +244,29 @@ class ReviewModule {
 
         session.completedAt = Date.now();
 
+        // ⚡ Performance Optimization: Pre-calculate mini-game groupings by senseId
+        // Replaces O(N * M) nested .filter() calls with a single O(N) Map grouping
+        // and computes correctCount and avgTime in a single pass.
+        const gamesBySense = new Map<string, { total: number; correct: number; time: number }>();
+        for (let i = 0; i < session.miniGames.length; i++) {
+            const game = session.miniGames[i];
+            let stats = gamesBySense.get(game.senseId);
+            if (!stats) {
+                stats = { total: 0, correct: 0, time: 0 };
+                gamesBySense.set(game.senseId, stats);
+            }
+            stats.total += 1;
+            if (game.correct) stats.correct += 1;
+            stats.time += (game.timeSpent || 0);
+        }
+
         // Update mastery for all reviewed senses concurrently
         await Promise.all(
             session.senseIds.map(async (senseId) => {
-                const gamesForSense = session.miniGames.filter(g => g.senseId === senseId);
-                const correctCount = gamesForSense.filter(g => g.correct).length;
-                const totalCount = gamesForSense.length;
-                const avgTime = gamesForSense.reduce((sum, g) => sum + (g.timeSpent || 0), 0) / totalCount;
+                const stats = gamesBySense.get(senseId) || { total: 0, correct: 0, time: 0 };
+                const avgTime = stats.total > 0 ? stats.time / stats.total : 0;
 
-                await this.updateMastery(senseId, correctCount, totalCount, avgTime);
+                await this.updateMastery(senseId, stats.correct, stats.total, avgTime);
             })
         );
 
