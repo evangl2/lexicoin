@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { X, ChevronDown } from 'lucide-react';
 import { useInterfacePersona, useSkinSwitcher } from '@/app/context/PersonaContext';
 import { Slot } from '@/app/components/persona/slots';
+import { exportImportService } from '@/core/services/ExportImportService';
 
 // --- Scroll Select Component (Portal Version) ---
 interface ScrollSelectProps {
@@ -454,10 +455,53 @@ export const ConfigMenu: React.FC<ConfigMenuProps> = ({
                 />
               </div>
 
-              {/* Column 3: Empty */}
-              <div className="p-4 flex items-center justify-center opacity-20 relative">
-                <div className="absolute inset-0 bg-[repeating-linear-gradient(45deg,transparent,transparent_10px,#D4AF37_10px,#D4AF37_11px)] opacity-5" />
-                <span className="tracking-widest" style={{ color: interfacePersona.palette.colors.textSecondary, fontSize: "10px" }}>{getLoc('NO SIGNAL', systemLang)}</span>
+              {/* Column 3: Data Management */}
+              <div className="flex flex-col px-4 py-4 gap-2 border-r" style={{ borderColor: interfacePersona.palette.colors.borderFaint, backgroundColor: interfacePersona.palette.colors.bgVoid + '30' }}>
+                <div className="text-[10px] uppercase tracking-[0.15em] mb-1 pl-1 opacity-70"
+                  style={{
+                    fontFamily: interfacePersona.typography.fonts.heading,
+                    color: interfacePersona.palette.colors.textSecondary,
+                    fontWeight: 'bold'
+                  }}
+                >
+                  DATA MANAGEMENT
+                </div>
+                
+                {/* Export Button */}
+                <button
+                  onClick={() => exportImportService.exportToFile()}
+                  className="w-full h-[32px] relative border flex items-center justify-center transition-all group hover:bg-white/5 active:scale-95 shrink-0"
+                  style={{ borderColor: interfacePersona.palette.colors.borderFaint }}
+                >
+                  <span className="text-[10px] tracking-widest font-bold" style={{ color: interfacePersona.palette.colors.textSecondary }}>EXPORT DATA</span>
+                </button>
+
+                {/* Import Button */}
+                <div className="relative w-full h-[32px] shrink-0 border group transition-all" style={{ borderColor: interfacePersona.palette.colors.borderFaint }}>
+                  <input 
+                    type="file" 
+                    accept=".json" 
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        if (window.confirm("导入将覆盖当前设备数据，此操作不可撤销。确认继续？")) {
+                          try {
+                            await exportImportService.importFromFile(file);
+                            window.alert("Data imported successfully! The page will now reload.");
+                            window.location.reload();
+                          } catch (err) {
+                            // Handled internally by service
+                          }
+                        }
+                        e.target.value = ''; // Reset input
+                      }
+                    }}
+                  />
+                  <div className="absolute inset-0 flex items-center justify-center group-hover:bg-white/5 pointer-events-none">
+                    <span className="text-[10px] tracking-widest font-bold text-red-500/80 group-hover:text-red-400 transition-colors">IMPORT DATA</span>
+                  </div>
+                </div>
               </div>
 
               {/* Column 4: Empty */}

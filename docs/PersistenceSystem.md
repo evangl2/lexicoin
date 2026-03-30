@@ -1,141 +1,67 @@
-# 持久化系统 (Persistence System)
+# 持久化与数据管理系统 (Persistence System)
 
-本文档详细说明了 Lexicoin 项目中的数据持久化架构。该系统旨在实现“即时存档”，确保玩家的核心数据、配置和关键选择在刷新或关闭浏览器后依然保留，同时有意丢弃临时的 UI 状态。
+本文档详细说明了 Lexicoin 项目中的数据持久化架构。该系统旨在实现“彻底离线自治”与“即时存档”，确保玩家的核心数据、图鉴、卡牌防身寿命和关键选择在刷新或关闭浏览器后依然保留，并且支持跨设备的全量打包注血迁移。
 
-## 1. 架构概览
+## 1. 架构概览 (Architecture)
 
-持久化系统采用了 **Zustand Middleware** + **IndexedDB** 的分层架构。
+持久化系统采用了 **Zustand Middleware** + **IndexedDB (Dexie V6)** 的双擎架构。由于 React 的挂载机制要求急速呈现，同时我们需要处理大量的历史日志与二维坐标系，我们将数据的持久化切分为“轻量状态树”与“重量存储库”两条管线。
 
-*   **Zustand (State Layer)**: 负责应用的实时状态管理，作为“内存数据库”。
-*   **persist Middleware**: Zustand 的官方中间件，负责监听状态变化并写入存储适配器。
-*   **Dexie.js (Storage Engine)**: 封装 IndexedDB 的底层操作，提供异步、事务性的数据存储。
-*   **Local Adapter**: 自定义的 `indexedDBStorage` 适配器，连接 Zustand 和 Dexie。
+*   **Zustand (State Layer)**: 负责应用的实时状态管理，作为全工程的高速“内存数据库”。
+*   **persist Middleware**: Zustand 的官方中间件，监听状态变化并依赖适配器异步打包。
+*   **Dexie.js (Storage Engine)**: 封装原生 IndexedDB 操作的核心底层引擎。
+*   **Local Adapter**: 自定义的 `indexedDBStorage` 适配器，将 Zustand 快照送入 Dexie 特定键槽中。
+*   **ExportImportService (Backup System)**: 对客户端暴露的数据搬运微服务，处理 JSON IO 流。
 
-### 数据流向
+## 2. 数据库设计结构 (Dexie DB Schema)
 
-1.  **Write (Save)**: Zustand State Change -> persist middleware -> `partialize` (过滤) -> `indexedDBStorage.setItem` -> Dexie (`gameData` table)
-2.  **Read (Hydrate)**: App Init -> `useGameStore` creation -> `indexedDBStorage.getItem` -> Dexie -> Zustand State
+由于大模型合成带来的庞大海量词语，游戏底层依赖的 Dexie 升级为 `V6` 模型，拆分成了 7 个相互协作的专用物理表 `lexicoin_db`：
 
-## 2. 存储策略
-
-我们采用 **白名单 (Allowlist)** 策略，只持久化明确需要保存的数据，其余数据视为“临时状态” (Transient State)。
-
-### ✅ 持久化的数据 (Persisted)
-
-这些数据保存在 IndexedDB 的 `gameData` 表中，键为 `'app-state'`。
-
-| 类别 | 字段 | 说明 |
+| 表名 (Table) | 描述 (Description) | 主键结构 |
 | :--- | :--- | :--- |
-| **核心数据** | `player` | 等级、XP、属性、最后登录时间 |
-| | `senses` | 玩家收集的所有 Sense (卡片数据源) |
-| | `inventory` | 物品栏中的物品 |
-| | `constructions` | (预留) 玩家构建的语法结构 |
-| **配置** | `learningLang` | 学习语言 (如: English) |
-| | `systemLang` | 系统语言 (如: 简体中文) |
-| | `activeSkin` | 当前生效的 UI/卡片皮肤 |
-| | `audio` | 音量大小和静音状态 |
-| **卡片状态** | `activeVariants` | 记录每张卡片当前选择的“义项/变体” (Merge Choice) |
-| **视图** | `viewMode` | 当前视图模式 (World/Reading) |
-| | `canvasView` | 画布的位置 (x, y) 和缩放 (scale) |
-| **其他** | `activePersona` | 当前激活的人格 (Logician 等) |
-| | `personaResonance`| 各人格的共鸣度/好感度 |
-| | `libraryFilter` | 资料库的筛选条件 |
+| `gameData` | 作为仓库，包含 Zustand 的全量快照 (键名为 `app-state`)。 | `key` |
+| `canvasPositions`| 保存每张悬浮卡片的物理 x, y 坐标系或收容所归属地。 | `uid, location` |
+| `senses` | 直接保存 AI 确立后不可篡改的词条本体数据结构字典。 | `uid` |
+| `visuals` | 用于储存词卡的外观皮肤变异或者动态图片资源的引用映射。| `[uid+variantId], uid` |
+| `devices` | 环境组件坐标状态，如魔法阵合成槽的参数等。 | `uid, location` |
+| `cardInventory` | **V6新增**。管控每一张存在于画面里的实卡的生命与防身（耐久度）追踪字典。 | `uid, language` |
+| `synthesisLog` | **V6新增**。合成溯源表。保存所有源卡片合成推算的 CEFR 难度记录。| `id, resultUid, language...` |
 
-### ❌ 不持久化的数据 (Transient)
+## 3. 内存记忆准则 (Zustand Allowlist)
 
-这些数据在页面刷新后会重置为默认值。
+尽管底层 IndexedDB 大量采用直读直写模式接管历史数据，为了保持 UI 的瞬时重载响应率，Zustand (内存数据库) 同样会使用 **白名单 (Allowlist)** 策略提取关键热数据交由 `persist` 存入 `gameData` 表 `app-state` 字段中。
 
-| 类别 | 字段 | 原因 |
-| :--- | :--- | :--- |
-| **UI 开关** | `deckState.isOpen` | 侧边栏/抽屉。重新进入游戏应保持界面整洁。 |
-| | `isConfigOpen` | 设置菜单。不应在刷新后突然遮挡屏幕。 |
-| **临时状态**| `isFlipped` | 卡片翻面。属于短期交互状态。 |
-| | `isExpanded` | 卡片展开详情。属于短期交互状态。 |
-| | `dragState` | 拖拽过程中的坐标。毫无保存价值。 |
-| | `notifications` | 临时的系统通知/Toast。 |
-| | `modulesReady` | 系统初始化状态标志。 |
+### ✅ 缓存的热数据 (Persisted)
+这些数据一旦变化会被实时打入 IndexedDB 留存（通过 store `partialize` 截取）：
+*   **玩家总档案 `player`**: 包含了所有语言细分的经验槽 `languageProgress` 以及总体的连签数据 `streak`。
+*   **环境偏好偏好**: 如 `learningLang`，`activeSkin`。
+*   **交互保留档**: `activeVariants` (同义词切换器最后选择状态)、`canvasView` (大视口焦点参数)、`activePersona` (当前共鸣的人格导师)。
 
-## 3. 代码实现
+### ❌ 临时数据 (Transient)
+这些内存属于抛弃式碎片，在页面刷新后即刻抹杀以保证安全启动周期：
+*   **UI 抽屉开关**: 设置栏 `isConfigOpen` 或图鉴栏的开启虚位。
+*   **高频物理手势**: `dragState` 或卡片的 `isFlipped`。
+*   **全局生命周期**: `modulesReady` 初始化标识。
 
-### Store 配置 (`src/core/store/index.ts`)
+## 4. 迁移与安全覆盖 (Export / Import Mechanism)
 
-```typescript
-export const useGameStore = create<GameStore>()(
-    persist(
-        (set, get, api) => ({
-            // ... State Definitions ...
-        }),
-        {
-            name: 'app-state', // IndexedDB Key
-            storage: indexedDBStorage, // Custom Adapter
-            partialize: (state) => ({
-                // 仅返回需要持久化的字段
-                player: state.player,
-                config: state.config,
-                // ...
-            }),
-        }
-    )
-);
-```
+为摆脱服务端限制，该系统集成了一套完全由前端原生执行的客户端搬家策略 (`ExportImportService.ts`)。
 
-### 存储适配器 (`src/core/store/persistence.ts`)
+### 导出 (ExportData)
+1. 将当前 Zustand 的 `useGameStore().getState().player` 以及上方提及的 **全部 7 张 Dexie 表单** 循环查询。
+2. 强力约束 JSON 对象，外贴 `schemaVersion: 1` 签章并标注时间轴。
+3. 伪装为原生 `a` 标签挂载，实现二进制流导出，文件名为 `lexicoin-backup-*.json`。
 
-我们实现了 Zustand 的 `PersistStorage` 接口：
+### 导入与阻断 (Import & Reset)
+1. 读取传入文件的二进制信息流，匹配 JSON 以及 Schema 协议是否吻合。
+2. 调用后台异步事务对全部 7 大表格施加最暴力的表层擦除行为 (`table.clear()`)。
+3. 清除完毕后执行万级别的阵列重注入 (`bulkAdd`)。
+4. 全量覆盖 Zustand 中的玩家属性表。
+5. 为了绝对切断一切残存的悬空物理引擎 hook 参考或旧卡片的帧渲染动画，执行最无情的阻断：`window.location.reload()` 触发硬重启展现完美复刻后的存档状态。
 
-```typescript
-export const indexedDBStorage: PersistStorage<any> = {
-    getItem: async (name) => {
-        // 从 Dexie 读取
-        const record = await db.gameData.get(name);
-        return record?.state || null;
-    },
-    setItem: async (name, value) => {
-        // 写入 Dexie
-        await db.gameData.put({ key: name, state: value, ... });
-    },
-    removeItem: async (name) => {
-        await db.gameData.delete(name);
-    },
-};
-```
+## 5. 调试指南
 
-### 数据库 Schema (`src/core/storage/db.ts`)
-
-使用 `Dexie` 定义数据库结构：
-
-```typescript
-class LexicoinDatabase extends Dexie {
-    gameData!: Table<GameDataRecord, string>; 
-    // ...
-    constructor() {
-        super('LexicoinDB');
-        this.version(3).stores({
-            gameData: 'key', // key = 'app-state'
-            // ...
-        });
-    }
-}
-```
-
-## 4. 扩展指南
-
-### 如何添加新的持久化数据？
-
-1.  **Define**: 在 `src/types` 中定义数据类型。
-2.  **Slice**: 在 `src/core/store/slices` 或 `src/core/store/index.ts` 中添加状态和 Action。
-3.  **Allowlist**: 修改 `src/core/store/index.ts` 中的 `partialize` 函数，将新字段名加入返回对象。
-
-### 如何迁移旧数据？
-
-目前系统设计为由于是单机 IndexedDB，若数据结构发生重大变化（Breaking Changes）：
-1.  可以在 `src/core/store/persistence.ts` 的 `getItem` 中添加迁移逻辑。
-2.  或者利用 Dexie 的 `version()` 升级机制进行数据库层面的迁移。
-
-## 5. 调试
-
-*   **查看数据**: 浏览器开发者工具 -> Application -> IndexedDB -> `LexicoinDB` -> `gameData` -> Key `app-state`。
-*   **重置数据**: 删除该记录或点击 Application 栏的 "Delete Database"。
+*   **审查持久化骨架**: 开启浏览器 F12 (DevTools) -> Application -> IndexedDB -> `lexicoin_db`。
+*   **清除异常渲染档**: 若导入中不幸遭遇页面卡死报错，可通过上述路径点击外层的 “Delete database” 实施格式化急救。所有进度系统将在重新进入此域名后利用默认空数组安全重启。
 
 ---
-*文档最后更新时间: 2026-02-12*
+*文档由于大模型 AI 引擎合集以及多语言化架构更新，当前基准为 IndexedDB V6 版本体系。*
