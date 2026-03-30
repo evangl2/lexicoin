@@ -80,36 +80,19 @@ class LibraryModule {
      * Search catalog with filters
      */
     search(filters: SearchFilters): LibraryEntry[] {
-        let results = Array.from(this.catalog.values());
+        const results: LibraryEntry[] = [];
+        const query = filters.query?.toLowerCase();
 
-        // Apply filters
-        if (filters.query) {
-            const query = filters.query.toLowerCase();
-            results = results.filter(entry =>
-                entry.name.toLowerCase().includes(query)
-            );
-        }
+        // Single pass filtering to avoid multiple intermediate arrays
+        for (const entry of this.catalog.values()) {
+            if (query && !entry.name.toLowerCase().includes(query)) continue;
+            if (filters.type && entry.type !== filters.type) continue;
+            if (filters.tags && filters.tags.length > 0 && !filters.tags.some(tag => entry.tags.includes(tag))) continue;
+            if (filters.level && entry.level !== filters.level) continue;
+            if (filters.discovered !== undefined && entry.discovered !== filters.discovered) continue;
+            if (filters.minStability !== undefined && entry.stability < filters.minStability) continue;
 
-        if (filters.type) {
-            results = results.filter(entry => entry.type === filters.type);
-        }
-
-        if (filters.tags && filters.tags.length > 0) {
-            results = results.filter(entry =>
-                filters.tags!.some(tag => entry.tags.includes(tag))
-            );
-        }
-
-        if (filters.level) {
-            results = results.filter(entry => entry.level === filters.level);
-        }
-
-        if (filters.discovered !== undefined) {
-            results = results.filter(entry => entry.discovered === filters.discovered);
-        }
-
-        if (filters.minStability !== undefined) {
-            results = results.filter(entry => entry.stability >= filters.minStability!);
+            results.push(entry);
         }
 
         return results;
@@ -119,29 +102,39 @@ class LibraryModule {
      * Get popular entries (by usage count)
      */
     getPopularEntries(count: number = 10): LibraryEntry[] {
-        return Array.from(this.catalog.values())
-            .filter(entry => entry.discovered)
-            .sort((a, b) => b.usageCount - a.usageCount)
-            .slice(0, count);
+        const results: LibraryEntry[] = [];
+        for (const entry of this.catalog.values()) {
+            if (entry.discovered) {
+                results.push(entry);
+            }
+        }
+        return results.sort((a, b) => b.usageCount - a.usageCount).slice(0, count);
     }
 
     /**
      * Get recent discoveries
      */
     getRecentDiscoveries(count: number = 10): LibraryEntry[] {
-        return Array.from(this.catalog.values())
-            .filter(entry => entry.discovered)
-            .sort((a, b) => b.createdAt - a.createdAt)
-            .slice(0, count);
+        const results: LibraryEntry[] = [];
+        for (const entry of this.catalog.values()) {
+            if (entry.discovered) {
+                results.push(entry);
+            }
+        }
+        return results.sort((a, b) => b.createdAt - a.createdAt).slice(0, count);
     }
 
     /**
      * Get entries by tag
      */
     getEntriesByTag(tag: string): LibraryEntry[] {
-        return Array.from(this.catalog.values()).filter(entry =>
-            entry.tags.includes(tag)
-        );
+        const results: LibraryEntry[] = [];
+        for (const entry of this.catalog.values()) {
+            if (entry.tags.includes(tag)) {
+                results.push(entry);
+            }
+        }
+        return results;
     }
 
     /**
@@ -300,9 +293,16 @@ class LibraryModule {
         firstDiscoveryCount: number;
         achievementCount: number;
     } {
+        let discoveredCount = 0;
+        for (const entry of this.catalog.values()) {
+            if (entry.discovered) {
+                discoveredCount++;
+            }
+        }
+
         return {
             totalEntries: this.catalog.size,
-            discoveredCount: Array.from(this.catalog.values()).filter(e => e.discovered).length,
+            discoveredCount,
             favoriteCount: this.showcase.favoriteIds.length,
             firstDiscoveryCount: this.showcase.firstDiscoveries.length,
             achievementCount: this.showcase.achievements.length,
