@@ -103,18 +103,28 @@ class ConstructionModule {
      * Get constructions by level
      */
     getConstructionsByLevel(level: ConstructionLevel): Construction[] {
-        return Array.from(this.constructions.values()).filter(
-            c => c.level === level
-        );
+        // Performance optimization: Avoid intermediate O(N) Array.from allocation
+        const results: Construction[] = [];
+        for (const construction of this.constructions.values()) {
+            if (construction.level === level) {
+                results.push(construction);
+            }
+        }
+        return results;
     }
 
     /**
      * Get constructions that use a specific sense
      */
     getConstructionsUsingSense(senseId: UUID): Construction[] {
-        return Array.from(this.constructions.values()).filter(
-            c => c.senseIds.includes(senseId)
-        );
+        // Performance optimization: Avoid intermediate O(N) Array.from allocation
+        const results: Construction[] = [];
+        for (const construction of this.constructions.values()) {
+            if (construction.senseIds.includes(senseId)) {
+                results.push(construction);
+            }
+        }
+        return results;
     }
 
     /**
