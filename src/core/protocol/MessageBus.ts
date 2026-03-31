@@ -287,12 +287,18 @@ class MessageBus {
 
         this.isProcessingQueue = true;
 
-        while (this.messageQueue.length > 0) {
-            const queued = this.messageQueue.shift()!;
-            await this.publishInternal(queued.message);
+        try {
+            while (this.messageQueue.length > 0) {
+                const queued = this.messageQueue.shift()!;
+                try {
+                    await this.publishInternal(queued.message);
+                } catch (err) {
+                    console.error('[MessageBus] processQueue: publishInternal threw, skipping message:', queued.message.type, err);
+                }
+            }
+        } finally {
+            this.isProcessingQueue = false;
         }
-
-        this.isProcessingQueue = false;
     }
 
     /**
@@ -343,9 +349,15 @@ class MessageBus {
                 }
             }
 
-            // Wait for all async handlers
+            // Wait for all async handlers — use allSettled so one rejection doesn't abort others
             if (promises.length > 0) {
-                await Promise.all(promises);
+                const results = await Promise.allSettled(promises);
+                results.forEach((r, i) => {
+                    if (r.status === 'rejected') {
+                        hadError = true;
+                        console.error(`[MessageBus] Async handler #${i} rejected for ${processedMessage.type}:`, r.reason);
+                    }
+                });
             }
         } finally {
             const processingTime = performance.now() - startTime;

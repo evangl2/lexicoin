@@ -24,7 +24,10 @@
       "Read(//c/Users/admin/**)",
       "Bash(node -e \":*)",
       "Bash(supabase functions:*)",
-      "Bash(where supabase:*)"
+      "Bash(where supabase:*)",
+      "Bash(grep -E \"\\\\.\\(ts|tsx\\)$\")",
+      "Bash(/tmp/analysis.txt:*)",
+      "Read(//tmp/**)"
     ]
   }
 }

@@ -130,8 +130,23 @@ db.version(6).stores({
     senses:          'uid',
     visuals:         '[uid+variantId], uid',
     devices:         'uid, location',
-    cardInventory:   'uid, language',                      // 新增
-    synthesisLog:    'id, resultUid, language, timestamp', // 新增
+    cardInventory:   'uid, language',
+    synthesisLog:    'id, resultUid, language, timestamp',
+});
+
+// v7: 清空 visuals 表中可能存在的无效记录（复合主键 [uid+variantId] 保持不变）
+// Dexie v4 不支持通过 version 升级更改已有表的 primary key，故保留原 schema。
+// 升级时清空旧记录，由 initializeVisuals() 的 seed() 自动重填。
+db.version(7).stores({
+    gameData:        'key',
+    canvasPositions: 'uid, location',
+    senses:          'uid',
+    visuals:         '[uid+variantId], uid',
+    devices:         'uid, location',
+    cardInventory:   'uid, language',
+    synthesisLog:    'id, resultUid, language, timestamp',
+}).upgrade(async trans => {
+    await trans.table('visuals').clear();
 });
 
 export { db };

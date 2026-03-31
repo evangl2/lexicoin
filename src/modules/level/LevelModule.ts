@@ -58,7 +58,7 @@ class LevelModule {
             });
 
             // B. 注册到库存（初始化耐久度）
-            await durabilitySystem.registerNewCard(sense.id, learningLang);
+            await durabilitySystem.registerNewCard(sense.uid, learningLang);
         });
 
         // --- 2. 自动扣除耐久 ---

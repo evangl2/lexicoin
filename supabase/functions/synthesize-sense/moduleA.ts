@@ -9,9 +9,65 @@ function stripMarkdown(raw: string): string {
     return raw.replace(/^```[a-z]*\n?/im, '').replace(/\n?```$/m, '').trim();
 }
 
-/** Parse Gemini JSON output safely */
+/**
+ * Extract the JSON object/array from text that may have surrounding prose.
+ * Finds the first { or [ and the last matching } or ].
+ */
+function extractJson(raw: string): string {
+    const start = raw.search(/[{[]/);
+    if (start === -1) return raw;
+    const lastBrace = raw.lastIndexOf('}');
+    const lastBracket = raw.lastIndexOf(']');
+    const end = Math.max(lastBrace, lastBracket);
+    if (end === -1 || end < start) return raw;
+    return raw.slice(start, end + 1);
+}
+
+/**
+ * Repair malformed JSON produced by Gemini:
+ * - Removes trailing commas before } or ] (e.g. {"a":1,})
+ * - Escapes literal control characters (U+0000–U+001F) inside string values
+ * - Fixes invalid escape sequences (e.g. \s, \, → \\s, \\,)
+ */
+function repairJsonString(raw: string): string {
+    // Pass 1: remove trailing commas
+    let result = raw.replace(/,(\s*[}\]])/g, '$1');
+
+    // Pass 2: fix escape sequences and control characters
+    const VALID_ESCAPE = new Set(['"', '\\', '/', 'b', 'f', 'n', 'r', 't', 'u']);
+    let fixed = '';
+    let inString = false;
+    let escaped = false;
+    for (let i = 0; i < result.length; i++) {
+        const ch = result[i]!;
+        const code = ch.charCodeAt(0);
+        if (escaped) {
+            if (inString && !VALID_ESCAPE.has(ch)) fixed += '\\';
+            fixed += ch;
+            escaped = false;
+        } else if (ch === '\\' && inString) {
+            fixed += ch;
+            escaped = true;
+        } else if (ch === '"') {
+            fixed += ch;
+            inString = !inString;
+        } else if (inString && code < 0x20) {
+            if (code === 0x0A) fixed += '\\n';
+            else if (code === 0x0D) fixed += '\\r';
+            else if (code === 0x09) fixed += '\\t';
+            else if (code === 0x08) fixed += '\\b';
+            else if (code === 0x0C) fixed += '\\f';
+            else fixed += `\\u${code.toString(16).padStart(4, '0')}`;
+        } else {
+            fixed += ch;
+        }
+    }
+    return fixed;
+}
+
+/** Parse Gemini JSON output safely, with repair for common malformations */
 function parseGeminiJson<T>(rawText: string): T {
-    return JSON.parse(stripMarkdown(rawText)) as T;
+    return JSON.parse(repairJsonString(extractJson(stripMarkdown(rawText)))) as T;
 }
 
 /**
@@ -82,7 +138,8 @@ export async function generateSense(
     try {
         rawJson = parseGeminiJson<RawSenseAIOutput>(aiRawText);
     } catch (err) {
-        console.error('[moduleA] Failed to parse SensePrompt JSON output:', aiRawText.slice(0, 500));
+        console.error('[moduleA] Failed to parse SensePrompt JSON output. Error:', err instanceof Error ? err.message : String(err));
+        console.error('[moduleA] Full raw output:', aiRawText);
         throw new Error('GENERATION_FAILED');
     }
 

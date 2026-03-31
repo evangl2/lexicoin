@@ -446,6 +446,9 @@ export const DevConsole: React.FC = () => {
                                                 // 2. Clear other DB tables
                                                 await db.gameData.clear();
                                                 await db.canvasPositions.clear();
+                                                await db.devices.clear();
+                                                await db.cardInventory.clear();
+                                                await db.synthesisLog.clear();
 
                                                 // 3. Force reload to reset in-memory state
                                                 window.location.reload();

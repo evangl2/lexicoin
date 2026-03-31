@@ -10,28 +10,37 @@ import { autoPollExhausted } from './useVisualPoll';
 /**
  * Poll sense_visuals once. Returns true if visual was found and broadcast.
  */
-async function pollVisualOnce(senseUid: string, visualId: string): Promise<boolean> {
+async function pollVisualOnce(senseUid: string, visualId: string, attempt: number): Promise<boolean> {
+  logger.info(`[AutoPoll] Attempt ${attempt}: querying sense_visuals for ${senseUid} id=${visualId}`, undefined, 'useSynthesis');
   try {
-    const { data } = await supabase
+    const { data, error: queryError } = await supabase
       .from('sense_visuals')
       .select('sense_id, id, payload, meta')
       .eq('sense_id', senseUid)
       .eq('id', visualId)
       .maybeSingle();
+
+    if (queryError) {
+      logger.error(`[AutoPoll] Attempt ${attempt}: Supabase query error`, queryError, 'useSynthesis');
+      return false;
+    }
+
     if (data?.payload) {
-      messageBus.send('ASSET_LOADED', {
+      logger.info(`[AutoPoll] Attempt ${attempt}: visual found (${data.payload.length} chars), sending ASSET_LOADED`, undefined, 'useSynthesis');
+      await messageBus.send('ASSET_LOADED', {
         uid: data.sense_id,
         id: data.id,
         payload: data.payload,
         meta: data.meta ?? { stability: 100 },
       }, 'auto-poll');
-      logger.info(`Auto-poll found visual for ${senseUid}`, undefined, 'useSynthesis');
+      logger.info(`[AutoPoll] Attempt ${attempt}: ASSET_LOADED sent for ${senseUid}`, undefined, 'useSynthesis');
       return true;
     }
-    logger.debug(`Auto-poll: visual not ready for ${senseUid}`, undefined, 'useSynthesis');
+
+    logger.info(`[AutoPoll] Attempt ${attempt}: no visual yet for ${senseUid} (data=${JSON.stringify(data)})`, undefined, 'useSynthesis');
     return false;
   } catch (err) {
-    logger.error('Auto-poll error', err, 'useSynthesis');
+    logger.error(`[AutoPoll] Attempt ${attempt}: unexpected error`, err, 'useSynthesis');
     return false;
   }
 }
@@ -44,14 +53,17 @@ const sleep = (ms: number) => new Promise<void>(r => setTimeout(r, ms));
  */
 async function runAutoPollChain(senseUid: string, visualId: string): Promise<void> {
   const delays = [25_000, 25_000, 50_000];
-  for (const delay of delays) {
-    await sleep(delay);
-    const found = await pollVisualOnce(senseUid, visualId);
-    if (found) return;
+  logger.info(`[AutoPoll] Chain started for ${senseUid} id=${visualId}, delays=${delays.join('/')}ms`, undefined, 'useSynthesis');
+  for (let i = 0; i < delays.length; i++) {
+    await sleep(delays[i]!);
+    const found = await pollVisualOnce(senseUid, visualId, i + 1);
+    if (found) {
+      logger.info(`[AutoPoll] Chain done at attempt ${i + 1} for ${senseUid}`, undefined, 'useSynthesis');
+      return;
+    }
   }
-  // All 3 attempts failed — enable manual poll for this card
   autoPollExhausted.add(senseUid);
-  logger.debug(`Auto-poll exhausted for ${senseUid}, manual poll enabled`, undefined, 'useSynthesis');
+  logger.warn(`[AutoPoll] All attempts exhausted for ${senseUid}, manual poll enabled`, undefined, 'useSynthesis');
 }
 
 export type SynthesisState = 'idle' | 'processing' | 'processing-long' | 'success' | 'error';

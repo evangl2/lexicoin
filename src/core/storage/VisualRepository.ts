@@ -89,7 +89,7 @@ class VisualRepository {
         visualRegistry.register(entry);
     }
 
-    /** Remove a specific visual variant */
+    /** Remove a specific visual variant (compound primary key [uid+variantId]) */
     async remove(uid: string, variantId: string): Promise<void> {
         await db.visuals.delete([uid, variantId] as unknown as string);
     }
@@ -110,12 +110,20 @@ class VisualRepository {
         messageBus.subscribe('ASSET_LOADED', async (msg) => {
             const entry = msg.payload as VisualEntry;
             if (!entry?.uid || !entry?.id || !entry?.payload) return;
-            await this.upsert(entry);
-            logger.debug(
-                `Persisted visual ${entry.uid}/${entry.id} from ASSET_LOADED`,
-                undefined,
-                'VisualRepository'
-            );
+            try {
+                await this.upsert(entry);
+                logger.debug(
+                    `Persisted visual ${entry.uid}/${entry.id} from ASSET_LOADED`,
+                    undefined,
+                    'VisualRepository'
+                );
+            } catch (err) {
+                logger.error(
+                    `Failed to persist visual ${entry.uid}/${entry.id} (uid type=${typeof entry.uid}, id type=${typeof entry.id})`,
+                    err,
+                    'VisualRepository'
+                );
+            }
         });
 
         logger.debug(

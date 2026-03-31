@@ -9,6 +9,9 @@ import { DefaultCardPersona } from '../../persona/default/Card.persona.default';
 import { DEFAULT_LANGUAGE } from '@/types/CardEntity';
 import type { CardEntity } from '@/types/CardEntity';
 import { useSynthesis } from '@/app/hooks/useSynthesis';
+import { useGameStore } from '@store/index';
+import { levelDistributionSampler } from '@core/services/LevelDistributionSampler';
+import type { Language } from '@/types/index';
 
 interface SynthesisCircleProps {
     uid: string;
@@ -34,6 +37,9 @@ export const SynthesisCircle: React.FC<SynthesisCircleProps> = ({
     onSynthesisComplete, systemlang, learninglang
 }) => {
     const { synthesize, state: synthState, card: synthCard, error: synthError } = useSynthesis();
+    const languageLevel = useGameStore(
+        state => state.player?.languageProgress?.[learninglang as Language]?.level ?? 1
+    );
 
     // Drop Targets (Slots)
     const [{ isOver1 }, drop1] = useDrop(() => ({
@@ -133,6 +139,7 @@ export const SynthesisCircle: React.FC<SynthesisCircleProps> = ({
             input_2_id: card2!.cardData.uid,
             systemlang,
             learninglang,
+            max_level: levelDistributionSampler.sample(languageLevel),
         });
     };
 

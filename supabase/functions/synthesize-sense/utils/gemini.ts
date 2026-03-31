@@ -34,14 +34,14 @@ async function fetchWithTimeout<T>(
 
 /**
  * 封装对 Google Gemini API 的调用。
- * 支持传入 systemPrompt 和 userPrompt，默认使用 gemini-3-flash-preview 模型。
+ * 支持传入 systemPrompt 和 userPrompt，默认使用 gemini-3.1-flash-lite-preview 模型。
  * 包含 1 次自动重试和 60s 超时控制。
  */
 export async function callGemini(params: CallGeminiParams): Promise<string> {
     const {
         systemPrompt,
         userPrompt,
-        model = 'gemini-3-flash-preview',
+        model = 'gemini-3.1-flash-lite-preview',
         temperature = 1.0,
         responseMimeType = 'application/json',
         maxTokens = 10000,

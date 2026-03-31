@@ -273,27 +273,39 @@ export const useCardManager = () => {
             // 去重检查放在 setItems 函数式更新器内部，确保原子性
             // 避免 stale closure 导致多个 handler 同时通过检查而重复添加
             setItems(prev => {
-                if (prev.some(i => i.cardData.rawSense.uid === sense.uid)) return prev;
-                logger.info(`Added new card ${sense.uid} to canvas from SENSE_CREATED`, undefined, 'useCardManager');
+                if (prev.some(i => i.cardData.rawSense.uid === sense.uid)) {
+                    logger.warn(`[SENSE_CREATED] Card ${sense.uid} already in items, skipping`, undefined, 'useCardManager');
+                    return prev;
+                }
+                logger.info(`[SENSE_CREATED] Added card ${sense.uid} to items (total: ${prev.length + 1})`, undefined, 'useCardManager');
                 return [...prev, newItem];
             });
         };
 
         const handleAssetLoaded = (msg: any) => {
             const entry = msg.payload as any;
-            if (!entry?.uid || !entry?.payload) return;
+            if (!entry?.uid || !entry?.payload) {
+                logger.warn(`[handleAssetLoaded] Missing uid or payload: uid=${entry?.uid}, payloadLen=${entry?.payload?.length}`, undefined, 'useCardManager');
+                return;
+            }
 
-            setItems(prev => prev.map((item) => {
-                if (item.cardData.rawSense.uid !== entry.uid) return item;
-                return {
-                    ...item,
-                    cardData: {
-                        ...item.cardData,
-                        visual: { status: 'loaded' as const, payload: entry.payload }
-                    }
-                };
-            }));
-            logger.info(`Visual updated for card ${entry.uid}`, undefined, 'useCardManager');
+            setItems(prev => {
+                const match = prev.find(item => item.cardData.rawSense.uid === entry.uid);
+                if (!match) {
+                    logger.warn(`[handleAssetLoaded] No card found in items for uid=${entry.uid} (items=${prev.length})`, undefined, 'useCardManager');
+                }
+                return prev.map((item) => {
+                    if (item.cardData.rawSense.uid !== entry.uid) return item;
+                    logger.info(`[handleAssetLoaded] Updating visual for uid=${entry.uid} (payloadLen=${entry.payload.length})`, undefined, 'useCardManager');
+                    return {
+                        ...item,
+                        cardData: {
+                            ...item.cardData,
+                            visual: { status: 'loaded' as const, payload: entry.payload }
+                        }
+                    };
+                });
+            });
         };
 
         const handleAssetError = (msg: any) => {
@@ -334,10 +346,10 @@ export const useCardManager = () => {
         const subDurability = messageBus.subscribe('CARD_DURABILITY_CHANGED', handleDurabilityChanged);
 
         return () => {
-            messageBus.unsubscribe('SENSE_CREATED', sub);
-            messageBus.unsubscribe('ASSET_LOADED', subVisual);
-            messageBus.unsubscribe('ASSET_ERROR', subVisualErr);
-            messageBus.unsubscribe('CARD_DURABILITY_CHANGED', subDurability);
+            sub();
+            subVisual();
+            subVisualErr();
+            subDurability();
         };
     }, [isLoaded]);
 
