@@ -101,20 +101,38 @@ class ConstructionModule {
 
     /**
      * Get constructions by level
+     *
+     * ⚡ Bolt Performance Optimization:
+     * Replaced O(N) Array.from().filter() with a single-pass for...of loop.
+     * Impact: Reduces GC pressure by avoiding intermediate array allocations,
+     * significantly improving throughput for high-frequency queries on large datasets.
      */
     getConstructionsByLevel(level: ConstructionLevel): Construction[] {
-        return Array.from(this.constructions.values()).filter(
-            c => c.level === level
-        );
+        const result: Construction[] = [];
+        for (const c of this.constructions.values()) {
+            if (c.level === level) {
+                result.push(c);
+            }
+        }
+        return result;
     }
 
     /**
      * Get constructions that use a specific sense
+     *
+     * ⚡ Bolt Performance Optimization:
+     * Replaced O(N) Array.from().filter() with a single-pass for...of loop.
+     * Impact: Reduces GC pressure by avoiding intermediate array allocations,
+     * significantly improving throughput for high-frequency queries on large datasets.
      */
     getConstructionsUsingSense(senseId: UUID): Construction[] {
-        return Array.from(this.constructions.values()).filter(
-            c => c.senseIds.includes(senseId)
-        );
+        const result: Construction[] = [];
+        for (const c of this.constructions.values()) {
+            if (c.senseIds.includes(senseId)) {
+                result.push(c);
+            }
+        }
+        return result;
     }
 
     /**

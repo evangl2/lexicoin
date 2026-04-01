@@ -182,11 +182,20 @@ class ItemModule {
 
     /**
      * Get inventory items by item ID
+     *
+     * ⚡ Bolt Performance Optimization:
+     * Replaced O(N) Array.from().filter() with a single-pass for...of loop.
+     * Impact: Reduces GC pressure by avoiding intermediate array allocations,
+     * significantly improving throughput for high-frequency queries on large datasets.
      */
     getInventoryItemsByType(itemId: string): InventoryItem[] {
-        return Array.from(this.inventory.values()).filter(
-            item => item.itemId === itemId
-        );
+        const result: InventoryItem[] = [];
+        for (const item of this.inventory.values()) {
+            if (item.itemId === itemId) {
+                result.push(item);
+            }
+        }
+        return result;
     }
 
     /**
@@ -200,9 +209,16 @@ class ItemModule {
         }
 
         // Check if we can stack with existing item
-        const existing = Array.from(this.inventory.values()).find(
-            item => item.itemId === itemId && item.quantity < itemDef.maxStack
-        );
+        // ⚡ Bolt Performance Optimization:
+        // Replaced O(N) Array.from().find() with a for...of loop to allow early exit
+        // and avoid intermediate array allocations, improving throughput.
+        let existing: InventoryItem | undefined = undefined;
+        for (const item of this.inventory.values()) {
+            if (item.itemId === itemId && item.quantity < itemDef.maxStack) {
+                existing = item;
+                break;
+            }
+        }
 
         if (existing) {
             const addAmount = Math.min(quantity, itemDef.maxStack - existing.quantity);
