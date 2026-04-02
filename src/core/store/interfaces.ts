@@ -94,4 +94,9 @@ export interface GameStore extends ConfigState, CardState, ProgressionState {
     libraryFilter: LibraryFilter;
     setLibraryFilter: (filter: Partial<LibraryFilter>) => void;
     clearLibraryFilter: () => void;
+
+    // Card Zoom State (runtime only, not persisted)
+    zoomedCardIds: string[];
+    focusCard: (uid: string) => void;
+    blurCard: (uid: string) => void;
 }
