@@ -209,19 +209,7 @@ function InnerApp() {
   }, [handleRepositoryDrop]);
 
   // --- Z-Index / Focus Management ---
-  const [focusedCardCount, setFocusedCardCount] = useState(0);
-
-  const handleCardFocus = useCallback(() => {
-    setFocusedCardCount(prev => prev + 1);
-    // Optimization: Access store directly
-    if (useGameStore.getState().deckState.isOpen) {
-      useGameStore.getState().closeDeck();
-    }
-  }, []);
-
-  const handleCardBlur = useCallback(() => {
-    setFocusedCardCount(prev => Math.max(0, prev - 1));
-  }, []);
+  const isZoomed = useGameStore(s => s.zoomedCardIds.length > 0);
 
   const mappedLearningLang = useMemo(() => mapLanguageCode(learningLang), [learningLang]);
   const mappedSystemLang = useMemo(() => mapLanguageCode(systemLang), [systemLang]);
@@ -267,8 +255,7 @@ function InnerApp() {
               onDragEnd={handleDragEnd}
               updatePosition={handleUpdatePosition}
               groupFeedback={grouping.groupFeedback}
-              onFocus={handleCardFocus}
-              onBlur={handleCardBlur}
+
               onDropIntoSlot={handleDropIntoSlot}
               onDropIntoRepository={handleCardDropIntoRepository}
             />
@@ -368,7 +355,7 @@ function InnerApp() {
         setLearningLang={setLearningLang}
         systemLang={systemLang}
         setSystemLang={setSystemLang}
-        isZoomed={focusedCardCount > 0}
+        isZoomed={isZoomed}
         mergedVariants={grouping.mergedVariants}
         deviceItems={deviceManager.repositoryDevices}
         onRetrieveDevice={(uid) => deviceManager.retrieveDevice(uid, window.innerWidth / 2, window.innerHeight / 2)}

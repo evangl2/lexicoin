@@ -227,6 +227,23 @@ export const useGameStore = create<GameStore>()(
                 libraryFilter: { ...state.libraryFilter, ...filter }
             })),
             clearLibraryFilter: () => set({ libraryFilter: initialLibraryFilter }),
+
+            // Card Zoom State (runtime only, not persisted)
+            zoomedCardIds: [],
+            focusCard: (uid) => {
+                set((state) => ({
+                    zoomedCardIds: state.zoomedCardIds.includes(uid)
+                        ? state.zoomedCardIds
+                        : [...state.zoomedCardIds, uid]
+                }));
+                // Close deck when any card is focused
+                if (get().deckState.isOpen) {
+                    get().closeDeck();
+                }
+            },
+            blurCard: (uid) => set((state) => ({
+                zoomedCardIds: state.zoomedCardIds.filter(id => id !== uid)
+            })),
         }),
         {
             name: 'app-state',

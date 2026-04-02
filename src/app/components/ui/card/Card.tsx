@@ -7,6 +7,7 @@ import { useDrag } from '@use-gesture/react';
 import { DefaultCardPersona as CardPersona } from '@/app/components/persona/default/Card.persona.default';
 import { CardVisual } from '@/app/components/ui/card/CardVisual';
 import { tts } from '@/app/utils/audio/tts';
+import { useGameStore } from '@store/index';
 import type { CardEntity } from '@/types/CardEntity';
 import type { Language } from '@schemas/schemas/SenseEntity.schema';
 
@@ -57,8 +58,6 @@ interface CardProps {
   onDropItem?: (item: any) => void;
   isHidden?: boolean;
   groupFeedback?: { merge: string[], split: string[], timestamp: number } | null;
-  onFocus?: () => void;
-  onBlur?: () => void;
   onDropIntoSlot?: (cardId: string, deviceUid: string, slotId: number) => void;
   onDropIntoRepository?: (cardId: string) => void;
 }
@@ -81,8 +80,6 @@ export const Card = React.memo<CardProps>(({
   isHidden = false,
   onDropItem,
   groupFeedback,
-  onFocus,
-  onBlur,
   externalScale,
   onDropIntoSlot,
   onDropIntoRepository,
@@ -117,6 +114,19 @@ export const Card = React.memo<CardProps>(({
 
   const [isDragging, setIsDragging] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
+
+  // Sync zoom state directly to store — single source of truth, no callback chains
+  const uid = cardData.uid;
+  const focusCard = useGameStore(s => s.focusCard);
+  const blurCard = useGameStore(s => s.blurCard);
+  useEffect(() => {
+    if (isExpanded || isFlipped) {
+      focusCard(uid);
+    } else {
+      blurCard(uid);
+    }
+    return () => { blurCard(uid); };
+  }, [isExpanded, isFlipped, uid, focusCard, blurCard]);
 
   // ========== Visual Feedback Logic ==========
   const [visualFeedback, setVisualFeedback] = useState<'merge' | 'split' | null>(null);
@@ -183,12 +193,11 @@ export const Card = React.memo<CardProps>(({
         if (isFlipped) {
           setIsFlipped(false);
         }
-        onBlur?.();
       }
     };
     window.addEventListener('pointerdown', handleGlobalClick, { capture: true });
     return () => window.removeEventListener('pointerdown', handleGlobalClick, { capture: true });
-  }, [isExpanded, isFlipped, onBlur]);
+  }, [isExpanded, isFlipped]);
 
   // --- Selection Overlay Handlers ---
   const handleDefinitionClick = useCallback(() => {
@@ -357,7 +366,6 @@ export const Card = React.memo<CardProps>(({
         y.set(targetCenterY.get());
         updatePosition(cardData.uid, targetCenterX.get(), targetCenterY.get());
         setIsExpanded(false);
-        onBlur?.();
       }
       onDragStart?.(cardData.uid);
     }
@@ -449,12 +457,6 @@ export const Card = React.memo<CardProps>(({
         setIsExpanded(nextState);
         startAnimation();
 
-        if (nextState) {
-          onFocus?.();
-        } else {
-          onBlur?.();
-        }
-
         if (nextState && title) {
           tts.speak(title, learningLanguage);
         }
@@ -468,12 +470,8 @@ export const Card = React.memo<CardProps>(({
         if (!isFlipped) {
           setIsFlipped(true);
           setIsExpanded(true);
-          onFocus?.();
         } else {
           setIsFlipped(false);
-          if (!isExpanded) {
-            onBlur?.();
-          }
         }
       }}
       style={{
