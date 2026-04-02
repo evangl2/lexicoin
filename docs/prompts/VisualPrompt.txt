@@ -7,7 +7,7 @@
 *   **Intricate Representation:** Eschew all forms of minimalism. Every artifact must be rich in detail, utilizing a combination of SVG primitives (`<circle>`, `<rect>`, `<ellipse>`, `<line>`, `<polygon>`) and complex `<path>` data.
 *   **Optic Sophistication:** Use the full power of the SVG spec. Implement filter effects (e.g., feGaussianBlur, feSpecularLighting, feDropShadow), mask, clipPath, and pattern to simulate depth, texture, and atmospheric quality.
 *   **Lighting & Volume:** Define a clear lighting model. Use multi-stop linearGradient and radialGradient to create "Rim Lighting," "Ambient Occlusion," and "Specular Highlights" that provide a tactile, high-end feel.
-*   **Environmental Context:** The background must remain strictly **transparent** (bg-transparent) unless a background element is absolutely essential to the word's semantic meaning (e.g., a "horizon" for a landscape concept).
+*   **Environmental Context:** The background must be **fully transparent** by default. A filled background element is **strictly prohibited** unless it is semantically indispensable to the word's meaning (e.g., a sky for "horizon"). When in doubt, omit it — transparency is always preferred.
 
 ## II. Exhaustive Material Taxonomy
 
@@ -28,7 +28,11 @@ The visual texture and "material" of the artifact must be derived from the **Sen
 ## III. Universal Kinetic Taxonomy
 
 *   **State Constraint:**
-    1.  **Dormant State (**`isActive: false`**):** The component must be **completely static**. It is a poised, high-detail visual masterpiece with zero motion.
+    1.  **Dormant State (**`isActive: false`**):** The component must be **completely static**. It is a poised, high-detail visual masterpiece with zero motion. Both the `animate` target values AND the `transition` prop must be conditioned on `isActive`. When inactive, `transition` must be set to `{ duration: 0 }` to prevent any easing towards the static state. Example:
+        ```tsx
+        animate={isActive ? { scale: [1, 1.05, 1], rotate: [0, 10, 0] } : { scale: 1, rotate: 0 }}
+        transition={isActive ? { duration: 3, repeat: Infinity, ease: "easeInOut" } : { duration: 0 }}
+        ```
     2.  **Vital State (**`isActive: true`**):** The component triggers a **seamless, infinite looping animation**.
 *   **Kinetic Presence (Noticeable yet Controlled):** Animations must be **distinctly visible** to signify state change but must avoid "visual noise." Achieve this through significant but smooth displacements, rhythmic pulses, or clear rotations. Avoid high-frequency jitter or chaotic scaling.
 *   **Kinetic Logic:** Select the motion profile that matches the word's nature:
@@ -53,6 +57,16 @@ The visual texture and "material" of the artifact must be derived from the **Sen
 *   **Geometry Rule:** **Strictly Prohibited** from using only the `<path d="..." />` attribute. You must combine paths with SVG basic shapes to create a layered, "engineered" assembly.
 *   **Canvas:** `viewBox="0 0 100 100"`. Artifacts must be perfectly centered and utilize the frame for maximum visual impact.
 *   **Code Quality:** Use optimized SVG syntax, define all gradients/filters within a `<defs>` block, and use clean **motion/react** variants.
+*   **Unique IDs:** Every `id` attribute inside `<defs>` (gradients, filters, masks, clipPaths) must be prefixed with a lowercase alphanumeric slug derived from `FrequentWord` (strip spaces and non-ASCII characters, e.g. "foam totem" → `foamtotem`). Example: `id="foamtotem_glow"`, `id="foamtotem_grad"`. This prevents ID collisions when multiple cards are rendered simultaneously.
+*   **Hardcoded Geometry:** All SVG geometry attributes (`d`, `cx`, `cy`, `r`, `x`, `y`, `width`, `height`, `points`, `x1`, `y1`, `x2`, `y2`, `offset`) must be **hardcoded literal values** (numbers or strings). Never compute these from variables, template literals, or expressions that could evaluate to `undefined` or `NaN`. Framer Motion `animate` target values may use simple arithmetic (e.g. `Math.sin(i) * 3`) only when all operands are guaranteed to be defined numeric constants.
+*   **Transform Origin:** Every `motion.*` SVG element that uses `scale`, `rotate`, or `skew` animations must include `transformBox="fill-box"` and `transformOrigin="center"` to ensure transforms are applied relative to the element's own geometric center, not the SVG canvas origin. Example:
+    ```tsx
+    <motion.circle cx={50} cy={50} r={10}
+      transformBox="fill-box" transformOrigin="center"
+      animate={isActive ? { scale: [1, 1.1, 1] } : { scale: 1 }}
+      transition={isActive ? { duration: 2, repeat: Infinity } : { duration: 0 }}
+    />
+    ```
 
 ## V. Execution Protocol
 
