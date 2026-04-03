@@ -11,16 +11,34 @@ function stripMarkdown(raw: string): string {
 
 /**
  * Extract the JSON object/array from text that may have surrounding prose.
- * Finds the first { or [ and the last matching } or ].
+ * Uses bracket depth tracking to find the exact end of the first complete
+ * JSON object/array, avoiding truncation bugs from lastIndexOf.
  */
 function extractJson(raw: string): string {
     const start = raw.search(/[{[]/);
     if (start === -1) return raw;
-    const lastBrace = raw.lastIndexOf('}');
-    const lastBracket = raw.lastIndexOf(']');
-    const end = Math.max(lastBrace, lastBracket);
-    if (end === -1 || end < start) return raw;
-    return raw.slice(start, end + 1);
+
+    const opener = raw[start] as '{' | '[';
+    const closer = opener === '{' ? '}' : ']';
+    let depth = 0;
+    let inString = false;
+    let escaped = false;
+
+    for (let i = start; i < raw.length; i++) {
+        const ch = raw[i]!;
+        if (escaped) { escaped = false; continue; }
+        if (ch === '\\' && inString) { escaped = true; continue; }
+        if (ch === '"') { inString = !inString; continue; }
+        if (inString) continue;
+        if (ch === opener) depth++;
+        else if (ch === closer) {
+            depth--;
+            if (depth === 0) return raw.slice(start, i + 1);
+        }
+    }
+
+    // Fallback: return from start to end of string
+    return raw.slice(start);
 }
 
 /**
