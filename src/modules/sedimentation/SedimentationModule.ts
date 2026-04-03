@@ -245,18 +245,28 @@ class SedimentationModule {
      * Get reports for a target
      */
     getReportsForTarget(targetId: UUID): ErrorReport[] {
-        return Array.from(this.reports.values()).filter(
-            r => r.targetId === targetId
-        );
+        // Bolt: Optimize memory usage and speed by avoiding intermediate Array allocation
+        const result: ErrorReport[] = [];
+        for (const r of this.reports.values()) {
+            if (r.targetId === targetId) {
+                result.push(r);
+            }
+        }
+        return result;
     }
 
     /**
      * Get all pending reports
      */
     getPendingReports(): ErrorReport[] {
-        return Array.from(this.reports.values()).filter(
-            r => r.status === 'PENDING'
-        );
+        // Bolt: Optimize memory usage and speed by avoiding intermediate Array allocation
+        const result: ErrorReport[] = [];
+        for (const r of this.reports.values()) {
+            if (r.status === 'PENDING') {
+                result.push(r);
+            }
+        }
+        return result;
     }
 
     /**

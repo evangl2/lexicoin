@@ -184,9 +184,14 @@ class ItemModule {
      * Get inventory items by item ID
      */
     getInventoryItemsByType(itemId: string): InventoryItem[] {
-        return Array.from(this.inventory.values()).filter(
-            item => item.itemId === itemId
-        );
+        // Bolt: Optimize memory usage and speed by avoiding intermediate Array allocation
+        const result: InventoryItem[] = [];
+        for (const item of this.inventory.values()) {
+            if (item.itemId === itemId) {
+                result.push(item);
+            }
+        }
+        return result;
     }
 
     /**
@@ -200,9 +205,14 @@ class ItemModule {
         }
 
         // Check if we can stack with existing item
-        const existing = Array.from(this.inventory.values()).find(
-            item => item.itemId === itemId && item.quantity < itemDef.maxStack
-        );
+        // Bolt: Optimize memory usage and speed by avoiding intermediate Array allocation and iterating early
+        let existing: InventoryItem | undefined;
+        for (const item of this.inventory.values()) {
+            if (item.itemId === itemId && item.quantity < itemDef.maxStack) {
+                existing = item;
+                break;
+            }
+        }
 
         if (existing) {
             const addAmount = Math.min(quantity, itemDef.maxStack - existing.quantity);

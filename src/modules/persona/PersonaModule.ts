@@ -171,9 +171,14 @@ class PersonaModule {
      * Get unlocked personas for a player level
      */
     getUnlockedPersonas(playerLevel: number): Persona[] {
-        return Array.from(this.personas.values()).filter(
-            p => p.unlockedAt <= playerLevel
-        );
+        // Bolt: Optimize memory usage and speed by avoiding intermediate Array allocation
+        const result: Persona[] = [];
+        for (const p of this.personas.values()) {
+            if (p.unlockedAt <= playerLevel) {
+                result.push(p);
+            }
+        }
+        return result;
     }
 
     /**
@@ -246,18 +251,28 @@ class PersonaModule {
      * Get all tasks for a persona
      */
     getTasksForPersona(personaId: PersonaType): PersonaTask[] {
-        return Array.from(this.tasks.values()).filter(
-            t => t.personaId === personaId
-        );
+        // Bolt: Optimize memory usage and speed by avoiding intermediate Array allocation
+        const result: PersonaTask[] = [];
+        for (const t of this.tasks.values()) {
+            if (t.personaId === personaId) {
+                result.push(t);
+            }
+        }
+        return result;
     }
 
     /**
      * Get available tasks
      */
     getAvailableTasks(personaId?: PersonaType): PersonaTask[] {
-        return Array.from(this.tasks.values()).filter(
-            t => t.status === 'AVAILABLE' && (!personaId || t.personaId === personaId)
-        );
+        // Bolt: Optimize memory usage and speed by avoiding intermediate Array allocation
+        const result: PersonaTask[] = [];
+        for (const t of this.tasks.values()) {
+            if (t.status === 'AVAILABLE' && (!personaId || t.personaId === personaId)) {
+                result.push(t);
+            }
+        }
+        return result;
     }
 
     /**
