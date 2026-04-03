@@ -114,6 +114,16 @@ export const Card = React.memo<CardProps>(({
 
   const [isDragging, setIsDragging] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [isFlipped, setIsFlipped] = useState(false);
+  const [isAnimating, setIsAnimating] = useState(false);
+  const animatingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Clear timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (animatingTimerRef.current) clearTimeout(animatingTimerRef.current);
+    };
+  }, []);
 
   // Sync zoom state directly to store — single source of truth, no callback chains
   const uid = cardData.uid;
@@ -147,17 +157,6 @@ export const Card = React.memo<CardProps>(({
       setVisualFeedback(null);
     }
   }, [isHovered, isDragging]);
-
-  const [isFlipped, setIsFlipped] = useState(false);
-  const [isAnimating, setIsAnimating] = useState(false);
-  const animatingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Clear timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (animatingTimerRef.current) clearTimeout(animatingTimerRef.current);
-    };
-  }, []);
 
   const startAnimation = useCallback(() => {
     setIsAnimating(true);
@@ -480,8 +479,6 @@ export const Card = React.memo<CardProps>(({
 
         zIndex,
         opacity: isHidden ? 0 : 1,
-        transform: 'translate3d(0, 0, 0)',
-        willChange: willChangeMV as any, // MotionValue<string> needs cast or ignore
         boxShadow: targetShadow,
         transition: 'box-shadow 0.3s ease-out',
         transformStyle: 'preserve-3d',
