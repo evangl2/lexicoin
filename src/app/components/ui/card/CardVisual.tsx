@@ -184,9 +184,9 @@ export const CardVisual = React.memo<CardVisualProps>(({
 }) => {
   // ========== Extract Display Data ==========
   // Learning language data (primary)
-  const { word, pronunciation, pos, level, definition, flavorContents } = learningData;
-  // System language word (for bilingual front face)
-  const systemWord = systemData.word;
+  const { word, pronunciation, pos, level, definition: learningDefinition, flavorContents } = learningData;
+  // System language word and definition
+  const { word: systemWord, definition: systemDefinition } = systemData;
 
   const { durability } = senseInfo;
 
@@ -661,7 +661,7 @@ export const CardVisual = React.memo<CardVisualProps>(({
                       letterSpacing: '0.01em'
                     }}
                   >
-                    {definitionOverride || definition}
+                    {definitionOverride || systemDefinition}
                   </p>
                 </div>
               </div>
@@ -747,6 +747,7 @@ export const CardVisual = React.memo<CardVisualProps>(({
               selectedId={selectedDefId}
               onSelect={onSelectDefinition}
               systemLang={systemLanguage || 'en'}
+              learningLang={learningLanguage || 'en'}
               tokens={Persona.tokens}
             />
           )}

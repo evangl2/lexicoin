@@ -121,11 +121,13 @@ export async function generateSense(
     supabaseAdmin: any
 ): Promise<{ sense: SenseAIPayload & { uid: string }; visual: null }> {
     const {
+        learninglang,
         max_level = 'B2',
         target_languages = ['en', 'zh-CN', 'fr', 'de', 'ja', 'es', 'it', 'pt'],
         personaId = 'default',
         personaNarrative,
         visual_id = 'default',
+        modelId,
     } = request;
 
     // ① Generate UUID via Web Crypto (available in Deno Edge Functions)
@@ -136,7 +138,9 @@ export async function generateSense(
         concept,
         definition,
         target_languages,
+        learningLang: learninglang,
         personaId,
+        maxLevel: max_level,
         personaNarrative,
     });
 
@@ -145,9 +149,9 @@ export async function generateSense(
         systemPrompt,
         userPrompt,
         temperature: 0.4,
-        maxTokens: 10000,
         responseMimeType: 'application/json',
         tag: 'moduleA-sense',
+        model: modelId,
     });
     console.log(`[TIMING] 10_moduleA_gemini took ${Date.now() - t10}ms`);
 
@@ -240,9 +244,9 @@ export async function generateSense(
                 systemPrompt: vSys,
                 userPrompt: vUser,
                 temperature: 0.6,
-                maxTokens: 6000,
                 responseMimeType: 'text/plain',
                 tag: 'moduleA-visual',
+                model: modelId,
             });
             console.log(`[TIMING] 14_visual_gemini took ${Date.now() - t14}ms`);
 

@@ -6,7 +6,6 @@ interface CallGeminiParams {
     model?: string;
     temperature?: number;
     responseMimeType?: string;
-    maxTokens?: number;
     /** Caller label for logging (e.g. 'moduleB', 'moduleA-sense', 'moduleA-visual') */
     tag?: string;
 }
@@ -44,7 +43,6 @@ export async function callGemini(params: CallGeminiParams): Promise<string> {
         model = 'gemini-3.1-flash-lite-preview',
         temperature = 1.0,
         responseMimeType = 'application/json',
-        maxTokens = 10000,
         tag = 'unknown',
     } = params;
 
@@ -59,7 +57,6 @@ export async function callGemini(params: CallGeminiParams): Promise<string> {
         systemInstruction: systemPrompt,
         generationConfig: {
             temperature,
-            maxOutputTokens: maxTokens,
             responseMimeType,
         },
     });
@@ -74,7 +71,7 @@ export async function callGemini(params: CallGeminiParams): Promise<string> {
         const text = result.response.text();
         console.log(`[callGemini:${tag}] response ${text.length} chars (finishReason=${finishReason}): ${text.slice(0, 2000)}${text.length > 2000 ? '...(truncated)' : ''}`);
         if (finishReason && finishReason !== 'STOP') {
-            throw new Error(`Gemini generation incomplete: finishReason=${finishReason}`);
+            throw new Error(`Gemini generation incomplete: finishReason=${finishReason} (model=${model})`);
         }
         return text;
     };

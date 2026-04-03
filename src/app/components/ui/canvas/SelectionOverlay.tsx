@@ -10,6 +10,7 @@ export interface SelectionOverlayProps {
     selectedId: string;
     onSelect: (item: ContentItem) => void;
     systemLang: Language;
+    learningLang: Language;
     tokens: any;
 }
 
@@ -22,6 +23,7 @@ export const SelectionOverlay: React.FC<SelectionOverlayProps> = ({
     selectedId,
     onSelect,
     systemLang,
+    learningLang,
     tokens
 }) => {
     const prompts: Record<string, string> = {
@@ -93,7 +95,8 @@ export const SelectionOverlay: React.FC<SelectionOverlayProps> = ({
             >
                 {items.map((item, index) => {
                     const isSelected = item.id === selectedId;
-                    const displayDefinition = item.definitions[systemLang] || item.definitions['en'] || '';
+                    // Changed to use learningLang for definitions during selection
+                    const displayDefinition = item.definitions[learningLang] || item.definitions['en'] || '';
 
                     return (
                         <div
@@ -148,6 +151,7 @@ export const SelectionOverlay: React.FC<SelectionOverlayProps> = ({
                             >
                                 {displayDefinition}
                             </p>
+
 
                             {/* Selected indicator glow */}
                             {isSelected && (

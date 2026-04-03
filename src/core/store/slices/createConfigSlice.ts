@@ -1,5 +1,6 @@
 import { StateCreator } from 'zustand';
 import type { GameStore } from '../interfaces';
+import { DEFAULT_MODEL_ID } from '@/config/constants';
 
 export interface ConfigState {
     // Language
@@ -19,6 +20,10 @@ export interface ConfigState {
     };
     setMuted: (muted: boolean) => void;
     setVolume: (volume: number) => void;
+
+    // AI Model
+    activeModelId: string;
+    setActiveModelId: (modelId: string) => void;
 }
 
 export const createConfigSlice: StateCreator<GameStore, [], [], ConfigState> = (set) => ({
@@ -41,4 +46,7 @@ export const createConfigSlice: StateCreator<GameStore, [], [], ConfigState> = (
     setVolume: (volume) => set((state) => ({
         audio: { ...state.audio, volume }
     })),
+
+    activeModelId: DEFAULT_MODEL_ID,
+    setActiveModelId: (modelId) => set({ activeModelId: modelId }),
 });

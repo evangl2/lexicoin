@@ -41,6 +41,8 @@ function InnerApp() {
   const systemLang = useGameStore(s => s.systemLang);
   const setLearningLang = useGameStore(s => s.setLearningLang);
   const setSystemLang = useGameStore(s => s.setSystemLang);
+  const activeModelId = useGameStore(s => s.activeModelId);
+  const setActiveModelId = useGameStore(s => s.setActiveModelId);
 
   const isDeckOpen = useGameStore(s => s.deckState.isOpen);
   const isConfigOpen = useGameStore(s => s.isConfigOpen);
@@ -364,6 +366,8 @@ function InnerApp() {
             data.setCardLocation(cardUid, 'canvas', { x, y });
           });
         }}
+        activeModelId={activeModelId}
+        setActiveModelId={setActiveModelId}
       />
 
     </div>

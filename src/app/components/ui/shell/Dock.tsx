@@ -26,6 +26,8 @@ interface DockProps {
    deviceItems?: DeviceItem[]; // Added
    onRetrieveDevice?: (uid: string) => void; // Added
    onStoreDevice?: (uid: string) => void; // Added
+   activeModelId?: string;
+   setActiveModelId?: (val: string) => void;
 }
 
 // Localization Helper
@@ -57,7 +59,9 @@ export const Dock: React.FC<DockProps> = ({
    mergedVariants = {},
    deviceItems = [],
    onRetrieveDevice,
-   onStoreDevice
+   onStoreDevice,
+   activeModelId = 'gemini-3.1-flash-lite-preview',
+   setActiveModelId = () => { }
 }) => {
    const interfacePersona = useInterfacePersona();
    const [activeId, setActiveId] = useState<number>(1); // Default active: Canvas
@@ -166,6 +170,8 @@ export const Dock: React.FC<DockProps> = ({
                setLearningLang={setLearningLang}
                systemLang={systemLang}
                setSystemLang={setSystemLang}
+               activeModelId={activeModelId}
+               setActiveModelId={setActiveModelId}
             />
          </div>
 

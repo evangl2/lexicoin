@@ -3,6 +3,7 @@
  */
 
 export type ArchetypeId = 1 | 2 | 3 | 4 | 5 | 6;
+const CEFR_HIERARCHY = 'A1 < A2 < B1 < B2 < C1 < C2';
 
 // 定义每种 Archetype 的基础描述和高亮描述
 export const ARCHETYPES: Record<ArchetypeId, { concept: string; name: string; standard: string; active: string }> = {
@@ -74,11 +75,11 @@ export function buildSynthesisPrompt(params: SynthesisPromptParams): { systemPro
     const trialInstruction = archetype
         ? `ROUND 1: Generate your single best candidate using the [!!! PRIMARY PRIORITY !!!] Archetype. Apply the Full Viability Check below.
 If Round 1 fails, proceed to ROUND 2.
-ROUND 2: Self-select the most suitable Archetype. You may relax the level constraint by one CEFR step and use a semantically close but simpler alternative if needed. Apply the Full Viability Check.
+ROUND 2: Self-select the most suitable Archetype. You may relax the level constraint by STRICTLY ONE step in the hierarchy (${CEFR_HIERARCHY}) and use a semantically close but simpler alternative if needed. Apply the Full Viability Check.
 If Round 2 also fails, return the appropriate failure_code.`
         : `ROUND 1: Choose the MOST SUITABLE Archetype and generate your single best candidate. Apply the Full Viability Check below.
 If Round 1 fails, proceed to ROUND 2.
-ROUND 2: Choose a different Archetype. You may relax the level constraint by one CEFR step. Apply the Full Viability Check.
+ROUND 2: Choose a different Archetype. You may relax the level constraint by STRICTLY ONE step in the hierarchy (${CEFR_HIERARCHY}). Apply the Full Viability Check.
 If Round 2 also fails, return the appropriate failure_code.`;
 
     // 3. Cultural Lens（简化版，learninglang优先）

@@ -51,6 +51,7 @@ export interface SynthesisRequest {
     personaId?: string;
     personaNarrative?: string;
     visual_id?: string;
+    modelId?: string;
 }
 
 export interface SynthesisResponse {

@@ -260,6 +260,7 @@ export const useGameStore = create<GameStore>()(
                 systemLang: state.systemLang,
                 activeSkin: state.activeSkin,
                 audio: state.audio,
+                activeModelId: state.activeModelId,
 
                 // Card State
                 activeVariants: state.activeVariants,

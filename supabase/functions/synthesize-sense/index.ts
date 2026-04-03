@@ -161,6 +161,7 @@ Deno.serve(async (req: Request) => {
             personaId = 'default',
             personaNarrative,
             visual_id = 'default',
+            modelId,
         } = body;
 
         // ① UUID validation & sort
@@ -363,9 +364,9 @@ Deno.serve(async (req: Request) => {
                             systemPrompt: dSys,
                             userPrompt: dUsr,
                             temperature: 0.4,
-                            maxTokens: 10000,
                             responseMimeType: 'application/json',
                             tag: 'delta',
+                            model: modelId,
                         });
 
                         const deltaJson = injectSenseMeta(
@@ -494,6 +495,7 @@ Deno.serve(async (req: Request) => {
                             maxTokens: 6000,
                             responseMimeType: 'text/plain',
                             tag: 'delta-visual',
+                            model: modelId,
                         });
 
                         const parts = visualRawText.split('// --- CODE BELOW ---');
@@ -622,6 +624,7 @@ Deno.serve(async (req: Request) => {
             const synthesisText1 = await callGemini({
                 systemPrompt: p1.systemPrompt, userPrompt: p1.userPrompt,
                 temperature: 0.7, responseMimeType: 'application/json', tag: 'moduleB-attempt1',
+                model: modelId,
             });
             console.log(`[TIMING] 4_moduleB_gemini +${Date.now() - t0}ms (took ${Date.now() - t4}ms)`);
 
@@ -690,6 +693,7 @@ Deno.serve(async (req: Request) => {
             const synthesisText2 = await callGemini({
                 systemPrompt: p2.systemPrompt, userPrompt: p2.userPrompt,
                 temperature: 0.7, responseMimeType: 'application/json', tag: 'moduleB-attempt2',
+                model: modelId,
             });
             try {
                 synthesisOutput = JSON.parse(repairJsonString(stripMarkdown(synthesisText2)));

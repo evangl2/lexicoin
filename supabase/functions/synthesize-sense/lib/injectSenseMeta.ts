@@ -65,6 +65,7 @@ export interface RawSenseAIOutput {
     shells: Record<string, RawShell[]>;
     wordFamily: Record<string, RawWordFamilyEntry>;
     traits?: Record<string, RawTrait[]>;
+    constraints?: { maxLevel: string };
 }
 
 // ── Injected output shape (with meta) ───────────────────────────────────────
@@ -107,6 +108,7 @@ export interface SenseAIPayload {
     shells: Record<string, InjectedShell[]>;
     wordFamily: Record<string, InjectedWordFamilyEntry>;
     traits?: Record<string, InjectedTrait[]>;
+    constraints?: { maxLevel: string };
 }
 
 // ── Main injection function ──────────────────────────────────────────────────
@@ -195,5 +197,6 @@ export function injectSenseMeta(raw: RawSenseAIOutput): SenseAIPayload {
         shells,
         wordFamily,
         ...(traits ? { traits } : {}),
+        constraints: raw.constraints,
     };
 }

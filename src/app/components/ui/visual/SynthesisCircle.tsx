@@ -40,6 +40,7 @@ export const SynthesisCircle: React.FC<SynthesisCircleProps> = ({
     const languageLevel = useGameStore(
         state => state.player?.languageProgress?.[learninglang as Language]?.level ?? 1
     );
+    const activeModelId = useGameStore(state => state.activeModelId);
 
     // Drop Targets (Slots)
     const [{ isOver1 }, drop1] = useDrop(() => ({
@@ -140,6 +141,7 @@ export const SynthesisCircle: React.FC<SynthesisCircleProps> = ({
             systemlang,
             learninglang,
             max_level: levelDistributionSampler.sample(languageLevel),
+            modelId: activeModelId,
         });
     };
 

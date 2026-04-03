@@ -9,7 +9,9 @@ export interface SensePromptParams {
   concept: string;
   definition: string;
   target_languages: string[];
+  learningLang: string;
   personaId: string;
+  maxLevel: string;
   personaNarrative?: string;
 }
 
@@ -123,7 +125,7 @@ Decision test: "Can a learner derive this form from the base word + verb_group/c
 }
 
 export function buildSensePrompt(params: SensePromptParams): { systemPrompt: string; userPrompt: string } {
-  const { concept, definition, target_languages, personaId, personaNarrative } = params;
+  const { concept, definition, target_languages, learningLang, personaId, maxLevel, personaNarrative } = params;
 
   // 1. Resolve Persona
   const persona = PERSONA_DICTIONARY[personaId] || PERSONA_DICTIONARY['default']!;
@@ -154,6 +156,9 @@ You must strictly output the JSON according to this structure:
   "ontology": "OBJECT | PROCESS | PROPERTY | STATE | LOCATION | ABSTRACT",
   "meaning": {
     "lang_code": "Detailed dictionary definition (max 40 words/chars)"
+  },
+  "constraints": {
+    "maxLevel": "${maxLevel}"
   },
   "flavorText": [
     {
@@ -233,6 +238,10 @@ You must strictly output the JSON according to this structure:
 - **pronunciation**: Phonetic notation based on the specific language. (eg.IPA for english, Pinyin with tone marks for simplified chinese) If no phonetic notation exists for that language, use \`none\`.
 - **pos (Part of Speech)**: MUST be one of the following exact strings: \`'n.' | 'v.' | 'v.t.' | 'v.i.' | 'adj.' | 'adv.' | 'prep.' | 'conj.' | 'pron.' | 'int.'\`.
 - **Level**: Map the \`text\`'s difficulty in its language to the equivalent English **CEFR (A1-C2)** level.
+- **LEVEL CONSTRAINT (CRITICAL)**: 
+  - For the **Learning Language (\`${learningLang}\`)**, you MUST attempt to select a \`text\` (word or phrase) such that its difficulty level is **LESS THAN OR EQUAL TO ${maxLevel}**. 
+  - If the concept is inherently complex and no common word exists below ${maxLevel} for \`${learningLang}\`, use the simplest possible synonym and accurately report its higher level.
+  - For **ALL OTHER LANGUAGES**, select the most natural, accurate, and evocative expression for the sense, regardless of difficulty level.
 - **wordFrequency**: 1-100 score. 100 = the word or phrase in \`text\` is a universal daily concept; 1 = extremely rare.
 - **INDEPENDENT SCORING (CRITICAL)**: \`level\` and \`wordFrequency\` MUST ONLY evaluate the word/phrase in \`shells.text.value\` as a standalone dictionary headword. Absolutely ignore the current concept's specific meaning when scoring these two fields. (e.g., Even if the meaning is a complex theological metaphor, if the \`text.value\` is simply "water", the level is A1 and frequency is 100). Conversely, \`pos\` must match the specific meaning.
 
@@ -250,6 +259,8 @@ ${sectionF}`;
   const userPrompt = `[TASK DATA]
 Concept: "${concept}"
 Definition (Base): "${definition}"
+Learning Language: "${learningLang}"
+Target Max Level: "${maxLevel}"
 
 [EXECUTION]
 Construct the SenseEntity JSON. Ensure all ${target_languages.length} languages are filled in meaning, shells, and wordFamily with high precision.

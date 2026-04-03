@@ -2,6 +2,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import ReactDOM from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, ChevronDown } from 'lucide-react';
+import { AI_MODELS } from '@/config/constants';
 import { useInterfacePersona, useSkinSwitcher } from '@/app/context/PersonaContext';
 import { Slot } from '@/app/components/persona/slots';
 import { exportImportService } from '@/core/services/ExportImportService';
@@ -206,6 +207,8 @@ interface ConfigMenuProps {
   setLearningLang: (val: string) => void;
   systemLang: string;
   setSystemLang: (val: string) => void;
+  activeModelId: string;
+  setActiveModelId: (val: string) => void;
 }
 
 // Localization Helper - Supports all 8 languages
@@ -291,6 +294,16 @@ const getLoc = (key: string, lang: string) => {
       'ESPAÑOL': 'DESCONECTADO',
       'ITALIANO': 'NON IN LINEA',
       'PORTUGUÊS': 'DESCONECTADO'
+    },
+    'AI MODEL': {
+      'ENGLISH': 'AI MODEL',
+      '简体中文': 'AI 模型',
+      'FRANÇAIS': 'MODÈLE IA',
+      'DEUTSCH': 'KI-MODELL',
+      '日本語': 'AIモデル',
+      'ESPAÑOL': 'MODELO IA',
+      'ITALIANO': 'MODELLO IA',
+      'PORTUGUÊS': 'MODELO DE IA'
     }
   };
 
@@ -304,7 +317,9 @@ export const ConfigMenu: React.FC<ConfigMenuProps> = ({
   learningLang,
   setLearningLang,
   systemLang,
-  setSystemLang
+  setSystemLang,
+  activeModelId,
+  setActiveModelId
 }) => {
 
   // Use real Persona skin switcher
@@ -504,10 +519,17 @@ export const ConfigMenu: React.FC<ConfigMenuProps> = ({
                 </div>
               </div>
 
-              {/* Column 4: Empty */}
-              <div className="p-4 flex items-center justify-center opacity-20 relative">
-                <div className="absolute inset-0 bg-[repeating-linear-gradient(-45deg,transparent,transparent_10px,#D4AF37_10px,#D4AF37_11px)] opacity-5" />
-                <span className="tracking-widest" style={{ color: interfacePersona.palette.colors.textSecondary, fontSize: "10px" }}>{getLoc('OFFLINE', systemLang)}</span>
+              {/* Column 4: AI Model */}
+              <div className="flex flex-col px-4 py-4" style={{ backgroundColor: interfacePersona.palette.colors.bgVoid + '40' }}>
+                <ScrollSelect
+                  label={getLoc('AI MODEL', systemLang)}
+                  options={AI_MODELS.map((m: any) => m.label)}
+                  value={AI_MODELS.find((m: any) => m.id === activeModelId)?.label || 'Flash Lite'}
+                  onChange={(label) => {
+                    const model = AI_MODELS.find((m: any) => m.label === label);
+                    if (model) setActiveModelId(model.id);
+                  }}
+                />
               </div>
 
               {/* Column 5: Empty */}

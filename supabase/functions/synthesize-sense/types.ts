@@ -17,6 +17,7 @@ export interface SynthesisRequest {
     personaId?: string;
     personaNarrative?: string;
     visual_id?: string;
+    modelId?: string;
 }
 
 export type SynthesisErrorCode =
@@ -89,6 +90,7 @@ export interface RawSenseAIOutput {
     shells: Record<string, RawShell[]>;
     wordFamily: Record<string, RawWordFamilyEntry>;
     traits?: Record<string, RawTrait[]>;
+    constraints?: { maxLevel: string };
 }
 
 // ── Meta-Injected Types (after injectSenseMeta) ───────────────────────────────
@@ -141,6 +143,7 @@ export interface SenseAIPayload {
     shells: Record<string, InjectedShell[]>;
     wordFamily: Record<string, InjectedWordFamilyEntry>;
     traits?: Record<string, InjectedTrait[]>;
+    constraints?: { maxLevel: string };
 }
 
 // ── Visual Payload ────────────────────────────────────────────────────────────
