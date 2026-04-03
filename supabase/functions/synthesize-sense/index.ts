@@ -187,19 +187,70 @@ Deno.serve(async (req: Request) => {
             }
         } catch { /* non-fatal */ }
 
-        // ③ Query synthesis_cache
-        // DB columns: sense_uid_1, sense_uid_2, result_sense_uid, method_id, slot_index
-        const { data: cacheRow, error: cacheErr } = await supabase
+        // ③ Determing slot_index and Query synthesis_cache
+        function getSlotIndex(level: string): number {
+            if (['A1', 'A2'].includes(level)) return 1;
+            if (['B1', 'B2'].includes(level)) return 2;
+            if (['C1', 'C2'].includes(level)) return 3;
+            return 1;
+        }
+        const currentSlotIndex = getSlotIndex(max_level);
+
+        const { data: cacheRows, error: cacheErr } = await supabase
             .from('synthesis_cache')
-            .select('result_sense_uid, method_id, word_text_a, word_text_b')
+            .select('result_sense_uid, method_id, meta, word_text_a, word_text_b')
             .eq('sense_uid_1', uid1)
             .eq('sense_uid_2', uid2)
-            .eq('slot_index', 1)
-            .maybeSingle();
+            .eq('slot_index', currentSlotIndex);
 
-        if (cacheErr && cacheErr.code !== 'PGRST116') {
+        if (cacheErr) {
             console.error('[index] synthesis_cache query error:', cacheErr);
             return json({ success: false, error: { code: 'GENERATION_FAILED', message: 'Cache query failed' } }, 500);
+        }
+
+        let isOffensiveBlock = false;
+        const deadEndMethods = new Set<number>();
+        const successfulMethods = new Set<number>();
+        const successRows: any[] = [];
+
+        if (cacheRows && cacheRows.length > 0) {
+            for (const row of cacheRows) {
+                if (row.result_sense_uid) {
+                    successfulMethods.add(row.method_id);
+                    successRows.push(row);
+                } else if (row.meta && row.meta.failure_code) {
+                    const fcode = row.meta.failure_code;
+                    if (fcode === 'OFFENSIVE') {
+                        isOffensiveBlock = true;
+                        break;
+                    }
+                    if (fcode === 'NO_SYNERGY' || fcode === 'TOO_COMPLEX') {
+                        deadEndMethods.add(row.method_id);
+                    }
+                }
+            }
+        }
+
+        if (isOffensiveBlock) {
+            console.log('[index] synthesis_cache: OFFENSIVE negative cache hit. Blocking.');
+            return json({ success: false, error: { code: 'OFFENSIVE', message: 'Synthesis failed: OFFENSIVE' } });
+        }
+
+        const archetypeIds = [1, 2, 3, 4, 5, 6] as readonly number[];
+        const availableMethods = archetypeIds.filter(id => !deadEndMethods.has(id) && !successfulMethods.has(id));
+
+        let cacheRow = null;
+        let skipCacheWrite = false;
+
+        if (availableMethods.length === 0) {
+            // 图鉴枯竭阶段：如果盲盒全部开完（无新套路可用），且曾有成功的成果，直接敷衍返回
+            if (successRows.length > 0) {
+                console.log('[index] synthesis_cache: All fresh methods exhausted. Retrieving an existing success.');
+                cacheRow = successRows[Math.floor(Math.random() * successRows.length)];
+            } else {
+                console.log('[index] synthesis_cache: All methods exhausted & NO successes exist. Failing.');
+                return json({ success: false, error: { code: 'NO_SYNERGY', message: 'Synthesis completely exhausted.' } });
+            }
         }
 
         // ──────────────────────────── CACHE HIT ───────────────────────────────
@@ -539,119 +590,151 @@ Deno.serve(async (req: Request) => {
         console.log(`[index] synthesizing: "${nameA}" + "${nameB}" → system=${systemlang} learning=${learninglang}`);
 
         // Module B — SynthesisPrompt, attempt 1: random archetype
-        const archetypeIds = [1, 2, 3, 4, 5, 6] as const;
-        const randomArchtype = archetypeIds[Math.floor(Math.random() * archetypeIds.length)];
+        let randomArchtype: number;
+        if (availableMethods.length === 0) {
+            // If we reached here, availableMethods is empty BUT we just passed the CACHE HIT block,
+            // which means we should never actually reach here if availableMethods=0.
+            randomArchtype = 1;
+        } else {
+            randomArchtype = availableMethods[Math.floor(Math.random() * availableMethods.length)];
+        }
 
         const archetypeNames = ['Composition', 'Metaphor', 'Conflict', 'Function', 'Gestalt', 'Culture'];
         const archetypeName = archetypeNames[randomArchtype - 1];
 
-        const p1 = buildSynthesisPrompt({
-            nameA,
-            defA,
-            nameB,
-            defB,
-            systemlang,
-            learninglang,
-            targetLanguages: target_languages,
-            maxLevel: max_level,
-            archetype: archetypeName,
-        });
-
-        const t4 = Date.now();
-        let synthesisText = await callGemini({
-            systemPrompt: p1.systemPrompt,
-            userPrompt: p1.userPrompt,
-            temperature: 0.7,
-            responseMimeType: 'application/json',
-            tag: 'moduleB-attempt1',
-        });
-        console.log(`[TIMING] 4_moduleB_gemini +${Date.now() - t0}ms (took ${Date.now() - t4}ms)`);
-
-        let synthesisOutput: GeminiSynthesisOutput;
-        try {
-            synthesisOutput = JSON.parse(repairJsonString(stripMarkdown(synthesisText)));
-        } catch (parseErr) {
-            console.error('[Module B] JSON parse error (attempt 1):', parseErr instanceof Error ? parseErr.message : String(parseErr));
-            console.error('[Module B] synthesisText (attempt 1):', synthesisText.slice(0, 1000));
-            synthesisOutput = { outcome: 'failure', failure_code: 'NO_SYNERGY' } as GeminiSynthesisOutput;
-        }
-
-        // Attempt 2: let AI self-select archetype if first attempt fails NO_SYNERGY
-        if (synthesisOutput.outcome === 'failure' && synthesisOutput.failure_code === 'NO_SYNERGY') {
-            console.log('[Module B] Attempt 1 failed (NO_SYNERGY). Retrying with AI-selected archetype.');
-            const p2 = buildSynthesisPrompt({ nameA, defA, nameB, defB, systemlang, learninglang, targetLanguages: target_languages, maxLevel: max_level });
-            synthesisText = await callGemini({
-                systemPrompt: p2.systemPrompt,
-                userPrompt: p2.userPrompt,
-                temperature: 0.7,
-                responseMimeType: 'application/json',
-                tag: 'moduleB-attempt2',
-            });
-            try {
-                synthesisOutput = JSON.parse(repairJsonString(stripMarkdown(synthesisText)));
-            } catch (parseErr) {
-                console.error('[Module B] JSON parse error (attempt 2):', parseErr instanceof Error ? parseErr.message : String(parseErr));
-                console.error('[Module B] synthesisText (attempt 2):', synthesisText.slice(0, 1000));
-                throw new Error('LLM_ERROR');
-            }
-        }
-
-        // Both attempts failed
-        if (synthesisOutput.outcome === 'failure') {
-            const code = synthesisOutput.failure_code ?? 'NO_SYNERGY';
-            return json({
-                success: false,
-                error: { code, message: `Synthesis failed: ${code}` }
-            });
-        }
-
-        const resultConcept = synthesisOutput.result_concept!.trim();
-        const resultDefinitionEn = synthesisOutput.result_definition_en!;
-        const archetypeUsed = synthesisOutput.archetype_used;
-
-        // Map archetype name back to method_id (1-6)
         const archetypeNameToId: Record<string, number> = {
             'Composition': 1, 'Metaphor': 2, 'Conflict': 3,
             'Function': 4, 'Gestalt': 5, 'Culture': 6,
         };
-        const methodId = archetypeNameToId[archetypeUsed] ?? randomArchtype;
 
-        // Check if concept already exists (case-insensitive)
-        const { data: dupeRow } = await supabase
-            .from('sense_word_shells')
-            .select('sense_id, shells')
-            .textSearch('shells', resultConcept);
-            // Simpler fallback: check via meaning equality or search is not available in simple select
-            // We do an alternative: fetch all senses shells and check in-memory if too hard.
-            // But the recommended approach per TDD is case-insensitive check on senses table.
-            // Since senses has no 'concept' column, we check via shell text.
-
-        // Actually the correct check per TDD §3.6 is case-insensitive query on result_concept.
-        // But senses has no direct concept column — we check via ilike on shells JSONB via SQL.
-        // Use raw SQL via rpc if available, or fallback to simpler checks.
-
-        // Let's use a filter on shells jsonb: shells->'en'->0->>'text' ilike '%concept%'
-        // This is complex via JS client. Use a simpler approach: check if any sense_word_shells
-        // has an 'en' shell whose text value matches (case-insensitive).
+        let synthesisOutput: GeminiSynthesisOutput | null = null;
         let existingUid: string | null = null;
+        let finalMethodId = randomArchtype;
+        let finalArchetypeUsed = archetypeName;
+        
+        if (availableMethods.length > 0) {
+            const p1 = buildSynthesisPrompt({
+                nameA, defA, nameB, defB, systemlang, learninglang,
+                targetLanguages: target_languages, maxLevel: max_level, archetype: archetypeName,
+            });
 
-        const t7 = Date.now();
-        const { data: shellMatches } = await supabase
-            .from('sense_word_shells')
-            .select('sense_id, shells');
+            const t4 = Date.now();
+            const synthesisText1 = await callGemini({
+                systemPrompt: p1.systemPrompt, userPrompt: p1.userPrompt,
+                temperature: 0.7, responseMimeType: 'application/json', tag: 'moduleB-attempt1',
+            });
+            console.log(`[TIMING] 4_moduleB_gemini +${Date.now() - t0}ms (took ${Date.now() - t4}ms)`);
 
-        if (shellMatches) {
-            for (const row of shellMatches) {
-                const enArr = row.shells?.['en'];
-                if (!enArr) continue;
-                const enText: string = enArr[0]?.text?.value ?? enArr[0]?.text ?? '';
-                if (enText.toLowerCase() === resultConcept.toLowerCase()) {
-                    existingUid = row.sense_id;
-                    break;
+            try {
+                synthesisOutput = JSON.parse(repairJsonString(stripMarkdown(synthesisText1)));
+            } catch (parseErr) {
+                console.error('[Module B] JSON parse error (attempt 1):', parseErr instanceof Error ? parseErr.message : String(parseErr));
+                synthesisOutput = { outcome: 'failure', failure_code: 'NO_SYNERGY' } as GeminiSynthesisOutput;
+            }
+        } else {
+             synthesisOutput = { outcome: 'failure', failure_code: 'NO_SYNERGY' } as GeminiSynthesisOutput;
+        }
+
+        let proceedToAttempt2 = false;
+
+        // If Attempt 1 failed
+        if (synthesisOutput!.outcome === 'failure') {
+            const fcode = synthesisOutput!.failure_code ?? 'NO_SYNERGY';
+            console.log(`[Module B] Attempt 1 failed (${fcode}). Recording negative cache.`);
+            
+            await supabase.from('synthesis_cache').upsert({
+                sense_uid_1: uid1, sense_uid_2: uid2, method_id: randomArchtype,
+                slot_index: currentSlotIndex, result_sense_uid: null,
+                word_text_a: nameA, word_text_b: nameB, meta: { is_valid: false, failure_code: fcode }
+            }, { onConflict: 'sense_uid_1,sense_uid_2,method_id,slot_index', ignoreDuplicates: false }).catch((err: any) => console.error(err));
+
+            if (fcode === 'OFFENSIVE') {
+                return json({ success: false, error: { code: fcode, message: `Synthesis failed: ${fcode}` } });
+            } 
+            
+            // UX Rescue: 如果有以前的成功存货，直接挑一个敷衍玩家（暗中抢救）
+            if (successRows.length > 0) {
+                console.log('[Module B] UX Rescue: returning an existing successful method to hide this failure.');
+                const rescueRow = successRows[Math.floor(Math.random() * successRows.length)];
+                existingUid = rescueRow.result_sense_uid;
+                finalMethodId = rescueRow.method_id;
+                skipCacheWrite = true; // 避免重写已有记录
+            } else if (fcode === 'TOO_COMPLEX') {
+                if (currentSlotIndex > 1) {
+                    console.log(`[Module B] TOO_COMPLEX detected. Looking for fallback in slot_index: 1 for method_id: ${randomArchtype}.`);
+                    const { data: fallbackRow } = await supabase.from('synthesis_cache')
+                        .select('result_sense_uid')
+                        .eq('sense_uid_1', uid1).eq('sense_uid_2', uid2)
+                        .eq('slot_index', 1).eq('method_id', randomArchtype)
+                        .not('result_sense_uid', 'is', null)
+                        .maybeSingle();
+
+                    if (fallbackRow?.result_sense_uid) {
+                        console.log('[Module B] Fallback success! Returning lower level sense.');
+                        existingUid = fallbackRow.result_sense_uid;
+                    } else {
+                        proceedToAttempt2 = true;
+                    }
+                } else {
+                    proceedToAttempt2 = true;
                 }
+            } else { 
+                proceedToAttempt2 = true;
             }
         }
-        console.log(`[TIMING] 7_dedup_check +${Date.now() - t0}ms (took ${Date.now() - t7}ms, rows=${shellMatches?.length ?? 0})`);
+
+        // Attempt 2: let AI self-select archetype
+        if (synthesisOutput!.outcome === 'failure' && proceedToAttempt2 && !existingUid) {
+            console.log('[Module B] Attempt 2 (Untethered AI).');
+            const p2 = buildSynthesisPrompt({ nameA, defA, nameB, defB, systemlang, learninglang, targetLanguages: target_languages, maxLevel: max_level });
+            const synthesisText2 = await callGemini({
+                systemPrompt: p2.systemPrompt, userPrompt: p2.userPrompt,
+                temperature: 0.7, responseMimeType: 'application/json', tag: 'moduleB-attempt2',
+            });
+            try {
+                synthesisOutput = JSON.parse(repairJsonString(stripMarkdown(synthesisText2)));
+            } catch (parseErr) {
+                console.error('[Module B] JSON parse error (attempt 2):', parseErr instanceof Error ? parseErr.message : String(parseErr));
+                return json({ success: false, error: { code: 'LLM_ERROR', message: 'Synthesis failed: LLM parse error' } });
+            }
+
+            if (synthesisOutput!.outcome === 'failure') {
+                const fcode2 = synthesisOutput!.failure_code ?? 'NO_SYNERGY';
+                console.log(`[Module B] Attempt 2 failed: ${fcode2}.`);
+                return json({ success: false, error: { code: fcode2, message: `Synthesis failed: ${fcode2}` } });
+            }
+        }
+
+        let resultConcept: string = '';
+        let resultDefinitionEn: string = '';
+        
+        if (!existingUid) {
+             resultConcept = synthesisOutput!.result_concept!.trim();
+             resultDefinitionEn = synthesisOutput!.result_definition_en!;
+             finalArchetypeUsed = synthesisOutput!.archetype_used || archetypeName;
+             finalMethodId = archetypeNameToId[finalArchetypeUsed] ?? randomArchtype;
+        }
+
+        if (!existingUid) {
+            // Check if concept already exists (case-insensitive)
+            const t7 = Date.now();
+            const { data: shellMatches } = await supabase
+                .from('sense_word_shells')
+                .select('sense_id, shells');
+
+            if (shellMatches) {
+                for (const row of shellMatches) {
+                    const enArr = row.shells?.['en'];
+                    if (!enArr) continue;
+                    const enText: string = enArr[0]?.text?.value ?? enArr[0]?.text ?? '';
+                    if (enText.toLowerCase() === resultConcept.toLowerCase()) {
+                        existingUid = row.sense_id;
+                        break;
+                    }
+                }
+            }
+            console.log(`[TIMING] 7_dedup_check +${Date.now() - t0}ms (took ${Date.now() - t7}ms, rows=${shellMatches?.length ?? 0})`);
+        }
 
         let senseFinal: any;
         let visualFinal: any = null;
@@ -677,20 +760,22 @@ Deno.serve(async (req: Request) => {
             visualFinal = (existingVisualsRows ?? []).find((v: any) => v.id === visual_id) ?? null;
 
             // Write synthesis_cache to record this combination → existing sense
-            const { error: cacheWriteErr1 } = await supabase.from('synthesis_cache').insert({
-                sense_uid_1: uid1,
-                sense_uid_2: uid2,
-                method_id: methodId,
-                slot_index: 1,
-                result_sense_uid: existingUid,
-                word_text_a: nameA,
-                word_text_b: nameB,
-                meta: {},
-            });
-            if (cacheWriteErr1) {
-                console.error('[index] synthesis_cache INSERT error (existing sense path):', cacheWriteErr1);
-            } else {
-                console.log('[index] synthesis_cache INSERT ok (existing sense path)');
+            if (!skipCacheWrite) {
+                const { error: cacheWriteErr1 } = await supabase.from('synthesis_cache').upsert({
+                    sense_uid_1: uid1,
+                    sense_uid_2: uid2,
+                    method_id: finalMethodId,
+                    slot_index: currentSlotIndex,
+                    result_sense_uid: existingUid,
+                    word_text_a: nameA,
+                    word_text_b: nameB,
+                    meta: {},
+                }, { onConflict: 'sense_uid_1,sense_uid_2,method_id,slot_index', ignoreDuplicates: false });
+                if (cacheWriteErr1) {
+                    console.error('[index] synthesis_cache INSERT error (existing sense path):', cacheWriteErr1);
+                } else {
+                    console.log('[index] synthesis_cache INSERT ok (existing sense path)');
+                }
             }
 
             isNewDiscovery = false;
@@ -709,20 +794,22 @@ Deno.serve(async (req: Request) => {
             visualFinal = visual; // null (async pending)
 
             // Write synthesis_cache
-            const { error: cacheWriteErr2 } = await supabase.from('synthesis_cache').insert({
-                sense_uid_1: uid1,
-                sense_uid_2: uid2,
-                method_id: methodId,
-                slot_index: 1,
-                result_sense_uid: sense.uid,
-                word_text_a: nameA,
-                word_text_b: nameB,
-                meta: {},
-            });
-            if (cacheWriteErr2) {
-                console.error('[index] synthesis_cache INSERT error (new sense path):', cacheWriteErr2);
-            } else {
-                console.log('[index] synthesis_cache INSERT ok (new sense path)');
+            if (!skipCacheWrite) {
+                const { error: cacheWriteErr2 } = await supabase.from('synthesis_cache').upsert({
+                    sense_uid_1: uid1,
+                    sense_uid_2: uid2,
+                    method_id: finalMethodId,
+                    slot_index: currentSlotIndex,
+                    result_sense_uid: senseFinal.uid,
+                    word_text_a: nameA,
+                    word_text_b: nameB,
+                    meta: {},
+                }, { onConflict: 'sense_uid_1,sense_uid_2,method_id,slot_index', ignoreDuplicates: false });
+                if (cacheWriteErr2) {
+                    console.error('[index] synthesis_cache INSERT error (new sense path):', cacheWriteErr2);
+                } else {
+                    console.log('[index] synthesis_cache INSERT ok (new sense path)');
+                }
             }
         }
 
@@ -735,7 +822,7 @@ Deno.serve(async (req: Request) => {
                 visual: visualFinal,
                 cached: false,
                 isNewDiscovery,
-                archetypeUsed,
+                archetypeUsed: finalArchetypeUsed,
             },
         });
 
