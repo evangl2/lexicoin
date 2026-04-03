@@ -35,3 +35,7 @@ coverage
 
 # Build
 *.tsbuildinfo
+.claude/worktrees/bold-fermat/
+.claude/worktrees/confident-hypatia/
+.claude/worktrees/epic-jemison/
+.claude/worktrees/happy-chaplygin/
