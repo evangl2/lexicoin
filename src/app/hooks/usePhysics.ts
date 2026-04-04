@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import type { RefObject } from 'react';
 import { MotionValue } from 'motion/react';
 
 interface PhysicsItem {
@@ -20,13 +21,20 @@ interface CachedItem {
   h: number;
 }
 
-export const usePhysics = (items: PhysicsItem[], draggingId: string | null) => {
+export const usePhysics = (items: PhysicsItem[], draggingIdRef: RefObject<string | null>) => {
   const requestRef = useRef<number>();
 
   // OPTIMIZATION: Object Pooling
   // Persist the cache array between frames to avoid garbage collection pressure.
   // We reuse the objects inside this array instead of allocating new ones every frame.
   const cacheRef = useRef<CachedItem[]>([]);
+
+  // OPTIMIZATION: Settle Detection
+  // Count consecutive frames where nothing moved. After SETTLE_AFTER idle frames,
+  // stop scheduling rAF. The useEffect dependency array handles wakeup automatically
+  // when items or draggingIdRef.current changes (e.g. drag start, new card added).
+  const settledFramesRef = useRef(0);
+  const SETTLE_AFTER = 90; // ~1.5s at 60fps
 
   // World Boundaries
   const WORLD_W = 16000;
@@ -106,7 +114,7 @@ export const usePhysics = (items: PhysicsItem[], draggingId: string | null) => {
         const distSq = dx * dx + dy * dy;
 
         if (distSq < minDist * minDist && distSq > 0) {
-          if (draggingId === a.item.id || draggingId === b.item.id) {
+          if (draggingIdRef.current === a.item.id || draggingIdRef.current === b.item.id) {
             continue;
           }
 
@@ -129,12 +137,14 @@ export const usePhysics = (items: PhysicsItem[], draggingId: string | null) => {
     }
 
     // 4. CALCULATE & WRITE: Enforce Boundaries and Flush changes
+    // Track whether any MotionValue actually changed to detect settled state.
+    let anyMovement = draggingIdRef.current !== null; // Always keep running while user is dragging
     for (let i = 0; i < count; i++) {
       const c = cache[i];
       if (!c || !c.item) continue;
 
       // Skip boundary enforcement if dragging
-      if (draggingId !== c.item.id) {
+      if (draggingIdRef.current !== c.item.id) {
         const minX = -HALF_W + c.w / 2;
         const maxX = HALF_W - c.w / 2;
         const minY = -HALF_H + c.h / 2;
@@ -149,18 +159,29 @@ export const usePhysics = (items: PhysicsItem[], draggingId: string | null) => {
 
         // Flush to MotionValue ONLY if changed
         // This prevents unnecessary React/DOM updates
-        if (c.x !== c.item.x.get()) c.item.x.set(c.x);
-        if (c.y !== c.item.y.get()) c.item.y.set(c.y);
+        if (c.x !== c.item.x.get()) { c.item.x.set(c.x); anyMovement = true; }
+        if (c.y !== c.item.y.get()) { c.item.y.set(c.y); anyMovement = true; }
       }
     }
 
-    requestRef.current = requestAnimationFrame(update);
+    // Settle detection: stop the loop when nothing has moved for SETTLE_AFTER frames.
+    // The useEffect will restart the loop when items or draggingIdRef.current changes.
+    if (anyMovement) {
+      settledFramesRef.current = 0;
+    } else {
+      settledFramesRef.current++;
+    }
+
+    if (settledFramesRef.current < SETTLE_AFTER) {
+      requestRef.current = requestAnimationFrame(update);
+    }
   };
 
   useEffect(() => {
+    settledFramesRef.current = 0; // Reset on items/drag change so loop always runs fresh
     requestRef.current = requestAnimationFrame(update);
     return () => {
       if (requestRef.current) cancelAnimationFrame(requestRef.current);
     };
-  }, [items, draggingId]);
+  }, [items]); // draggingIdRef is a stable ref — no need in deps, reads .current at runtime
 };

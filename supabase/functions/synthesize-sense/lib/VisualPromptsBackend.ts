@@ -41,14 +41,17 @@ Identify which semantic category the concept belongs to, then follow the corresp
 If the concept spans multiple categories or defies all of them, **hybridize freely or invent an entirely new visual language**.
 
 ## III. Technical Constraints
-*   **Framework:** React Functional Component. \`import { motion } from 'motion/react';\` is the ONLY allowed import.
+*   **Framework:** React Functional Component. \`import { motion } from 'motion/react';\` is the ONLY allowed import. NEVER use \`import type\` or any other import.
 *   **Animated elements** must use \`motion.\` prefix (e.g., \`<motion.path>\`, \`<motion.g>\`). Static elements use standard SVG tags.
-*   **Canvas:** \`<svg viewBox="0 0 100 100" width="100%" height="100%">\`. 
+*   **Canvas:** \`<svg viewBox="0 0 100 100" width="100%" height="100%">\`.
 *   **State:** Accept an \`isActive: boolean\` prop. When \`false\`: completely static. When \`true\`: seamless looping animation. Prefer \`repeat: Infinity\` in transitions for continuous motion, unless the concept calls for a finite gesture.
 *   **No Hooks:** No \`useEffect\`, \`useState\`, \`useRef\`. Drive state purely through framer-motion variants keyed to \`isActive\`.
+*   **No async:** NEVER use \`async\`, \`await\`, or dynamic \`import()\`.
 *   **Export** the component as \`default export\`.
 *   **Sandbox-safe:** No \`window\`, \`document\`, or browser APIs. No markdown wrappers. RAW CODE ONLY.
+*   **Hard stop:** The code MUST end with \`export default ComponentName;\` and NOTHING after it — no description text, no comments, no blank lines with non-ASCII characters. Any text after the export line will cause a fatal runtime error.
 *   **Animation baseline:** Every animated property MUST have an explicit initial value. Animating from \`undefined\` will crash.
+*   **SVG attribute safety:** ALL SVG positional attributes (\`cx\`, \`cy\`, \`x\`, \`y\`, \`r\`, \`x1\`, \`y1\`, \`x2\`, \`y2\`) MUST be explicit numeric literals or simple arithmetic expressions — NEVER read from an array index that could be out-of-bounds.
 *   **D-path validity:** Every \`<path d="...">\` must be a valid, complete path string starting with \`M\`. Never \`d="undefined"\`.
 *   **Structure:** Combine \`<path>\` with SVG primitives (\`<circle>\`, \`<rect>\`, \`<ellipse>\`, \`<polygon>\`) and use \`<defs>\` for gradients/filters.
 *   **Filter overflow:** When using blur or glow filters (\`feGaussianBlur\`, \`feDropShadow\`), set a generous filter region to prevent rectangular clipping: \`<filter x="-50%" y="-50%" width="200%" height="200%">\`.

@@ -2,7 +2,7 @@ import {
   useEffect,
   useCallback,
   useMemo,
-  useState,
+  useRef,
 } from "react";
 import { DndProvider, useDrop } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
@@ -50,7 +50,10 @@ function InnerApp() {
   const closeDeck = useGameStore(s => s.closeDeck);
   const setConfigOpen = useGameStore(s => s.setConfigOpen);
 
-  const [draggingId, setDraggingId] = useState<string | null>(null);
+  // useRef instead of useState: drag state doesn't need to trigger a re-render.
+  // Previously, setDraggingId() caused App.tsx to re-render → all N cards reconciled → 5 sync
+  // React flushes × ~10ms each = 50ms jank per click (confirmed via perf trace 2026-04-04).
+  const draggingIdRef = useRef<string | null>(null);
 
   // UI Logic (Migrated from useAppUI)
   const toggleDeck = useCallback(() => {
@@ -119,7 +122,7 @@ function InnerApp() {
     [visibleCanvasItems],
   );
 
-  usePhysics(physicsItems, draggingId);
+  usePhysics(physicsItems, draggingIdRef);
 
   // 6. Persistence Binding (Robustness Fix)
   // Ensure we auto-save whenever items (Anchors) or groupings (Variants) change.
@@ -165,14 +168,13 @@ function InnerApp() {
   }));
 
   const handleDragStart = useCallback((id: string) => {
-    setDraggingId(id);
+    draggingIdRef.current = id;
   }, []);
 
   const handleDragEnd = useCallback((id: string) => {
-    // checkDeckCollision(id); // Removed
+    draggingIdRef.current = null;
     // Pass mergedVariants to ensure "Sense Position" is updated
     data.saveItems(grouping.mergedVariants);
-    setDraggingId(null);
   }, [data, grouping.mergedVariants]);
 
   const handleDeviceDragEnd = useCallback((uid: string) => {

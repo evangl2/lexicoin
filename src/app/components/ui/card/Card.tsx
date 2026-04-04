@@ -321,12 +321,6 @@ export const Card = React.memo<CardProps>(({
     }
   }, [isExpanded, isFlipped, isDragging, isHovered, expandedScale, scaleSpring]);
 
-  // Use MotionValue for will-change to avoid re-renders on zoom
-  const willChangeMV = useTransform(canvasScale, (s) => {
-    const shouldPromote = isDragging || isAnimating || !!externalScale || (!isExpanded && s < 1);
-    return shouldPromote ? 'transform' : 'auto';
-  });
-
   const bgParallaxX = useTransform(displayRotateY, [-20, 20], [15, -15]);
   const bgParallaxY = useTransform(displayRotateX, [-20, 20], [15, -15]);
   const fgParallaxX = useTransform(displayRotateY, [-20, 20], [-25, 25]);
