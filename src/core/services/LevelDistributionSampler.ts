@@ -7,6 +7,12 @@
 import { LEVEL_CEFR_DISTRIBUTION, CEFR_LEVELS } from '@/config/balance';
 import type { CEFRLevel, CEFRDistribution } from '@/config/balance';
 
+// ⚡ Bolt Optimization: Pre-calculate the sorted keys to avoid O(N log N) allocation
+// and sorting on every `sample()` call.
+const SORTED_DISTRIBUTION_KEYS = Object.keys(LEVEL_CEFR_DISTRIBUTION)
+    .map(Number)
+    .sort((a, b) => b - a); // 降序 [100, 90, ..., 1]
+
 class LevelDistributionSampler {
     /**
      * 根据语言等级采样一个 CEFR 难度
@@ -24,12 +30,14 @@ class LevelDistributionSampler {
      * 查找适合当前等级的分布配置
      */
     private getDistributionForLevel(level: number): CEFRDistribution {
-        const sortedKeys = Object.keys(LEVEL_CEFR_DISTRIBUTION)
-            .map(Number)
-            .sort((a, b) => b - a); // 降序 [100, 90, ..., 1]
-
-        const key = sortedKeys.find(k => k <= level) || 1;
-        return LEVEL_CEFR_DISTRIBUTION[key] || { A1: 1.0 };
+        // ⚡ Bolt Optimization: Replace O(N) array allocation and `.find()` with a simple loop
+        for (let i = 0; i < SORTED_DISTRIBUTION_KEYS.length; i++) {
+            const k = SORTED_DISTRIBUTION_KEYS[i];
+            if (k && k <= level) {
+                return LEVEL_CEFR_DISTRIBUTION[k] || { A1: 1.0 };
+            }
+        }
+        return LEVEL_CEFR_DISTRIBUTION[1] || { A1: 1.0 };
     }
 
     /**
