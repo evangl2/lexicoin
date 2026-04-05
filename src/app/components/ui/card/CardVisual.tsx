@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useLayoutEffect, useRef } from 'react';
 import { useTransform, useMotionTemplate, useMotionValue, type MotionValue } from 'motion/react';
 import { motion } from 'motion/react';
 import { DefaultCardPersona as DefaultPersona } from '@/app/components/persona/default/Card.persona.default';
@@ -302,8 +302,47 @@ export const CardVisual = React.memo<CardVisualProps>(({
   const safeFrontOpacity = useEnsureMotionValue(frontOpacity, 1);
   const safeBackOpacity = useEnsureMotionValue(backOpacity, 0);
 
-  const frontPointerEvents = useTransform(safeFrontOpacity, (v: number) => v > 0.5 ? 'auto' : 'none');
-  const backPointerEvents = useTransform(safeBackOpacity, (v: number) => v > 0.5 ? 'auto' : 'none');
+
+  // --- Flip / Front / Back: ref-driven DOM updates (avoids GPU compositing layers) ---
+  const flipWrapperRef = useRef<HTMLDivElement>(null);
+  const frontFaceRef = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    const flipEl = flipWrapperRef.current;
+    const frontEl = frontFaceRef.current;
+    const backEl = backFaceRef.current;
+
+    const applyFlip = (v: number) => {
+      if (!flipEl) return;
+      flipEl.style.transform = `scaleX(${v})`;
+    };
+    const applyFront = (v: number) => {
+      if (!frontEl) return;
+      frontEl.style.opacity = String(v);
+      frontEl.style.pointerEvents = v > 0.5 ? 'auto' : 'none';
+    };
+    const applyBack = (v: number) => {
+      if (!backEl) return;
+      backEl.style.opacity = String(v);
+      backEl.style.pointerEvents = v > 0.5 ? 'auto' : 'none';
+    };
+
+    // Apply initial values synchronously to avoid first-render flash
+    const flipVal = typeof flipScaleX === 'object' && flipScaleX !== null ? flipScaleX.get() : (flipScaleX ?? 1);
+    applyFlip(flipVal);
+    applyFront(safeFrontOpacity.get());
+    applyBack(safeBackOpacity.get());
+
+    // Subscribe to future changes
+    const unsubs: (() => void)[] = [];
+    if (typeof flipScaleX === 'object' && flipScaleX !== null && typeof flipScaleX.on === 'function') {
+      unsubs.push(flipScaleX.on('change', applyFlip));
+    }
+    unsubs.push(safeFrontOpacity.on('change', applyFront));
+    unsubs.push(safeBackOpacity.on('change', applyBack));
+
+    return () => unsubs.forEach(u => u());
+  }, [flipScaleX, safeFrontOpacity, safeBackOpacity]);
 
   // ========== Layout Configuration ==========
   // Compact mode is now handled by CompactCardVisual.tsx
@@ -412,7 +451,7 @@ export const CardVisual = React.memo<CardVisualProps>(({
           }} />
       )}
 
-      <motion.div
+      <div
         className="absolute -inset-[3px] rounded-[22px] opacity-0 group-hover:opacity-100 transition-opacity duration-500"
         style={{
           background: Persona.definitions.gradients?.goldMetallic || Persona.tokens.colors.goldMetallic,
@@ -421,14 +460,13 @@ export const CardVisual = React.memo<CardVisualProps>(({
         }}
       />
 
-      <motion.div className="relative w-full h-full" style={{ scaleX: flipScaleX }}>
+      <div ref={flipWrapperRef} className="relative w-full h-full">
 
         {/* ================= FRONT FACE ================= */}
-        <motion.div
+        <div
+          ref={frontFaceRef}
           className="absolute inset-0 overflow-hidden flex flex-col isolate antialiased"
           style={{
-            opacity: frontOpacity,
-            pointerEvents: frontPointerEvents,
             borderRadius: Persona.tokens.layout.radius,
             background: Persona.tokens.colors.bgFront,
             backfaceVisibility: 'hidden',
@@ -483,15 +521,13 @@ export const CardVisual = React.memo<CardVisualProps>(({
           {/* Feedback Effect (Memoized) */}
           <VisualFeedbackOverlay visualFeedback={visualFeedback || null} persona={Persona} />
 
-        </motion.div>
+        </div>
 
         {/* ================= BACK FACE ================= */}
-        <motion.div
+        <div
           ref={backFaceRef}
           className="absolute inset-0 overflow-hidden flex flex-col items-stretch p-5 isolate antialiased back-face-content"
           style={{
-            opacity: backOpacity,
-            pointerEvents: backPointerEvents,
             borderRadius: Persona.tokens.layout.radius,
             backgroundColor: Persona.tokens.colors.bgBack,
             border: `2px solid ${Persona.tokens.colors.goldMetallic || Persona.definitions.colors.goldBase}`,
@@ -753,8 +789,8 @@ export const CardVisual = React.memo<CardVisualProps>(({
               tokens={Persona.tokens}
             />
           )}
-        </motion.div>
-      </motion.div >
+        </div>
+      </div>
     </>
   );
 });

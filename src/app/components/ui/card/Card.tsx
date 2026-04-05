@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect, useMemo, useCallback } from 'react';
 import { useCardVariants } from '@/app/hooks/useCardVariants';
 import { useDrop } from 'react-dnd';
 import { motion, useVelocity, useTransform, useSpring, useMotionValue, MotionValue, animate } from 'motion/react';
@@ -321,6 +321,31 @@ export const Card = React.memo<CardProps>(({
     }
   }, [isExpanded, isFlipped, isDragging, isHovered, expandedScale, scaleSpring]);
 
+  // --- Z-index: driven imperatively by scaleSpring to stay in sync with the visual scale.
+  // This avoids the React re-render timing gap that caused other cards to appear in front
+  // during the collapse animation (when isExpanded flips to false before the spring settles).
+  const isFlippedRef = useRef(isFlipped);
+  useEffect(() => { isFlippedRef.current = isFlipped; }, [isFlipped]);
+
+  useLayoutEffect(() => {
+    const el = cardRef.current;
+    if (!el) return;
+    const applyZIndex = (v: number) => {
+      el.style.zIndex = (v > 1.01 || isFlippedRef.current) ? '500' : '1';
+    };
+    applyZIndex(scaleSpring.get());
+    return scaleSpring.on('change', applyZIndex);
+  }, [scaleSpring]);
+
+  // Re-apply when isFlipped changes (scaleSpring may not emit a new event)
+  useEffect(() => {
+    isFlippedRef.current = isFlipped;
+    const el = cardRef.current;
+    if (!el) return;
+    const v = scaleSpring.get();
+    el.style.zIndex = (v > 1.01 || isFlipped) ? '500' : '1';
+  }, [isFlipped, scaleSpring]);
+
   const bgParallaxX = useTransform(displayRotateY, [-20, 20], [15, -15]);
   const bgParallaxY = useTransform(displayRotateX, [-20, 20], [15, -15]);
   const fgParallaxX = useTransform(displayRotateY, [-20, 20], [-25, 25]);
@@ -419,9 +444,7 @@ export const Card = React.memo<CardProps>(({
 
   const isActive = (isHovered || isDragging || isExpanded || isOver || isOverlayOpen) && !isAnimating;
 
-  // Discrete z-index — no longer a MotionValue to avoid per-frame DOM updates during scale spring.
-  // Slight tradeoff: may briefly overlap during hover-out spring (imperceptible at 200ms).
-  const zIndex = isExpanded || isFlipped ? 500 : (isDragging || isHovered ? 100 : 1);
+  // z-index is now driven imperatively via scaleSpring.on('change') above — removed from style prop.
 
   const setRefs = useCallback((node: HTMLDivElement | null) => {
     cardRef.current = node;
@@ -466,7 +489,6 @@ export const Card = React.memo<CardProps>(({
         x: displayX, y: displayY, width, height,
         rotateX: displayRotateX, rotateY: displayRotateY, rotateZ: displayRotateZ,
 
-        zIndex,
         opacity: isHidden ? 0 : 1,
         boxShadow: targetShadow,
         transition: 'box-shadow 0.3s ease-out',
