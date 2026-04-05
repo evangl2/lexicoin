@@ -3,11 +3,119 @@ import { transform, type Transform } from 'sucrase';
 import React from 'react';
 import * as Motion from 'motion/react';
 
-// Scope available to dynamic components via shimmed require()
+// ---------------------------------------------------------------------------
+// Global setAttribute guard
+// ---------------------------------------------------------------------------
+// framer-motion's renderSVG calls element.setAttribute() directly inside its
+// own animation loop — this completely bypasses React and any props-level fix.
+// The only reliable interception point is setAttribute itself.
+//
+// This patch is extremely surgical: it only acts when name === 'd' and the
+// value is nullish or the literal string "undefined". All other calls pass
+// through unchanged.  Applied once at module load time.
+;(function guardSVGPathD() {
+    if (typeof Element === 'undefined') return;          // SSR / non-browser guard
+    const _orig = Element.prototype.setAttribute;
+    Element.prototype.setAttribute = function(name: string, value: any) {
+        if (name === 'd' && (value == null || String(value) === 'undefined')) return;
+        _orig.call(this, name, value);
+    };
+})();
+
+// ---------------------------------------------------------------------------
+// Safe motion.path wrapper
+// ---------------------------------------------------------------------------
+// framer-motion writes animated values directly to the DOM via element.setAttribute(),
+// bypassing React entirely. Our React.createElement patch cannot intercept this.
+//
+// The fix: intercept BEFORE framer-motion's animation engine starts — replace
+// motion.path in the require scope with a wrapper that sanitises `d` values in
+// all the locations framer-motion reads them from:
+//   • direct `d` prop
+//   • `variants[state].d`  (missing in some states → framer reads undefined from DOM)
+//   • inline `animate.d` / `initial.d` objects
+
+const _safeD = (val: unknown): unknown =>
+    val === undefined || val === 'undefined' ? 'M 0 0' : val;
+
+function _sanitizePathProps(props: Record<string, unknown>): Record<string, unknown> {
+    let p = { ...props };
+
+    // (a) direct d prop
+    if ('d' in p) p.d = _safeD(p.d);
+
+    // (b) variants — if ANY variant defines `d`, ALL variants must have a valid `d`.
+    //     Without this, framer-motion reads the current DOM value (empty → undefined).
+    if (p.variants && typeof p.variants === 'object') {
+        const variants = p.variants as Record<string, unknown>;
+        const anyHasD = Object.values(variants).some(
+            v => v && typeof v === 'object' && 'd' in (v as object)
+        );
+        if (anyHasD) {
+            // Use the first valid path string as fallback for states that lack `d`
+            const validD =
+                Object.values(variants)
+                    .map((v: any) => v?.d)
+                    .find((d: any) => d && d !== 'undefined') ?? 'M 0 0';
+
+            p.variants = Object.fromEntries(
+                Object.entries(variants).map(([k, v]) => {
+                    if (!v || typeof v !== 'object') return [k, v];
+                    const vo = v as Record<string, unknown>;
+                    return [k, { ...vo, d: _safeD('d' in vo ? vo.d : validD) }];
+                })
+            );
+
+            // Ensure a direct `d` prop exists so framer-motion never has to read
+            // the (possibly absent) DOM attribute as its starting value.
+            if (!('d' in p)) {
+                const initialKey = typeof p.initial === 'string' ? p.initial : null;
+                const initialD = initialKey
+                    ? (p.variants as Record<string, any>)[initialKey]?.d
+                    : undefined;
+                p.d = _safeD(initialD ?? validD);
+            }
+        }
+    }
+
+    // (c) inline animate / initial objects
+    const fixTarget = (t: unknown): unknown => {
+        if (!t || typeof t !== 'object' || Array.isArray(t)) return t;
+        const o = t as Record<string, unknown>;
+        return 'd' in o ? { ...o, d: _safeD(o.d) } : o;
+    };
+    if ('animate' in p) p.animate = fixTarget(p.animate);
+    if ('initial' in p && typeof p.initial === 'object' && p.initial !== null) {
+        p.initial = fixTarget(p.initial);
+    }
+
+    return p;
+}
+
+// Thin wrapper: sanitise props, then delegate to the real motion.path.
+// Must be a plain function (not forwardRef) — AI code never uses refs on paths.
+function _SafeMotionPath(props: Record<string, unknown>) {
+    return React.createElement(Motion.motion.path, _sanitizePathProps(props) as any);
+}
+
+// Replace motion.path in the require scope via a Proxy on the motion namespace.
+// All other motion.* components pass through unchanged.
+const _safeMotion = new Proxy(Motion.motion as object, {
+    get(target: any, prop: string | symbol) {
+        if (prop === 'path') return _SafeMotionPath;
+        return target[prop];
+    },
+});
+
+const _safeMotionModule = { ...Motion, motion: _safeMotion };
+
+// ---------------------------------------------------------------------------
+// Require scope
+// ---------------------------------------------------------------------------
 const SCOPE = {
     react: React,
-    'motion/react': Motion,
-    'framer-motion': Motion, // Alias for backward compatibility/AI generation
+    'motion/react': _safeMotionModule,
+    'framer-motion': _safeMotionModule,
 };
 
 const TRANSFORM_OPTS: { transforms: Transform[]; production: boolean } = {
@@ -15,13 +123,17 @@ const TRANSFORM_OPTS: { transforms: Transform[]; production: boolean } = {
     production: true,
 };
 
+// ---------------------------------------------------------------------------
+// Public API
+// ---------------------------------------------------------------------------
+
 /**
  * Compile and load a React component from an AI-generated source code string.
  *
  * Uses sucrase for fast runtime TSX → JS transpilation, then executes in a
  * sandboxed Function scope.  Handles common AI output contamination:
  *   - Markdown code fences
- *   - Trailing Chinese description text (without comment markers)
+ *   - Trailing prose / Chinese description text without comment markers
  *   - `import type` statements
  *   - Any other trailing garbage (iterative line-stripping fallback)
  */
@@ -40,8 +152,24 @@ export function loadDynamicComponent(code: string): React.ComponentType<any> | n
             throw new Error(`Module '${name}' not found in dynamic scope`);
         };
 
+        // Patch React.createElement for issues that ARE at the props level:
+        //   • `transformOrigin` as a direct JSX prop leaks to the DOM → move into style
+        const patchedReact = {
+            ...React,
+            createElement: (type: any, props: any, ...children: any[]) => {
+                if (props && typeof props === 'object' && 'transformOrigin' in props) {
+                    const { transformOrigin, ...rest } = props as Record<string, unknown>;
+                    return React.createElement(type, {
+                        ...rest,
+                        style: { ...(rest.style as object | undefined), transformOrigin },
+                    }, ...children);
+                }
+                return React.createElement(type, props, ...children);
+            },
+        };
+
         const execute = new Function('require', 'exports', 'module', 'React', transformedCode);
-        execute(require, exports, module, React);
+        execute(require, exports, module, patchedReact);
 
         return exports.default ?? module.exports.default ?? null;
     } catch (error) {

@@ -164,24 +164,36 @@ export const usePhysics = (items: PhysicsItem[], draggingIdRef: RefObject<string
       }
     }
 
-    // Settle detection: stop the loop when nothing has moved for SETTLE_AFTER frames.
-    // The useEffect will restart the loop when items or draggingIdRef.current changes.
+    // Settle detection: skip the expensive O(n²) collision work when cards are at rest.
+    // We never stop the RAF entirely — the loop stays alive at minimal cost so that drag
+    // start is always responsive (draggingIdRef.current is checked every frame).
     if (anyMovement) {
       settledFramesRef.current = 0;
     } else {
       settledFramesRef.current++;
     }
 
-    if (settledFramesRef.current < SETTLE_AFTER) {
-      requestRef.current = requestAnimationFrame(update);
+    // Note: actual rescheduling is done by updateGated wrapper below.
+  };
+
+  // Gatekeeper: skip the O(n²) collision block when fully settled and not dragging.
+  // Placed as a wrapper so the original update body doesn't need restructuring.
+  const updateGated = () => {
+    const settled = settledFramesRef.current >= SETTLE_AFTER && draggingIdRef.current === null;
+    if (settled) {
+      // Idle: no physics work needed — just keep the loop alive for drag detection.
+      requestRef.current = requestAnimationFrame(updateGated);
+      return;
     }
+    update();
+    requestRef.current = requestAnimationFrame(updateGated);
   };
 
   useEffect(() => {
-    settledFramesRef.current = 0; // Reset on items/drag change so loop always runs fresh
-    requestRef.current = requestAnimationFrame(update);
+    settledFramesRef.current = 0; // Reset on items change so loop always runs fresh
+    requestRef.current = requestAnimationFrame(updateGated);
     return () => {
       if (requestRef.current) cancelAnimationFrame(requestRef.current);
     };
-  }, [items]); // draggingIdRef is a stable ref — no need in deps, reads .current at runtime
+  }, [items]); // draggingIdRef is a stable ref — reads .current at runtime inside update()
 };

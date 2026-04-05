@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useTransform, useMotionTemplate, useMotionValue, type MotionValue } from 'motion/react';
 import { motion } from 'motion/react';
 import { DefaultCardPersona as DefaultPersona } from '@/app/components/persona/default/Card.persona.default';
@@ -475,8 +475,10 @@ export const CardVisual = React.memo<CardVisualProps>(({
           <div className="absolute inset-0 opacity-[0.04] pointer-events-none z-10 mix-blend-overlay"
             style={{ backgroundImage: Persona.definitions.assets.noiseTexture || 'none' }}
           />
-          {/* Glare effect - skin-configurable via persona */}
-          <motion.div style={{ background: glareBackground, opacity: targetGlareOpacity }} className="absolute inset-0 z-40 pointer-events-none mix-blend-plus-lighter" />
+          {/* Glare effect — only mount when card is active to avoid a permanent GPU layer per card */}
+          {isActive && (
+            <motion.div style={{ background: glareBackground, opacity: movementIntensity }} className="absolute inset-0 z-40 pointer-events-none mix-blend-plus-lighter" />
+          )}
 
           {/* Feedback Effect (Memoized) */}
           <VisualFeedbackOverlay visualFeedback={visualFeedback || null} persona={Persona} />
@@ -773,15 +775,38 @@ const MemoizedCardVisual = React.memo(({
   fgParallaxY,
   durability
 }: any) => {
+  // Replace motion.div parallax layers with plain div + direct style updates.
+  // This removes 3 GPU compositing layers per card (will-change:transform promoted layers).
+  const bgRef = useRef<HTMLDivElement>(null);
+  const fgRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const updateBg = () => {
+      if (!bgRef.current) return;
+      const x = bgParallaxX?.get?.() ?? 0;
+      const y = bgParallaxY?.get?.() ?? 0;
+      bgRef.current.style.transform = `translateX(${x}px) translateY(${y}px)`;
+    };
+    const updateFg = () => {
+      if (!fgRef.current) return;
+      const x = fgParallaxX?.get?.() ?? 0;
+      const y = fgParallaxY?.get?.() ?? 0;
+      fgRef.current.style.transform = `translateX(${x}px) translateY(${y}px)`;
+    };
+    const unsubBgX = bgParallaxX?.on?.('change', updateBg);
+    const unsubBgY = bgParallaxY?.on?.('change', updateBg);
+    const unsubFgX = fgParallaxX?.on?.('change', updateFg);
+    const unsubFgY = fgParallaxY?.on?.('change', updateFg);
+    return () => { unsubBgX?.(); unsubBgY?.(); unsubFgX?.(); unsubFgY?.(); };
+  }, [bgParallaxX, bgParallaxY, fgParallaxX, fgParallaxY]);
+
   return (
-    <motion.div
+    <div
       className="relative w-full h-full rounded-sm overflow-hidden flex items-center justify-center"
       style={{ boxShadow: isCompact ? 'none' : Persona.tokens.shadows.innerDepth }}
     >
-      <motion.div className="absolute inset-[-20%]"
+      <div ref={bgRef} className="absolute inset-[-20%]"
         style={{
-          x: bgParallaxX,
-          y: bgParallaxY,
           background: Persona.tokens.colors.bgDeep,
           opacity: 0.8
         }}
@@ -792,17 +817,17 @@ const MemoizedCardVisual = React.memo(({
             backgroundSize: "120px 60px"
           }}
         />
-      </motion.div>
+      </div>
 
       <Persona.visuals.Frame />
 
-      <motion.div
-        className={`absolute inset-0 flex items-center justify-center z-40 drop-shadow-[0_10px_20px_rgba(0,0,0,0.8)] 
+      <div
+        ref={fgRef}
+        className={`absolute inset-0 flex items-center justify-center z-40 drop-shadow-[0_10px_20px_rgba(0,0,0,0.8)]
             ${isCompact ? 'scale-[1.0] opacity-30 mix-blend-screen' : ''}`}
-        style={{ x: fgParallaxX, y: fgParallaxY }}
       >
         <DynamicVisual code={visualPayload} isActive={isActive} fallbackElement={fallbackWord} />
-      </motion.div>
+      </div>
 
       {Persona.visuals.DurabilityBar ? (
         <div className="absolute bottom-0 inset-x-0 z-50 flex justify-center">
@@ -824,7 +849,7 @@ const MemoizedCardVisual = React.memo(({
           </div>
         )
       )}
-    </motion.div>
+    </div>
   );
 }, (prevProps, nextProps) => {
   return (

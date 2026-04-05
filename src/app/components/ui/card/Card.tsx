@@ -419,14 +419,9 @@ export const Card = React.memo<CardProps>(({
 
   const isActive = (isHovered || isDragging || isExpanded || isOver || isOverlayOpen) && !isAnimating;
 
-  // OPTIMIZATION: Bind z-index to visual scale to prevent clipping during shrink animation
-  // When scale > 1.1 (hover is ~1.05, drag is ~1.15, expanded is larger), we force high z-index.
-  const zIndex = useTransform(scaleSpring, (currentScale) => {
-    if (isExpanded || isFlipped || currentScale > 1.1) {
-      return 500;
-    }
-    return isDragging ? 100 : (isHovered ? 10 : 1);
-  });
+  // Discrete z-index — no longer a MotionValue to avoid per-frame DOM updates during scale spring.
+  // Slight tradeoff: may briefly overlap during hover-out spring (imperceptible at 200ms).
+  const zIndex = isExpanded || isFlipped ? 500 : (isDragging || isHovered ? 100 : 1);
 
   const setRefs = useCallback((node: HTMLDivElement | null) => {
     cardRef.current = node;

@@ -50,6 +50,7 @@ If the concept spans multiple categories or defies all of them, **hybridize free
 *   **Export** the component as \`default export\`.
 *   **Sandbox-safe:** No \`window\`, \`document\`, or browser APIs. No markdown wrappers. RAW CODE ONLY.
 *   **Hard stop:** The code MUST end with \`export default ComponentName;\` and NOTHING after it — no description text, no comments, no blank lines with non-ASCII characters. Any text after the export line will cause a fatal runtime error.
+*   **Transform origin:** NEVER pass \`transformOrigin\` as a direct JSX prop — it will leak to the DOM and cause React warnings. Use \`style={{ transformOrigin: '...' }}\` or framer-motion's \`originX\`/\`originY\` props instead.
 *   **Animation baseline:** Every animated property MUST have an explicit initial value. Animating from \`undefined\` will crash.
 *   **SVG attribute safety:** ALL SVG positional attributes (\`cx\`, \`cy\`, \`x\`, \`y\`, \`r\`, \`x1\`, \`y1\`, \`x2\`, \`y2\`) MUST be explicit numeric literals or simple arithmetic expressions — NEVER read from an array index that could be out-of-bounds.
 *   **D-path validity:** Every \`<path d="...">\` must be a valid, complete path string starting with \`M\`. Never \`d="undefined"\`.
