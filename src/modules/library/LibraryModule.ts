@@ -41,6 +41,7 @@ class LibraryModule {
     private static instance: LibraryModule;
     private catalog: Map<UUID, LibraryEntry>;
     private showcase: PersonalShowcase;
+    private _cachedTags: string[] | null = null;
 
     private constructor() {
         this.catalog = new Map();
@@ -64,6 +65,7 @@ class LibraryModule {
      */
     async addEntry(entry: LibraryEntry): Promise<void> {
         this.catalog.set(entry.id, entry);
+        this._cachedTags = null; // Invalidate cache
 
         await messageBus.send('LIBRARY_ENTRY_ADDED', entry, 'LibraryModule');
         logger.debug(`Library entry added: ${entry.name}`, { id: entry.id }, 'LibraryModule');
@@ -141,13 +143,17 @@ class LibraryModule {
      * Get all unique tags
      */
     getAllTags(): string[] {
+        if (this._cachedTags) return [...this._cachedTags];
+
         const tagSet = new Set<string>();
         for (const entry of this.catalog.values()) {
             for (const tag of entry.tags) {
                 tagSet.add(tag);
             }
         }
-        return Array.from(tagSet).sort();
+        // Bolt: Cache tags and return defensive clone
+        this._cachedTags = Array.from(tagSet).sort();
+        return [...this._cachedTags];
     }
 
     /**
@@ -316,6 +322,7 @@ class LibraryModule {
         for (const entry of entries) {
             this.catalog.set(entry.id, entry);
         }
+        this._cachedTags = null; // Invalidate cache
         logger.info(`Loaded ${entries.length} library entries`, undefined, 'LibraryModule');
     }
 
@@ -332,6 +339,7 @@ class LibraryModule {
      */
     clear(): void {
         this.catalog.clear();
+        this._cachedTags = null; // Invalidate cache
         this.showcase = {
             favoriteIds: [],
             achievements: [],
