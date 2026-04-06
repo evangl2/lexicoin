@@ -117,7 +117,14 @@ export function useSynthesis(): UseSynthesisResult {
 
       if (response.visual) {
         // Visual already ready (cache hit with existing visual)
-        messageBus.send('ASSET_LOADED', response.visual, 'useSynthesis');
+        // Normalize field names: edge function returns DB columns (sense_id),
+        // but ASSET_LOADED consumers expect { uid, id, payload, meta }
+        messageBus.send('ASSET_LOADED', {
+          uid: response.visual.sense_id ?? response.visual.uid,
+          id: response.visual.id,
+          payload: response.visual.payload,
+          meta: response.visual.meta ?? { stability: 100 },
+        }, 'useSynthesis');
       } else {
         // Visual is being generated async — start auto-poll chain
         const senseUid = response.sense?.uid;

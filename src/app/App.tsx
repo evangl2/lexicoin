@@ -20,6 +20,7 @@ import { useCardManager } from "@/app/hooks/useCardManager";
 import { useDeviceManager } from "@/app/hooks/useDeviceManager"; // Added
 import { useCardGrouping } from "@/app/hooks/useCardGrouping";
 import { usePhysics } from "@/app/hooks/usePhysics";
+import { useViewportCulling } from "@/app/hooks/useViewportCulling";
 
 // UI Components
 import { DragLayer } from "@/app/components/ui/canvas/DragLayer";
@@ -54,6 +55,9 @@ function InnerApp() {
   // Previously, setDraggingId() caused App.tsx to re-render → all N cards reconciled → 5 sync
   // React flushes × ~10ms each = 50ms jank per click (confirmed via perf trace 2026-04-04).
   const draggingIdRef = useRef<string | null>(null);
+
+  // Expanded/flipped card IDs — needed early for viewport culling to keep elevated cards alive
+  const zoomedCardIds = useGameStore(s => s.zoomedCardIds);
 
   // UI Logic (Migrated from useAppUI)
   const toggleDeck = useCallback(() => {
@@ -104,25 +108,52 @@ function InnerApp() {
     return ids;
   }, [deviceManager.canvasDevices]);
 
-  const visibleCanvasItems = useMemo(() =>
+  // All non-slotted canvas items (used for physics — not affected by viewport culling)
+  const allCanvasItems = useMemo(() =>
     data.canvasItems.filter((item: any) => !slottedCardIds.has(item.cardData.rawSense.uid)),
     [data.canvasItems, slottedCardIds]
   );
 
-  // 5. Physics Engine
+  // 5. Physics Engine (runs on all cards, independent of culling)
   const physicsItems = useMemo(
     () =>
-      visibleCanvasItems.map((item: any) => ({
+      allCanvasItems.map((item: any) => ({
         id: item.cardData.rawSense.uid,
         x: item.mx,
         y: item.my,
         width: item.width,
         height: item.height,
       })),
-    [visibleCanvasItems],
+    [allCanvasItems],
   );
 
   usePhysics(physicsItems, draggingIdRef);
+
+  // Viewport culling — only render cards visible on screen (+ 350px margin)
+  const cullItems = useMemo(
+    () => allCanvasItems.map((item: any) => ({
+      uid: item.cardData.rawSense.uid,
+      mx: item.mx,
+      my: item.my,
+      width: item.width,
+      height: item.height,
+    })),
+    [allCanvasItems],
+  );
+
+  const culledVisibleIds = useViewportCulling(
+    cullItems,
+    camera.x,
+    camera.y,
+    camera.scale,
+    zoomedCardIds,
+    draggingIdRef,
+  );
+
+  const visibleCanvasItems = useMemo(
+    () => allCanvasItems.filter((item: any) => culledVisibleIds.has(item.cardData.rawSense.uid)),
+    [allCanvasItems, culledVisibleIds],
+  );
 
   // 6. Persistence Binding (Robustness Fix)
   // Ensure we auto-save whenever items (Anchors) or groupings (Variants) change.
@@ -213,7 +244,7 @@ function InnerApp() {
   }, [handleRepositoryDrop]);
 
   // --- Z-Index / Focus Management ---
-  const isZoomed = useGameStore(s => s.zoomedCardIds.length > 0);
+  const isZoomed = zoomedCardIds.length > 0;
 
   const mappedLearningLang = useMemo(() => mapLanguageCode(learningLang), [learningLang]);
   const mappedSystemLang = useMemo(() => mapLanguageCode(systemLang), [systemLang]);

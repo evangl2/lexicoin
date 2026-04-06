@@ -375,6 +375,7 @@ export const Card = React.memo<CardProps>(({
   useDrag(({ active, xy: [px, py], delta: [dx, dy], first, last }) => {
     if (first) {
       setIsDragging(true);
+      scaleSpring.set(1.15); // immediate, no useEffect delay
       if (title) {
         tts.speak(title, learningLanguage);
       }
@@ -419,6 +420,7 @@ export const Card = React.memo<CardProps>(({
     }
     if (last) {
       setIsDragging(false);
+      scaleSpring.set(isHovered ? 1.05 : 1); // immediate, no useEffect delay
       onDragEnd?.(cardData.uid);
 
       // Manual Drop Detection for Synthesis Slots (Bridge between use-gesture and react-dnd)
@@ -504,8 +506,16 @@ export const Card = React.memo<CardProps>(({
       onPointerDown={(e) => {
         e.stopPropagation();
       }}
-      onHoverStart={() => !isFlipped && setIsHovered(true)}
-      onHoverEnd={() => !isFlipped && setIsHovered(false)}
+      onHoverStart={() => {
+        if (isFlipped) return;
+        setIsHovered(true);
+        if (!isExpanded) scaleSpring.set(1.05); // immediate, no useEffect delay
+      }}
+      onHoverEnd={() => {
+        if (isFlipped) return;
+        setIsHovered(false);
+        if (!isExpanded && !isDragging) scaleSpring.set(1);
+      }}
       onDoubleClick={(e) => e.stopPropagation()}
       transition={CardPersona.physics.springs.scale}
       className="canvas-card select-none group relative transition-colors duration-300"
