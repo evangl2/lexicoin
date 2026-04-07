@@ -13,18 +13,19 @@ import { mapLanguageCode } from '@/app/utils/localization';
 
 export const ProgressionHUD: React.FC = () => {
     const learningLang = useGameStore(s => s.player.settings.learningLang);
-    const rawProgress = useGameStore(s => s.player?.languageProgress?.[learningLang]);
-    
+    const level      = useGameStore(s => s.player?.languageProgress?.[learningLang]?.level ?? 1);
+    const xp         = useGameStore(s => s.player?.languageProgress?.[learningLang]?.xp ?? 0);
+    const xpToNext   = useGameStore(s => s.player?.languageProgress?.[learningLang]?.xpToNextLevel ?? 100);
+
     const progressInfo = React.useMemo(() => {
-        const p = rawProgress || { level: 1, xp: 0, xpToNextLevel: 100 };
-        const threshold = p.xpToNextLevel || LEVEL_XP_THRESHOLDS[p.level - 1] || 100;
+        const threshold = xpToNext || LEVEL_XP_THRESHOLDS[level - 1] || 100;
         return {
-            level: p.level,
-            xp: p.xp,
+            level,
+            xp,
             xpToNext: threshold,
-            progress: Math.min(1.0, p.xp / threshold)
+            progress: Math.min(1.0, xp / threshold)
         };
-    }, [rawProgress]);
+    }, [level, xp, xpToNext]);
 
     // 获取语言显示名称或标志
     const langDisplay = mapLanguageCode(learningLang).toUpperCase();

@@ -1,4 +1,5 @@
 import React, { useState, useRef, useMemo, useEffect } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { motion, AnimatePresence } from 'motion/react';
 import { useDrag, useDrop } from 'react-dnd';
 import { getEmptyImage } from 'react-dnd-html5-backend';
@@ -316,19 +317,15 @@ export const DeckRepository: React.FC<DeckRepositoryProps> = ({
     const [sortDir, setSortDir] = useState<SortDir>('asc');
     const [cardMode, setCardMode] = useState<CompactMode>('repository');
 
-    // Pagination State
-    const [visibleCount, setVisibleCount] = useState(20);
-
     // Resolve language code for display data lookup
     const langCode = mapLanguageCode(learningLanguage) as Language;
 
-    // Reset pagination when filters change
+    // Reset scroll position when filters change
     useEffect(() => {
-        setVisibleCount(20);
         if (scrollContainerRef.current) {
             scrollContainerRef.current.scrollLeft = 0;
         }
-    }, [activeTab, sortKey, sortDir, cardMode, items]); // Reset on item change too
+    }, [activeTab, sortKey, sortDir, cardMode, items]);
 
     // Sort Logic
     const sortedItems = useMemo(() => {
@@ -367,12 +364,24 @@ export const DeckRepository: React.FC<DeckRepositoryProps> = ({
         return list;
     }, [items, sortKey, sortDir, langCode]);
 
-    // Derived visible items
-    const visibleItems = useMemo(() => sortedItems.slice(0, visibleCount), [sortedItems, visibleCount]);
+    // Virtual list config per display mode
+    const VIRTUAL_CONFIG = {
+        repository: { colWidth: 125, colGap: 24, rowsPerCol: 1, rowGap: 0 },
+        icon:       { colWidth: 80,  colGap: 16, rowsPerCol: 2, rowGap: 24 },
+        word:       { colWidth: 140, colGap: 16, rowsPerCol: 3, rowGap: 16 },
+    } as const;
+    const vcfg = VIRTUAL_CONFIG[cardMode];
+    const columnCount = activeTab === 'words' ? Math.ceil(sortedItems.length / vcfg.rowsPerCol) : 0;
 
-    const handleLoadMore = () => {
-        setVisibleCount(prev => prev + 20);
-    };
+    const virtualizer = useVirtualizer({
+        count: columnCount,
+        getScrollElement: () => scrollContainerRef.current,
+        estimateSize: () => vcfg.colWidth + vcfg.colGap,
+        horizontal: true,
+        overscan: 4,
+        paddingStart: 16,
+        paddingEnd: 16,
+    });
 
     // Horizontal scroll via vertical mouse wheel
     const handleWheel = (e: React.WheelEvent) => {
@@ -602,35 +611,43 @@ export const DeckRepository: React.FC<DeckRepositoryProps> = ({
                                         <EmptyState systemLanguage={systemLanguage} />
                                     ) : (
                                         <div
-                                            className={`w-max h-full px-4 ${cardMode === 'word'
-                                                ? 'grid grid-rows-[auto_auto_auto] grid-flow-col gap-x-4 gap-y-4 content-center'
-                                                : cardMode === 'icon'
-                                                    ? 'grid grid-rows-[auto_auto] grid-flow-col gap-x-4 gap-y-6 content-center'
-                                                    : 'flex items-center gap-6'
-                                                }`}
+                                            style={{
+                                                width: virtualizer.getTotalSize(),
+                                                height: '100%',
+                                                position: 'relative',
+                                            }}
                                         >
-                                            {visibleItems.map(item => (
-                                                <RepoCard
-                                                    key={item.cardData.uid}
-                                                    item={item}
-                                                    langCode={langCode}
-                                                    mode={cardMode}
-                                                    onRetrieve={onRetrieve}
-                                                    variants={mergedVariants[item.cardData.uid] || []}
-                                                />
-                                            ))}
-
-                                            {/* Load More Button */}
-                                            {visibleCount < sortedItems.length && (
-                                                <div className="flex items-center justify-center min-w-[100px] h-full">
-                                                    <button
-                                                        onClick={handleLoadMore}
-                                                        className="px-4 py-2 border border-[#D4AF37]/30 rounded text-[#D4AF37] hover:bg-[#D4AF37]/10 transition-colors text-xs tracking-widest uppercase"
+                                            {virtualizer.getVirtualItems().map(virtualCol => {
+                                                const startIdx = virtualCol.index * vcfg.rowsPerCol;
+                                                const colItems = sortedItems.slice(startIdx, startIdx + vcfg.rowsPerCol);
+                                                return (
+                                                    <div
+                                                        key={virtualCol.key}
+                                                        style={{
+                                                            position: 'absolute',
+                                                            top: 0,
+                                                            left: virtualCol.start,
+                                                            width: vcfg.colWidth,
+                                                            height: '100%',
+                                                            display: 'flex',
+                                                            flexDirection: 'column',
+                                                            justifyContent: 'center',
+                                                            gap: vcfg.rowGap,
+                                                        }}
                                                     >
-                                                        {getLoc('Load More', systemLanguage)}
-                                                    </button>
-                                                </div>
-                                            )}
+                                                        {colItems.map(item => (
+                                                            <RepoCard
+                                                                key={item.cardData.uid}
+                                                                item={item}
+                                                                langCode={langCode}
+                                                                mode={cardMode}
+                                                                onRetrieve={onRetrieve}
+                                                                variants={mergedVariants[item.cardData.uid] || []}
+                                                            />
+                                                        ))}
+                                                    </div>
+                                                );
+                                            })}
                                         </div>
                                     )
                                 ) : activeTab === 'props' ? (

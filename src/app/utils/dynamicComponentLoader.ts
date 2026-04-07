@@ -13,67 +13,102 @@ import * as Motion from 'motion/react';
 // This patch is extremely surgical: it only acts when name === 'd' and the
 // value is nullish or the literal string "undefined". All other calls pass
 // through unchanged.  Applied once at module load time.
-;(function guardSVGPathD() {
+;(function guardSVGAttrs() {
     if (typeof Element === 'undefined') return;          // SSR / non-browser guard
+
+    // SVG attributes that must be valid lengths/numbers — framer-motion may write
+    // "undefined" into these when an animated value is never properly initialised.
+    const SVG_NUMERIC_ATTRS = new Set([
+        'd',                                    // <path>
+        'cx', 'cy', 'r', 'rx', 'ry',           // <circle> <ellipse>
+        'x', 'y', 'x1', 'y1', 'x2', 'y2',     // <line> <rect> positioning
+        'width', 'height',                      // <rect>
+        'points',                               // <polygon> <polyline>
+    ]);
+
     const _orig = Element.prototype.setAttribute;
     Element.prototype.setAttribute = function(name: string, value: any) {
-        if (name === 'd' && (value == null || String(value) === 'undefined')) return;
+        if (SVG_NUMERIC_ATTRS.has(name) && (value == null || String(value) === 'undefined')) return;
         _orig.call(this, name, value);
     };
 })();
 
 // ---------------------------------------------------------------------------
-// Safe motion.path wrapper
+// Safe motion.* SVG wrappers
 // ---------------------------------------------------------------------------
 // framer-motion writes animated values directly to the DOM via element.setAttribute(),
 // bypassing React entirely. Our React.createElement patch cannot intercept this.
 //
-// The fix: intercept BEFORE framer-motion's animation engine starts — replace
-// motion.path in the require scope with a wrapper that sanitises `d` values in
-// all the locations framer-motion reads them from:
-//   • direct `d` prop
-//   • `variants[state].d`  (missing in some states → framer reads undefined from DOM)
-//   • inline `animate.d` / `initial.d` objects
+// Defence-in-depth: sanitise numeric SVG props BEFORE they reach framer-motion's
+// animation engine, so its MotionValues are never initialised with undefined.
+// (The setAttribute guard above is the last-resort backstop for anything missed here.)
 
-const _safeD = (val: unknown): unknown =>
-    val === undefined || val === 'undefined' ? 'M 0 0' : val;
+// Fallback values for SVG numeric attributes when the AI leaves them undefined.
+// Position attrs → 50 (centre of the 0-0-100-100 viewBox) so the shape stays
+// visible near the middle rather than jumping to a corner.
+// Size attrs → 0 so the shape becomes invisible rather than visually wrong.
+const _SVG_FALLBACKS: Record<string, string | number> = {
+    d: 'M 0 0',
+    cx: 50, cy: 50,                     // circle / ellipse centre → viewBox centre
+    r: 0, rx: 0, ry: 0,                 // radii → 0 (invisible, not distorted)
+    x: 50,  y: 50,                      // rect / general position → centre
+    x1: 50, y1: 50, x2: 50, y2: 50,    // line endpoints → centre (collapses to point)
+    width: 0, height: 0,                // size → 0 (invisible)
+    points: '',
+};
+const _SVG_NUMERIC_KEYS = new Set(Object.keys(_SVG_FALLBACKS));
 
-function _sanitizePathProps(props: Record<string, unknown>): Record<string, unknown> {
+const _safeVal = (key: string, val: unknown): unknown =>
+    (val === undefined || val === 'undefined')
+        ? (_SVG_FALLBACKS[key] ?? 0)
+        : val;
+
+function _sanitizeSVGProps(props: Record<string, unknown>): Record<string, unknown> {
     let p = { ...props };
 
-    // (a) direct d prop
-    if ('d' in p) p.d = _safeD(p.d);
+    // (a) direct numeric SVG props
+    for (const key of _SVG_NUMERIC_KEYS) {
+        if (key in p) p[key] = _safeVal(key, p[key]);
+    }
 
-    // (b) variants — if ANY variant defines `d`, ALL variants must have a valid `d`.
-    //     Without this, framer-motion reads the current DOM value (empty → undefined).
+    // (b) variants — if ANY variant defines a numeric SVG key, ALL variants must
+    //     have a valid value for it so framer-motion can interpolate without hitting undefined.
     if (p.variants && typeof p.variants === 'object') {
         const variants = p.variants as Record<string, unknown>;
-        const anyHasD = Object.values(variants).some(
-            v => v && typeof v === 'object' && 'd' in (v as object)
+        const affectedKeys = [..._SVG_NUMERIC_KEYS].filter(key =>
+            Object.values(variants).some(v => v && typeof v === 'object' && key in (v as object))
         );
-        if (anyHasD) {
-            // Use the first valid path string as fallback for states that lack `d`
-            const validD =
-                Object.values(variants)
-                    .map((v: any) => v?.d)
-                    .find((d: any) => d && d !== 'undefined') ?? 'M 0 0';
-
+        if (affectedKeys.length > 0) {
+            // For each affected key, find the best valid fallback from existing variant values
+            const bestFallback: Record<string, unknown> = {};
+            for (const key of affectedKeys) {
+                bestFallback[key] =
+                    Object.values(variants)
+                        .map((v: any) => v?.[key])
+                        .find((val: any) => val !== undefined && val !== 'undefined')
+                    ?? _SVG_FALLBACKS[key]
+                    ?? 0;
+            }
             p.variants = Object.fromEntries(
                 Object.entries(variants).map(([k, v]) => {
                     if (!v || typeof v !== 'object') return [k, v];
                     const vo = v as Record<string, unknown>;
-                    return [k, { ...vo, d: _safeD('d' in vo ? vo.d : validD) }];
+                    const fixes: Record<string, unknown> = {};
+                    for (const key of affectedKeys) {
+                        fixes[key] = _safeVal(key, key in vo ? vo[key] : bestFallback[key]);
+                    }
+                    return [k, { ...vo, ...fixes }];
                 })
             );
-
-            // Ensure a direct `d` prop exists so framer-motion never has to read
-            // the (possibly absent) DOM attribute as its starting value.
-            if (!('d' in p)) {
-                const initialKey = typeof p.initial === 'string' ? p.initial : null;
-                const initialD = initialKey
-                    ? (p.variants as Record<string, any>)[initialKey]?.d
-                    : undefined;
-                p.d = _safeD(initialD ?? validD);
+            // Ensure direct props exist so framer-motion doesn't read from empty DOM attrs
+            const initialKey = typeof p.initial === 'string' ? p.initial : null;
+            for (const key of affectedKeys) {
+                if (!(key in p)) {
+                    const fromVariant = initialKey
+                        ? (p.variants as Record<string, any>)[initialKey]?.[key]
+                        : undefined;
+                    p[key] = _safeVal(key, fromVariant ?? bestFallback[key]);
+                }
             }
         }
     }
@@ -82,7 +117,11 @@ function _sanitizePathProps(props: Record<string, unknown>): Record<string, unkn
     const fixTarget = (t: unknown): unknown => {
         if (!t || typeof t !== 'object' || Array.isArray(t)) return t;
         const o = t as Record<string, unknown>;
-        return 'd' in o ? { ...o, d: _safeD(o.d) } : o;
+        const fixes: Record<string, unknown> = {};
+        for (const key of _SVG_NUMERIC_KEYS) {
+            if (key in o) fixes[key] = _safeVal(key, o[key]);
+        }
+        return Object.keys(fixes).length ? { ...o, ...fixes } : o;
     };
     if ('animate' in p) p.animate = fixTarget(p.animate);
     if ('initial' in p && typeof p.initial === 'object' && p.initial !== null) {
@@ -92,17 +131,25 @@ function _sanitizePathProps(props: Record<string, unknown>): Record<string, unkn
     return p;
 }
 
-// Thin wrapper: sanitise props, then delegate to the real motion.path.
-// Must be a plain function (not forwardRef) — AI code never uses refs on paths.
-function _SafeMotionPath(props: Record<string, unknown>) {
-    return React.createElement(Motion.motion.path, _sanitizePathProps(props) as any);
-}
+// SVG element types that can carry animated numeric attributes.
+const _SVG_MOTION_ELEMENTS = new Set(['path', 'circle', 'ellipse', 'rect', 'line', 'polygon', 'polyline']);
 
-// Replace motion.path in the require scope via a Proxy on the motion namespace.
-// All other motion.* components pass through unchanged.
+// Replace motion.{svg elements} in the require scope via a Proxy.
+// Wrappers sanitise numeric SVG props before framer-motion sees them.
+const _safeMotionCache = new Map<string, (props: any) => any>();
+
 const _safeMotion = new Proxy(Motion.motion as object, {
     get(target: any, prop: string | symbol) {
-        if (prop === 'path') return _SafeMotionPath;
+        if (typeof prop === 'string' && _SVG_MOTION_ELEMENTS.has(prop)) {
+            if (!_safeMotionCache.has(prop)) {
+                const original = target[prop];
+                const Wrapper = (wProps: Record<string, unknown>) =>
+                    React.createElement(original, _sanitizeSVGProps(wProps) as any);
+                Wrapper.displayName = `SafeMotion.${prop}`;
+                _safeMotionCache.set(prop, Wrapper);
+            }
+            return _safeMotionCache.get(prop)!;
+        }
         return target[prop];
     },
 });

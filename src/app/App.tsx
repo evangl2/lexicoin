@@ -32,7 +32,9 @@ import { levelModule } from "@/modules/level/LevelModule";
 
 // Store & Utils
 import { useGameStore } from "@store/index";
+import { useShallow } from "zustand/react/shallow";
 import { getLoc, mapLanguageCode } from "@/app/utils/localization";
+import { cardFocusRegistry } from "@/app/utils/cardFocusRegistry";
 
 const EMPTY_VARIANTS: any[] = [];
 
@@ -56,8 +58,20 @@ function InnerApp() {
   // React flushes × ~10ms each = 50ms jank per click (confirmed via perf trace 2026-04-04).
   const draggingIdRef = useRef<string | null>(null);
 
-  // Expanded/flipped card IDs — needed early for viewport culling to keep elevated cards alive
-  const zoomedCardIds = useGameStore(s => s.zoomedCardIds);
+  // Single global pointerdown listener that delegates to all registered card handlers.
+  // Replaces N per-card window listeners (one per expanded/flipped card) with one.
+  useEffect(() => {
+    window.addEventListener('pointerdown', cardFocusRegistry.dispatch, { capture: true });
+    return () => window.removeEventListener('pointerdown', cardFocusRegistry.dispatch, { capture: true });
+  }, []);
+
+  // Expanded/flipped card IDs — needed early for viewport culling to keep elevated cards alive.
+  // useShallow: prevents re-render when unrelated store fields change (only re-renders when
+  // array content actually differs, not just on new array reference from any store update).
+  const zoomedCardIds = useGameStore(useShallow(s => s.zoomedCardIds));
+
+  // Separate boolean for isZoomed (passed to Dock) — avoids array comparison overhead there
+  const isZoomed = zoomedCardIds.length > 0;
 
   // UI Logic (Migrated from useAppUI)
   const toggleDeck = useCallback(() => {
@@ -242,9 +256,6 @@ function InnerApp() {
   const handleDeviceDropIntoRepository = useCallback((uid: string) => {
     handleRepositoryDrop(uid, true);
   }, [handleRepositoryDrop]);
-
-  // --- Z-Index / Focus Management ---
-  const isZoomed = zoomedCardIds.length > 0;
 
   const mappedLearningLang = useMemo(() => mapLanguageCode(learningLang), [learningLang]);
   const mappedSystemLang = useMemo(() => mapLanguageCode(systemLang), [systemLang]);

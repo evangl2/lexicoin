@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useEffect } from 'react';
 import { useGesture } from '@use-gesture/react';
 import { motion, useTransform } from 'motion/react';
 import { useWindowDimensions } from '@/app/hooks/useWindowDimensions';
@@ -28,10 +28,16 @@ export const Canvas: React.FC<CanvasProps> = ({ children, scale, x, y, onDoubleC
   const HALF_H = WORLD_H / 2;
 
   // ============================================================
-  // RAF THROTTLE UTILITY (Performance Optimization)
+  // ZOOM INERTIA STATE
   // ============================================================
-  const rafThrottle = useRef<number | null>(null);
-  const pendingWheelEvent = useRef<{ delta: number; event: WheelEvent } | null>(null);
+  // Wheel events accumulate pixel-delta into zoomVelocity.
+  // The inertia loop consumes velocity each frame with friction — total zoom applied equals
+  // accumulated input, but spread over ~10 frames instead of 1 → smooth deceleration.
+  const accumulatedDy = useRef(0);      // wheel delta buffer (consumed by inertia loop)
+  const zoomVelocityRef = useRef(0);    // remaining velocity in pixel-delta units
+  const inertiaRafRef = useRef<number | null>(null);
+  const latestMouseX = useRef(0);       // primitive refs — no heap allocation per event
+  const latestMouseY = useRef(0);
 
   const clampCamera = (currentX: number, currentY: number, currentScale: number) => {
     if (typeof window === 'undefined') return { x: currentX, y: currentY };
@@ -73,6 +79,70 @@ export const Canvas: React.FC<CanvasProps> = ({ children, scale, x, y, onDoubleC
     };
   };
 
+  // ============================================================
+  // ZOOM INERTIA LOOP
+  // ============================================================
+  // FRICTION = 0.72: each frame retains 72% of velocity → ~14 frames to 1% → ~233ms coast.
+  // Total applied = v * (1-F) * (1 + F + F² + ...) = v * (1-F)/(1-F) = v  (same as instant).
+  const ZOOM_FRICTION = 0.72;
+  const ZOOM_MIN_VELOCITY = 0.5; // pixel-delta units; below this, stop the loop
+
+  const runZoomInertia = () => {
+    // Absorb any wheel events queued since last frame
+    if (accumulatedDy.current !== 0) {
+      zoomVelocityRef.current += accumulatedDy.current;
+      accumulatedDy.current = 0;
+    }
+
+    const v = zoomVelocityRef.current;
+    if (Math.abs(v) < ZOOM_MIN_VELOCITY) {
+      zoomVelocityRef.current = 0;
+      inertiaRafRef.current = null;
+      return;
+    }
+
+    const mouseX = latestMouseX.current;
+    const mouseY = latestMouseY.current;
+    const currentScale = scale.get();
+    const currentX = x.get();
+    const currentY = y.get();
+    const screenW = windowWidth.get();
+    const screenH = windowHeight.get();
+    const limitMinScale = Math.max(0.08, Math.max(screenW / WORLD_W, screenH / WORLD_H));
+
+    // Apply (1 - FRICTION) fraction of velocity this frame; remainder decays next frame
+    const applied = v * (1 - ZOOM_FRICTION);
+    const newScale = Math.min(
+      Math.max(limitMinScale, currentScale * Math.exp(-applied * 0.001)),
+      2.0
+    );
+
+    if (newScale !== currentScale) {
+      const scaleRatio = newScale / currentScale;
+      const clamped = clampCamera(
+        mouseX - (mouseX - currentX) * scaleRatio,
+        mouseY - (mouseY - currentY) * scaleRatio,
+        newScale
+      );
+      scale.set(newScale);
+      x.set(clamped.x);
+      y.set(clamped.y);
+    } else {
+      // Scale limit reached — drain velocity so loop terminates
+      zoomVelocityRef.current = 0;
+      inertiaRafRef.current = null;
+      return;
+    }
+
+    zoomVelocityRef.current = v * ZOOM_FRICTION;
+    inertiaRafRef.current = requestAnimationFrame(runZoomInertia);
+  };
+
+  // Cancel any in-flight inertia on unmount
+  useEffect(() => () => {
+    if (inertiaRafRef.current !== null) cancelAnimationFrame(inertiaRafRef.current);
+  }, []);
+
   useGesture(
     {
       onDrag: ({ delta: [dx, dy], event }) => {
@@ -84,52 +154,53 @@ export const Canvas: React.FC<CanvasProps> = ({ children, scale, x, y, onDoubleC
         x.set(clamped.x);
         y.set(clamped.y);
       },
-      onWheel: ({ delta: [, dy], event }) => {
+      onWheel: ({ event, last }) => {
+        // use-gesture fires a final onWheel with last:true (via 200ms timeout) reusing the last
+        // real WheelEvent. Skipping it prevents every scroll tick from applying zoom twice.
+        if (last) return;
         event.preventDefault();
+        const we = event as WheelEvent;
 
-        // Store the latest wheel event data
-        pendingWheelEvent.current = { delta: dy, event: event as WheelEvent };
+        // deltaMode normalization: 0=pixels (trackpad), 1=lines (mouse), 2=pages (rare)
+        const LINE_HEIGHT = 40;
+        const normalizedDy =
+          we.deltaMode === 1 ? we.deltaY * LINE_HEIGHT :
+          we.deltaMode === 2 ? we.deltaY * window.innerHeight :
+          we.deltaY;
 
-        // If a RAF is already scheduled, skip this frame
-        if (rafThrottle.current !== null) return;
+        latestMouseX.current = we.clientX;
+        latestMouseY.current = we.clientY;
 
-        // Schedule processing on next animation frame
-        rafThrottle.current = requestAnimationFrame(() => {
-          if (!pendingWheelEvent.current) {
-            rafThrottle.current = null;
-            return;
+        // Discrete (mouse wheel) vs continuous (trackpad) detection:
+        // deltaMode !== 0  → line/page mode, always a physical wheel
+        // deltaMode === 0 with large per-event delta → mouse in pixel mode
+        // deltaMode === 0 with small delta → trackpad continuous gesture
+        const isDiscreteWheel = we.deltaMode !== 0 || Math.abs(we.deltaY) >= 50;
+
+        if (isDiscreteWheel) {
+          // Mouse wheel: apply immediately in one frame — one click = one zoom step, no tail.
+          const cs = scale.get(), cx = x.get(), cy = y.get();
+          const sw = windowWidth.get(), sh = windowHeight.get();
+          const minScale = Math.max(0.08, Math.max(sw / WORLD_W, sh / WORLD_H));
+          const ns = Math.min(Math.max(minScale, cs * Math.exp(-normalizedDy * 0.001)), 2.0);
+          if (ns !== cs) {
+            const r = ns / cs;
+            const clamped = clampCamera(
+              we.clientX - (we.clientX - cx) * r,
+              we.clientY - (we.clientY - cy) * r,
+              ns
+            );
+            scale.set(ns);
+            x.set(clamped.x);
+            y.set(clamped.y);
           }
-
-          const { delta: latestDy, event: latestEvent } = pendingWheelEvent.current;
-          pendingWheelEvent.current = null;
-          rafThrottle.current = null;
-
-          const currentScale = scale.get();
-          const currentX = x.get();
-          const currentY = y.get();
-          const screenW = windowWidth.get();
-          const screenH = windowHeight.get();
-          const minScaleW = screenW / WORLD_W;
-          const minScaleH = screenH / WORLD_H;
-          const dynamicMinScale = Math.max(minScaleW, minScaleH);
-          const limitMinScale = Math.max(0.08, dynamicMinScale);
-
-          const zoomFactor = -latestDy * 0.001;
-          const newScale = Math.min(Math.max(limitMinScale, currentScale + zoomFactor), 2.0);
-
-          if (newScale === currentScale) return;
-
-          const mouseX = latestEvent.clientX;
-          const mouseY = latestEvent.clientY;
-          const scaleRatio = newScale / currentScale;
-          const nextX = mouseX - (mouseX - currentX) * scaleRatio;
-          const nextY = mouseY - (mouseY - currentY) * scaleRatio;
-          const clamped = clampCamera(nextX, nextY, newScale);
-
-          scale.set(newScale);
-          x.set(clamped.x);
-          y.set(clamped.y);
-        });
+        } else {
+          // Trackpad: feed inertia loop for smooth continuous zoom
+          accumulatedDy.current += normalizedDy;
+          if (inertiaRafRef.current === null) {
+            inertiaRafRef.current = requestAnimationFrame(runZoomInertia);
+          }
+        }
       }
     },
     {

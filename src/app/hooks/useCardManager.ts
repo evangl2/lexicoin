@@ -155,12 +155,19 @@ export const useCardManager = () => {
                 }
             });
 
-            db.transaction('rw', db.canvasPositions, async () => {
-                await db.canvasPositions.bulkPut(records);
-            }).catch(err => {
-                logger.error('Failed to save canvas positions', err, 'useCardManager');
-            });
-        }, 300); // 300ms debounce
+            const doSave = () => {
+                db.transaction('rw', db.canvasPositions, async () => {
+                    await db.canvasPositions.bulkPut(records);
+                }).catch(err => {
+                    logger.error('Failed to save canvas positions', err, 'useCardManager');
+                });
+            };
+            if (typeof requestIdleCallback !== 'undefined') {
+                requestIdleCallback(doSave, { timeout: 2000 });
+            } else {
+                doSave();
+            }
+        }, 300); // 300ms debounce → then idle
     }, [items, isLoaded]);
 
     // ==== Store Card (Canvas → Repository) ====

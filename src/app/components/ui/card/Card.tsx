@@ -6,6 +6,8 @@ import { useWindowDimensions } from '@/app/hooks/useWindowDimensions';
 import { useDrag } from '@use-gesture/react';
 import { DefaultCardPersona as CardPersona } from '@/app/components/persona/default/Card.persona.default';
 import { CardVisual } from '@/app/components/ui/card/CardVisual';
+import { CompactCardVisual } from '@/app/components/ui/card/CompactCardVisual';
+import { cardFocusRegistry } from '@/app/utils/cardFocusRegistry';
 import { tts } from '@/app/utils/audio/tts';
 import { useGameStore } from '@store/index';
 import type { CardEntity } from '@/types/CardEntity';
@@ -98,6 +100,9 @@ export const Card = React.memo<CardProps>(({
   const systemData = currentCardData.displayData[systemLanguage]!;
 
   const title = learningData.word;
+  // isHoveredRef: drives imperative updates (scaleSpring, boxShadow) without waiting for re-render
+  // isHovered state: drives isActive → CardVisual re-render for visual animation activation
+  const isHoveredRef = useRef(false);
   const [isHovered, setIsHovered] = useState(false);
 
   // --- Drop Target (Items) ---
@@ -112,10 +117,33 @@ export const Card = React.memo<CardProps>(({
     }),
   }));
 
-  const [isDragging, setIsDragging] = useState(false);
+  const isDraggingRef = useRef(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [isFlipped, setIsFlipped] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
+
+  // LOD: switch to CompactCardVisual at low canvas zoom (hysteresis prevents threshold flicker)
+  // isCompactLODRef gates setState — only called on threshold crossing, not every zoom tick.
+  // This avoids entering React scheduler N times per frame during zoom (was: N×setIsCompactLOD
+  // functional-updater per canvasScale event even when returning prev with no re-render).
+  const LOD_ENTER = 0.32;
+  const LOD_EXIT = 0.38;
+  const isCompactLODRef = useRef(canvasScale.get() < LOD_ENTER);
+  const [isCompactLOD, setIsCompactLOD] = useState(isCompactLODRef.current);
+  useEffect(() => {
+    const check = (v: number) => {
+      if (isCompactLODRef.current && v > LOD_EXIT) {
+        isCompactLODRef.current = false;
+        setIsCompactLOD(false);
+      } else if (!isCompactLODRef.current && v < LOD_ENTER) {
+        isCompactLODRef.current = true;
+        setIsCompactLOD(true);
+      }
+      // else: pure ref read, React scheduler not entered
+    };
+    check(canvasScale.get());
+    return canvasScale.on('change', check);
+  }, [canvasScale]);
   const animatingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Clear timeout on unmount
@@ -152,11 +180,6 @@ export const Card = React.memo<CardProps>(({
     }
   }, [groupFeedback, cardData.uid]);
 
-  useEffect(() => {
-    if (isHovered || isDragging) {
-      setVisualFeedback(null);
-    }
-  }, [isHovered, isDragging]);
 
   const startAnimation = useCallback(() => {
     setIsAnimating(true);
@@ -185,18 +208,21 @@ export const Card = React.memo<CardProps>(({
   }, [isExpanded, isFlipped, mouseX, mouseY]);
 
   useEffect(() => {
+    if (!isExpanded && !isFlipped) {
+      cardFocusRegistry.unregister(uid);
+      return;
+    }
     const handleGlobalClick = (e: PointerEvent) => {
-      if ((isExpanded || isFlipped) && cardRef.current && !cardRef.current.contains(e.target as Node)) {
+      if (cardRef.current && !cardRef.current.contains(e.target as Node)) {
+        isHoveredRef.current = false;
         setIsHovered(false);
         setIsExpanded(false);
-        if (isFlipped) {
-          setIsFlipped(false);
-        }
+        if (isFlipped) setIsFlipped(false);
       }
     };
-    window.addEventListener('pointerdown', handleGlobalClick, { capture: true });
-    return () => window.removeEventListener('pointerdown', handleGlobalClick, { capture: true });
-  }, [isExpanded, isFlipped]);
+    cardFocusRegistry.register(uid, handleGlobalClick);
+    return () => cardFocusRegistry.unregister(uid);
+  }, [isExpanded, isFlipped, uid]);
 
   // --- Selection Overlay Handlers ---
   const handleDefinitionClick = useCallback(() => {
@@ -315,11 +341,10 @@ export const Card = React.memo<CardProps>(({
       scaleSpring.set(expandedScale.get());
       return unsubscribe;
     } else {
-      // Idle/Hover/Drag
-      const target = isDragging ? 1.15 : isHovered ? 1.05 : 1;
-      scaleSpring.set(target);
+      // Idle/Drag — hover scale is set imperatively in onHoverStart/onHoverEnd
+      scaleSpring.set(1);
     }
-  }, [isExpanded, isFlipped, isDragging, isHovered, expandedScale, scaleSpring]);
+  }, [isExpanded, isFlipped, expandedScale, scaleSpring]);
 
   // --- Z-index: driven imperatively by scaleSpring to stay in sync with the visual scale.
   // This avoids the React re-render timing gap that caused other cards to appear in front
@@ -351,13 +376,11 @@ export const Card = React.memo<CardProps>(({
   const fgParallaxX = useTransform(displayRotateY, [-20, 20], [-25, 25]);
   const fgParallaxY = useTransform(displayRotateX, [-20, 20], [-25, 25]);
 
-  const targetShadow = isDragging
-    ? CardPersona.tokens.shadows.dragging
-    : isExpanded
-      ? CardPersona.tokens.shadows.expanded
-      : isHovered
-        ? CardPersona.tokens.shadows.hover
-        : CardPersona.tokens.shadows.base;
+  const targetShadow = isExpanded
+    ? CardPersona.tokens.shadows.expanded
+    : isHoveredRef.current
+      ? CardPersona.tokens.shadows.hover
+      : CardPersona.tokens.shadows.base;
 
   const flipSpring = useSpring(0, CardPersona.physics.springs.flip);
   useEffect(() => { flipSpring.set(isFlipped ? 1 : 0); }, [isFlipped, flipSpring]);
@@ -374,8 +397,14 @@ export const Card = React.memo<CardProps>(({
 
   useDrag(({ active, xy: [px, py], delta: [dx, dy], first, last }) => {
     if (first) {
-      setIsDragging(true);
-      scaleSpring.set(1.15); // immediate, no useEffect delay
+      isDraggingRef.current = true;
+      setVisualFeedback(null);
+      scaleSpring.set(1.15);
+      if (cardRef.current) {
+        cardRef.current.style.cursor = 'grabbing';
+        cardRef.current.style.boxShadow = CardPersona.tokens.shadows.dragging;
+        cardRef.current.style.willChange = 'transform';
+      }
       if (title) {
         tts.speak(title, learningLanguage);
       }
@@ -419,8 +448,15 @@ export const Card = React.memo<CardProps>(({
       updatePosition(cardData.uid, finalX, finalY);
     }
     if (last) {
-      setIsDragging(false);
-      scaleSpring.set(isHovered ? 1.05 : 1); // immediate, no useEffect delay
+      isDraggingRef.current = false;
+      scaleSpring.set(isHoveredRef.current ? 1.05 : 1);
+      if (cardRef.current) {
+        cardRef.current.style.cursor = isExpanded ? 'zoom-out' : 'grab';
+        cardRef.current.style.boxShadow = isHoveredRef.current
+          ? CardPersona.tokens.shadows.hover
+          : CardPersona.tokens.shadows.base;
+        cardRef.current.style.willChange = isHoveredRef.current ? 'transform' : 'auto';
+      }
       onDragEnd?.(cardData.uid);
 
       // Manual Drop Detection for Synthesis Slots (Bridge between use-gesture and react-dnd)
@@ -444,7 +480,7 @@ export const Card = React.memo<CardProps>(({
     }
   }, dragConfig);
 
-  const isActive = (isHovered || isDragging || isExpanded || isOver || isOverlayOpen) && !isAnimating;
+  const isActive = (isHovered || isExpanded || isOver || isOverlayOpen) && !isAnimating;
 
   // z-index is now driven imperatively via scaleSpring.on('change') above — removed from style prop.
 
@@ -457,7 +493,7 @@ export const Card = React.memo<CardProps>(({
     <motion.div
       ref={setRefs}
       onClick={(e) => {
-        if (isDragging) return;
+        if (isDraggingRef.current) return;
         if (e.button !== 0) return;
 
         if (isFlipped) {
@@ -488,19 +524,22 @@ export const Card = React.memo<CardProps>(({
         }
       }}
       style={{
-        x: displayX, y: displayY, width, height,
+        x: displayX, y: displayY,
+        width, height,
         rotateX: displayRotateX, rotateY: displayRotateY, rotateZ: displayRotateZ,
 
         opacity: isHidden ? 0 : 1,
         boxShadow: targetShadow,
         transition: 'box-shadow 0.3s ease-out',
         transformStyle: 'preserve-3d',
-        cursor: isFlipped ? 'default' : (isDragging ? "grabbing" : (isExpanded ? "zoom-out" : "grab")),
+        cursor: isFlipped ? 'default' : (isExpanded ? 'zoom-out' : 'grab'),
         position: 'absolute', left: '50%', top: '50%',
         marginLeft: -width / 2, marginTop: -height / 2,
         touchAction: 'none',
         borderRadius: CardPersona.tokens.layout.radius,
         scale: externalScale || scaleSpring,
+        contain: 'layout style',
+        willChange: isHovered ? 'transform' : 'auto',
       }}
 
       onPointerDown={(e) => {
@@ -508,50 +547,64 @@ export const Card = React.memo<CardProps>(({
       }}
       onHoverStart={() => {
         if (isFlipped) return;
+        isHoveredRef.current = true;
         setIsHovered(true);
-        if (!isExpanded) scaleSpring.set(1.05); // immediate, no useEffect delay
+        setVisualFeedback(null);
+        if (!isExpanded) scaleSpring.set(1.05);
       }}
       onHoverEnd={() => {
         if (isFlipped) return;
+        isHoveredRef.current = false;
         setIsHovered(false);
-        if (!isExpanded && !isDragging) scaleSpring.set(1);
+        if (!isExpanded && !isDraggingRef.current) scaleSpring.set(1);
       }}
       onDoubleClick={(e) => e.stopPropagation()}
       transition={CardPersona.physics.springs.scale}
       className="canvas-card select-none group relative transition-colors duration-300"
     >
-      <CardVisual
-        learningData={learningData}
-        systemData={systemData}
-        senseInfo={currentCardData.senseInfo}
-        visual={currentCardData.visual}
-        learningLanguage={learningLanguage}
-        systemLanguage={systemLanguage}
-        isActive={isActive}
-        isOver={isOver}
+      {(isCompactLOD && !isExpanded && !isFlipped) ? (
+        <CompactCardVisual
+          mode="repository"
+          learningData={learningData}
+          senseInfo={currentCardData.senseInfo}
+          visual={currentCardData.visual}
+          persona={CardPersona}
+          isActive={isActive}
+        />
+      ) : (
+        <CardVisual
+          learningData={learningData}
+          systemData={systemData}
+          senseInfo={currentCardData.senseInfo}
+          visual={currentCardData.visual}
+          learningLanguage={learningLanguage}
+          systemLanguage={systemLanguage}
+          isActive={isActive}
+          isOver={isOver}
 
-        flipScaleX={flipScaleX}
-        frontOpacity={frontOpacity}
-        backOpacity={backOpacity}
+          flipScaleX={flipScaleX}
+          frontOpacity={frontOpacity}
+          backOpacity={backOpacity}
 
-        bgParallaxX={bgParallaxX}
-        bgParallaxY={bgParallaxY}
-        fgParallaxX={fgParallaxX}
-        fgParallaxY={fgParallaxY}
+          bgParallaxX={bgParallaxX}
+          bgParallaxY={bgParallaxY}
+          fgParallaxX={fgParallaxX}
+          fgParallaxY={fgParallaxY}
 
-        displayRotateY={displayRotateY}
-        smoothXVelocity={smoothXVelocity}
-        smoothYVelocity={smoothYVelocity}
-        isExpanded={isExpanded}
+          displayRotateY={displayRotateY}
+          smoothXVelocity={smoothXVelocity}
+          smoothYVelocity={smoothYVelocity}
+          isExpanded={isExpanded}
 
-        isOverlayOpen={isOverlayOpen}
-        selectionItems={selectionItems}
-        selectedDefId={selectedDefId}
-        definitionOverride={definitionOverride}
-        onDefinitionClick={handleDefinitionClick}
-        onSelectDefinition={handleSelectDefinition}
-        visualFeedback={visualFeedback}
-      />
+          isOverlayOpen={isOverlayOpen}
+          selectionItems={selectionItems}
+          selectedDefId={selectedDefId}
+          definitionOverride={definitionOverride}
+          onDefinitionClick={handleDefinitionClick}
+          onSelectDefinition={handleSelectDefinition}
+          visualFeedback={visualFeedback}
+        />
+      )}
     </motion.div >
   );
 });

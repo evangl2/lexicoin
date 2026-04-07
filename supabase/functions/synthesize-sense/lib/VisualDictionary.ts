@@ -15,7 +15,7 @@ export const VISUAL_DICTIONARY: Record<string, VisualDirective> = {
     default: {
         styleInstruction: `**This section has the HIGHEST design priority. When any other guidance conflicts with these principles, defer to this section.**
 
-*   **Iconic Imprint:** The totem must capture the irreducible visual essence of the concept—so distinctive that a single glance permanently bonds it to the concept in the viewer's mind. Prioritize recognizability and semantic accuracy over abstract beauty.
+*   **Iconic Imprint:** Capture the irreducible visual essence of the concept. Prioritize recognizability and semantic accuracy over abstract beauty.
 *   **Optic Sophistication:** Use at least 2 SVG filter effects (e.g., \`feGaussianBlur\`, \`feTurbulence\`, \`feSpecularLighting\`, \`feDropShadow\`, \`feColorMatrix\`) to create atmospheric depth and textural richness. Define all filters, gradients, masks, and patterns within a \`<defs>\` block.
 *   **Detail Density:** Favor rich, layered compositions over flat minimalism—UNLESS the concept's essence IS simplicity (e.g., "void", "silence", "zero"), in which case minimalism becomes the representational truth.
 *   **Compositional Presence:** The totem should confidently fill **50–80%** of the viewBox, centered, with no important elements clipped by the edges.

@@ -13,6 +13,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { messageBus } from '@core/protocol/MessageBus';
 import { logger } from '@utils/logger';
 import { useGameStore } from '@store/index';
+import { useShallow } from 'zustand/react/shallow';
 import { platformAdapter } from '@core/platform/PlatformAdapter';
 import { personaModule } from '@modules/persona/PersonaModule';
 import { itemModule } from '@modules/item/ItemModule';
@@ -30,7 +31,15 @@ type TabType = 'messages' | 'state' | 'telemetry' | 'inject' | 'logs' | 'system'
 
 const StateInspector: React.FC = () => {
     // Get all store state - moved here to prevent re-renders in main console
-    const store = useGameStore();
+    // useShallow: only re-render when these 6 fields change (not deckState, audio, etc.)
+    const store = useGameStore(useShallow(s => ({
+        player: s.player,
+        activePersona: s.activePersona,
+        personaResonance: s.personaResonance,
+        inventory: s.inventory,
+        senses: s.senses,
+        constructions: s.constructions,
+    })));
 
     return (
         <div className="tab-content">

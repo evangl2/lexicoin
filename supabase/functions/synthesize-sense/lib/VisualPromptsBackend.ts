@@ -19,43 +19,66 @@ You will receive a **Concept** (the word or phrase itself) and its **Definition*
 ${visualStyle.styleInstruction}
 
 ## II. Representation Strategy Guide
-Identify which semantic category the concept belongs to, then follow the corresponding visual strategy:
+Identify the concept's semantic category and apply its visual strategy. For animation, always express the category's most characteristic natural motion or behavior.
 
-*   **Living Creatures (animals, insects, marine life):** Render the creature's **recognizable silhouette and defining anatomy** (wings, scales, antennae, fins). Use organic curves and biological textures. Animate its natural behavior (breathing, wing-flutter, swimming undulation).
-*   **Plants & Botanicals (flowers, trees, fungi, algae):** Capture the plant's **morphological identity** (petal arrangement, leaf venation, root systems, spore structures). Emphasize organic growth curves. Animate natural dynamics (wind sway, blooming, phototropism).
-*   **Physical Objects (tools, vehicles, furniture, instruments):** Precisely depict the object's **form and material truth** (metallic sheen, wood grain, glass refraction, fabric folds). Animate its functional motion (rotation, oscillation, operational state).
-*   **Food & Drink (dishes, ingredients, beverages):** Render with **appetizing realism**—glistening surfaces, rich color saturation, steam, condensation, or dripping textures. Animate subtle life (simmering, rising steam, liquid swirl).
-*   **Natural Phenomena (weather, elements, astronomy):** Directly simulate the phenomenon's **visual essence** (lightning forks, vortex spirals, flame tongues, aurora ribbons, planetary rings). Animate its characteristic physics.
-*   **Places & Architecture (buildings, landscapes, cities, rooms):** Use a **miniature diorama** approach—iconic silhouettes, atmospheric perspective, and signature lighting (golden hour, neon glow, moonlight). Animate ambient life (drifting clouds, flickering lights, flowing water).
-*   **Body & Anatomy (organs, body parts, physiological processes):** Render with **anatomical fidelity** using biological color palettes (warm reds, tissue pinks, vascular blues). Animate physiological rhythms (heartbeat, neural pulse, respiration).
-*   **Emotions & Mental States (feelings, moods, psychological concepts):** Find the most evocative **visual metaphor**—"loneliness" as a single light in a void, "anger" as cracking magma, "joy" as radiating prismatic light. Animate the emotional rhythm.
-*   **Abstract Ideas (philosophy, mathematics, logic, values):** Represent through **geometric harmony and symbolic structures**—interlocking forms, recursive patterns, balanced compositions, or flowing data-streams. Animate with logical precision (sequential tracing, harmonic oscillation).
-*   **Actions & Verbs (movement, transformation, processes):** Freeze the action at its **most dynamic moment of tension**, then animate the release of that force (a fist mid-strike, water mid-splash, an explosion mid-bloom).
-*   **Social & Relational (relationships, roles, social dynamics, professions):** Use **symbolic figures or interconnected elements** that represent the relationship's essence (intertwined rings, converging paths, hierarchical structures).
-*   **Cultural & Mythological (traditions, ceremonies, legends, deities, folklore):** Draw from the **iconography and visual language** of the relevant culture—sacred geometry, ceremonial motifs, mythological creature attributes, traditional color symbolism. Animate with ritual gravitas.
-*   **Memes & Internet Culture (slang, viral concepts, digital-native expressions):** Embrace **bold pop-art maximalism**—neon palettes, glitch effects, halftone patterns, pixel aesthetics, exaggerated proportions, and irreverent energy. Animate with snappy, hyper-kinetic playfulness.
-*   **Music & Sound (instruments, genres, acoustic phenomena):** Visualize sound as **waveforms, resonance patterns, and vibrational energy**. Render instruments with material accuracy. Animate as rhythmic pulses, frequency oscillations, or harmonic interference patterns.
-*   **Technology & Science (devices, scientific concepts, digital phenomena):** Use **precision engineering aesthetics**—circuit traces, holographic displays, molecular structures, quantum states. Animate with systematic, data-driven motion.
-*   **Time & Temporal (seasons, eras, moments, cycles):** Represent through **transitional imagery**—sundials, hourglasses, seasonal palettes, decay/renewal cycles, celestial arcs. Animate as slow, inevitable progression or cyclical loops.
+*   **Living Creatures:** Recognizable **silhouette + defining anatomy** (wings, scales, antennae, fins); organic curves and biological textures.
+*   **Plants & Botanicals:** **Morphological identity** (petal arrangement, leaf venation, root systems, spore structures); organic growth curves.
+*   **Physical Objects:** **Form and material truth** (metallic sheen, wood grain, glass refraction, fabric folds); functional operational state.
+*   **Food & Drink:** **Appetizing realism**—glistening surfaces, rich saturation, steam, condensation, or dripping textures.
+*   **Natural Phenomena:** Direct simulation of the phenomenon's **visual essence** (lightning forks, vortex spirals, flame tongues, aurora ribbons, planetary rings).
+*   **Places & Architecture:** **Miniature diorama**—iconic silhouettes, atmospheric perspective, signature lighting (golden hour, neon glow, moonlight).
+*   **Body & Anatomy:** **Anatomical fidelity** with biological palettes (warm reds, tissue pinks, vascular blues); physiological rhythms.
+*   **Emotions & Mental States:** Most evocative **visual metaphor**—"loneliness" as a single light in a void, "anger" as cracking magma, "joy" as radiating prismatic light.
+*   **Abstract Ideas:** **Geometric harmony and symbolic structures**—interlocking forms, recursive patterns, balanced compositions, flowing data-streams.
+*   **Actions & Verbs:** Freeze at the **most dynamic moment of tension**, then animate the release (a fist mid-strike, water mid-splash, an explosion mid-bloom).
+*   **Social & Relational:** **Symbolic figures or interconnected elements** expressing relational essence (intertwined rings, converging paths, hierarchical structures).
+*   **Cultural & Mythological:** **Iconography of the relevant culture**—sacred geometry, ceremonial motifs, mythological attributes, traditional color symbolism.
+*   **Memes & Internet Culture:** **Bold pop-art maximalism**—neon palettes, glitch effects, halftone patterns, pixel aesthetics, exaggerated proportions.
+*   **Music & Sound:** **Waveforms, resonance patterns, and vibrational energy**; render instruments with material accuracy.
+*   **Technology & Science:** **Precision engineering aesthetics**—circuit traces, holographic displays, molecular structures, quantum states.
+*   **Time & Temporal:** **Transitional imagery**—sundials, hourglasses, seasonal palettes, decay/renewal cycles, celestial arcs.
 
 If the concept spans multiple categories or defies all of them, **hybridize freely or invent an entirely new visual language**.
 
-## III. Technical Constraints
-*   **Framework:** React Functional Component. \`import { motion } from 'motion/react';\` is the ONLY allowed import. NEVER use \`import type\` or any other import.
-*   **Animated elements** must use \`motion.\` prefix (e.g., \`<motion.path>\`, \`<motion.g>\`). Static elements use standard SVG tags.
-*   **Canvas:** \`<svg viewBox="0 0 100 100" width="100%" height="100%">\`.
-*   **State:** Accept an \`isActive: boolean\` prop. When \`false\`: completely static. When \`true\`: seamless looping animation. Prefer \`repeat: Infinity\` in transitions for continuous motion, unless the concept calls for a finite gesture.
-*   **No Hooks:** No \`useEffect\`, \`useState\`, \`useRef\`. Drive state purely through framer-motion variants keyed to \`isActive\`.
-*   **No async:** NEVER use \`async\`, \`await\`, or dynamic \`import()\`.
-*   **Export** the component as \`default export\`.
-*   **Sandbox-safe:** No \`window\`, \`document\`, or browser APIs. No markdown wrappers. RAW CODE ONLY.
-*   **Hard stop:** The code MUST end with \`export default ComponentName;\` and NOTHING after it — no description text, no comments, no blank lines with non-ASCII characters. Any text after the export line will cause a fatal runtime error.
-*   **Transform origin:** NEVER pass \`transformOrigin\` as a direct JSX prop — it will leak to the DOM and cause React warnings. Use \`style={{ transformOrigin: '...' }}\` or framer-motion's \`originX\`/\`originY\` props instead.
-*   **Animation baseline:** Every animated property MUST have an explicit initial value. Animating from \`undefined\` will crash.
-*   **SVG attribute safety:** ALL SVG positional attributes (\`cx\`, \`cy\`, \`x\`, \`y\`, \`r\`, \`x1\`, \`y1\`, \`x2\`, \`y2\`) MUST be explicit numeric literals or simple arithmetic expressions — NEVER read from an array index that could be out-of-bounds.
-*   **D-path validity:** Every \`<path d="...">\` must be a valid, complete path string starting with \`M\`. Never \`d="undefined"\`.
-*   **Structure:** Combine \`<path>\` with SVG primitives (\`<circle>\`, \`<rect>\`, \`<ellipse>\`, \`<polygon>\`) and use \`<defs>\` for gradients/filters.
-*   **Filter overflow:** When using blur or glow filters (\`feGaussianBlur\`, \`feDropShadow\`), set a generous filter region to prevent rectangular clipping: \`<filter x="-50%" y="-50%" width="200%" height="200%">\`.
+## III. Technical Specification
+
+**Single import:** \`import { motion } from 'motion/react';\`
+
+**Follow this skeleton:**
+
+\`\`\`tsx
+import { motion } from 'motion/react';
+
+const ComponentName = ({ isActive }: { isActive: boolean }) => (
+  <svg viewBox="0 0 100 100" width="100%" height="100%">
+
+    <motion.element
+      attr={idleValue}              {/* direct prop = idle variant value */}
+      variants={{
+        idle:   { attr: idleValue },
+        active: { attr: targetValue,
+                  transition: { repeat: Infinity, duration: 2, ease: 'easeInOut' } }
+      }}
+      initial="idle"
+      animate={isActive ? 'active' : 'idle'}
+    />
+
+  </svg>
+);
+
+export default ComponentName;
+\`\`\`
+
+**Four invariants — violations cause runtime crashes:**
+
+1. **Variant parity** — every property in any variant must appear in *all* variants with an explicit value. framer-motion cannot interpolate from \`undefined\`.
+2. **Direct-prop anchor** — every \`<motion.*>\` using variants must carry the animated attributes as direct props (set to idle values). This gives framer-motion a valid DOM starting point.
+3. **Path data** — every \`d\` value must be a complete path string starting with \`M\`, present in both variants and as a direct prop.
+4. **Hard termination** — \`export default ComponentName;\` is the absolute final line. Any text after it is parsed as JavaScript and will throw a SyntaxError.
+
+**Sandbox limits:** no \`useEffect / useState / useRef\`, no \`window / document\`, no \`async/await\`, no \`import type\`.
+
+**SVG tips:** \`<defs>\` for gradients/filters; \`<filter x="-50%" y="-50%" width="200%" height="200%">\` prevents blur clipping; \`style={{ transformOrigin: '…' }}\` not a direct prop.
 
 ## IV. Output Format
 First, write a brief \`/* ... */\` comment block identifying the semantic category, your chosen visual metaphor, and animation approach.
