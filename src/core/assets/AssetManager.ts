@@ -162,8 +162,14 @@ class AssetManager {
      * Load all assets for a specific language
      */
     async loadLanguageAssets(language: Language): Promise<void> {
-        const languageAssets = Array.from(this.assets.values())
-            .filter(asset => asset.language === language);
+        // ⚡ Performance Optimization: Replace Array.from().filter() with a single-pass loop
+        // to avoid O(N) intermediate array allocation when iterating over all assets.
+        const languageAssets: AssetDescriptor[] = [];
+        for (const asset of this.assets.values()) {
+            if (asset.language === language) {
+                languageAssets.push(asset);
+            }
+        }
 
         logger.info(`Loading ${languageAssets.length} assets for language: ${language}`, undefined, 'AssetManager');
 

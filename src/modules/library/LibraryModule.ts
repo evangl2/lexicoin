@@ -230,9 +230,16 @@ class LibraryModule {
      * Get favorites
      */
     getFavorites(): LibraryEntry[] {
-        return this.showcase.favoriteIds
-            .map(id => this.catalog.get(id))
-            .filter((entry): entry is LibraryEntry => entry !== undefined);
+        // ⚡ Performance Optimization: Single-pass iteration to avoid .map().filter()
+        // intermediate array allocations.
+        const results: LibraryEntry[] = [];
+        for (const id of this.showcase.favoriteIds) {
+            const entry = this.catalog.get(id);
+            if (entry !== undefined) {
+                results.push(entry);
+            }
+        }
+        return results;
     }
 
     /**
@@ -248,9 +255,16 @@ class LibraryModule {
      * Get first discoveries
      */
     getFirstDiscoveries(): LibraryEntry[] {
-        return this.showcase.firstDiscoveries
-            .map(id => this.catalog.get(id))
-            .filter((entry): entry is LibraryEntry => entry !== undefined);
+        // ⚡ Performance Optimization: Single-pass iteration to avoid .map().filter()
+        // intermediate array allocations.
+        const results: LibraryEntry[] = [];
+        for (const id of this.showcase.firstDiscoveries) {
+            const entry = this.catalog.get(id);
+            if (entry !== undefined) {
+                results.push(entry);
+            }
+        }
+        return results;
     }
 
     /**
