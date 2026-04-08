@@ -192,6 +192,7 @@ export const Card = React.memo<CardProps>(({
   const selectedDefId = activeUid;
   const { windowWidth, windowHeight } = useWindowDimensions();
   const cardRef = useRef<HTMLDivElement | null>(null);
+  const scaleWrapperRef = useRef<HTMLDivElement | null>(null);
 
   // --- Mouse & Resize ---
   const mouseX = useMotionValue(0);
@@ -371,6 +372,45 @@ export const Card = React.memo<CardProps>(({
     el.style.zIndex = (v > 1.01 || isFlipped) ? '500' : '1';
   }, [isFlipped, scaleSpring]);
 
+  // --- Imperative transforms on outer card + scale on inner wrapper.
+  // Removes ALL MotionValues from FM's style prop so FM never sets will-change:transform.
+  // Without will-change:transform, Chrome doesn't create a GPU layer at scale=1.
+  // Instead, will-change is set manually AFTER the expansion spring settles (at 3.5x),
+  // so Chrome composites at the correct rasterization scale → always crisp.
+  useLayoutEffect(() => {
+    const el = cardRef.current;
+    if (!el) return;
+    const apply = () => {
+      el.style.transform = `translateX(${displayX.get()}px) translateY(${displayY.get()}px) rotateX(${displayRotateX.get()}deg) rotateY(${displayRotateY.get()}deg) rotateZ(${displayRotateZ.get()}deg)`;
+    };
+    apply();
+    const unsubs = [
+      displayX.on('change', apply),
+      displayY.on('change', apply),
+      displayRotateX.on('change', apply),
+      displayRotateY.on('change', apply),
+      displayRotateZ.on('change', apply),
+    ];
+    return () => unsubs.forEach(u => u());
+  }, [displayX, displayY, displayRotateX, displayRotateY, displayRotateZ]);
+
+  useLayoutEffect(() => {
+    const wrapper = scaleWrapperRef.current;
+    const card = cardRef.current;
+    if (!wrapper || !card) return;
+    const scaleSource = externalScale ?? scaleSpring;
+    const apply = (v: number) => {
+      wrapper.style.transform = `scale(${v})`;
+      // For expanded cards (scale > 1.5): set will-change ONLY after spring settles,
+      // so Chrome rasterizes the compositing layer at the correct (3.5x) scale.
+      if (v > 1.5) {
+        card.style.willChange = Math.abs(scaleSource.getVelocity()) < 0.5 ? 'transform' : 'auto';
+      }
+    };
+    apply(scaleSource.get());
+    return scaleSource.on('change', apply);
+  }, [externalScale, scaleSpring]);
+
   const bgParallaxX = useTransform(displayRotateY, [-20, 20], [15, -15]);
   const bgParallaxY = useTransform(displayRotateX, [-20, 20], [15, -15]);
   const fgParallaxX = useTransform(displayRotateY, [-20, 20], [-25, 25]);
@@ -524,10 +564,7 @@ export const Card = React.memo<CardProps>(({
         }
       }}
       style={{
-        x: displayX, y: displayY,
         width, height,
-        rotateX: displayRotateX, rotateY: displayRotateY, rotateZ: displayRotateZ,
-
         opacity: isHidden ? 0 : 1,
         boxShadow: targetShadow,
         transition: 'box-shadow 0.3s ease-out',
@@ -537,9 +574,7 @@ export const Card = React.memo<CardProps>(({
         marginLeft: -width / 2, marginTop: -height / 2,
         touchAction: 'none',
         borderRadius: CardPersona.tokens.layout.radius,
-        scale: externalScale || scaleSpring,
         contain: 'layout style',
-        willChange: isHovered ? 'transform' : 'auto',
       }}
 
       onPointerDown={(e) => {
@@ -559,52 +594,53 @@ export const Card = React.memo<CardProps>(({
         if (!isExpanded && !isDraggingRef.current) scaleSpring.set(1);
       }}
       onDoubleClick={(e) => e.stopPropagation()}
-      transition={CardPersona.physics.springs.scale}
       className="canvas-card select-none group relative transition-colors duration-300"
     >
-      {(isCompactLOD && !isExpanded && !isFlipped) ? (
-        <CompactCardVisual
-          mode="repository"
-          learningData={learningData}
-          senseInfo={currentCardData.senseInfo}
-          visual={currentCardData.visual}
-          persona={CardPersona}
-          isActive={isActive}
-        />
-      ) : (
-        <CardVisual
-          learningData={learningData}
-          systemData={systemData}
-          senseInfo={currentCardData.senseInfo}
-          visual={currentCardData.visual}
-          learningLanguage={learningLanguage}
-          systemLanguage={systemLanguage}
-          isActive={isActive}
-          isOver={isOver}
+      <div ref={scaleWrapperRef} style={{ width: '100%', height: '100%', transformOrigin: 'center center' }}>
+        {(isCompactLOD && !isExpanded && !isFlipped) ? (
+          <CompactCardVisual
+            mode="repository"
+            learningData={learningData}
+            senseInfo={currentCardData.senseInfo}
+            visual={currentCardData.visual}
+            persona={CardPersona}
+            isActive={isActive}
+          />
+        ) : (
+          <CardVisual
+            learningData={learningData}
+            systemData={systemData}
+            senseInfo={currentCardData.senseInfo}
+            visual={currentCardData.visual}
+            learningLanguage={learningLanguage}
+            systemLanguage={systemLanguage}
+            isActive={isActive}
+            isOver={isOver}
 
-          flipScaleX={flipScaleX}
-          frontOpacity={frontOpacity}
-          backOpacity={backOpacity}
+            flipScaleX={flipScaleX}
+            frontOpacity={frontOpacity}
+            backOpacity={backOpacity}
 
-          bgParallaxX={bgParallaxX}
-          bgParallaxY={bgParallaxY}
-          fgParallaxX={fgParallaxX}
-          fgParallaxY={fgParallaxY}
+            bgParallaxX={bgParallaxX}
+            bgParallaxY={bgParallaxY}
+            fgParallaxX={fgParallaxX}
+            fgParallaxY={fgParallaxY}
 
-          displayRotateY={displayRotateY}
-          smoothXVelocity={smoothXVelocity}
-          smoothYVelocity={smoothYVelocity}
-          isExpanded={isExpanded}
+            displayRotateY={displayRotateY}
+            smoothXVelocity={smoothXVelocity}
+            smoothYVelocity={smoothYVelocity}
+            isExpanded={isExpanded}
 
-          isOverlayOpen={isOverlayOpen}
-          selectionItems={selectionItems}
-          selectedDefId={selectedDefId}
-          definitionOverride={definitionOverride}
-          onDefinitionClick={handleDefinitionClick}
-          onSelectDefinition={handleSelectDefinition}
-          visualFeedback={visualFeedback}
-        />
-      )}
+            isOverlayOpen={isOverlayOpen}
+            selectionItems={selectionItems}
+            selectedDefId={selectedDefId}
+            definitionOverride={definitionOverride}
+            onDefinitionClick={handleDefinitionClick}
+            onSelectDefinition={handleSelectDefinition}
+            visualFeedback={visualFeedback}
+          />
+        )}
+      </div>
     </motion.div >
   );
 });

@@ -99,4 +99,11 @@ export interface GameStore extends ConfigState, CardState, ProgressionState {
     zoomedCardIds: string[];
     focusCard: (uid: string) => void;
     blurCard: (uid: string) => void;
+
+    // Synthesis Queue (runtime only, not persisted)
+    // Tracks the number of in-flight synthesis jobs globally.
+    // Used to enforce MAX_CONCURRENT limit across all SynthesisCircle devices.
+    activeSynthesisCount: number;
+    incrementSynthesisCount: () => void;
+    decrementSynthesisCount: () => void;
 }

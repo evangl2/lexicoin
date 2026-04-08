@@ -1,3 +1,6 @@
+/** Maximum number of synthesis pipelines that can run concurrently across all devices. */
+export const MAX_CONCURRENT_SYNTHESES = 3;
+
 export const AI_MODELS = [
   { label: 'Flash Lite', id: 'gemini-3.1-flash-lite-preview' },
   { label: 'Flash 3', id: 'gemini-3-flash-preview' },

@@ -244,6 +244,15 @@ export const useGameStore = create<GameStore>()(
             blurCard: (uid) => set((state) => ({
                 zoomedCardIds: state.zoomedCardIds.filter(id => id !== uid)
             })),
+
+            // Synthesis Queue (runtime only, not persisted)
+            activeSynthesisCount: 0,
+            incrementSynthesisCount: () => set((state) => ({
+                activeSynthesisCount: state.activeSynthesisCount + 1,
+            })),
+            decrementSynthesisCount: () => set((state) => ({
+                activeSynthesisCount: Math.max(0, state.activeSynthesisCount - 1),
+            })),
         }),
         {
             name: 'app-state',

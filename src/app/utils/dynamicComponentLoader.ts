@@ -275,7 +275,16 @@ function structuralClean(src: string): string {
         // Strip AI output delimiter if included in payload
         .replace(/\/\/ --- CODE BELOW ---[^\n]*\n?/, '')
         // Strip `import type { ... } from '...'` — sucrase may not fully eliminate these
-        .replace(/import\s+type\s+\{[^}]*\}\s+from\s+['"][^'"]*['"];?\s*\n?/g, '');
+        .replace(/import\s+type\s+\{[^}]*\}\s+from\s+['"][^'"]*['"];?\s*\n?/g, '')
+        // Collapse literal newlines inside JSX string attribute values
+        // e.g. feColorMatrix values="1 0 0\n   0 1 0" → values="1 0 0 0 1 0"
+        // JS string literals cannot contain literal newlines — Sucrase will fail to parse them
+        .replace(/="[^"]*"/g, (match) =>
+            match.includes('\n') ? match.replace(/\n\s*/g, ' ') : match
+        )
+        // Remove JSX expression comments {/* ... */} — they are no-ops in children
+        // and illegal syntax when placed in the attributes area (after last prop, before />)
+        .replace(/\{\/\*[\s\S]*?\*\/\}/g, '');
 }
 
 /**

@@ -28,7 +28,9 @@
       "Bash(grep -E \"\\\\.\\(ts|tsx\\)$\")",
       "Bash(/tmp/analysis.txt:*)",
       "Read(//tmp/**)",
-      "Bash(git log:*)"
+      "Bash(git log:*)",
+      "Bash(supabase --version)",
+      "Bash(python -c \":*)"
     ]
   }
 }

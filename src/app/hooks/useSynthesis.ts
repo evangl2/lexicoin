@@ -6,6 +6,8 @@ import { senseToCard } from '@core/pipelines/senseToCard';
 import type { SynthesisRequest, SynthesisResponse, APIResponse } from '@app-types/api';
 import type { CardEntity } from '@app-types/CardEntity';
 import { autoPollExhausted } from './useVisualPoll';
+import { useGameStore } from '@store/index';
+import { MAX_CONCURRENT_SYNTHESES } from '@/config/constants';
 
 /**
  * Poll sense_visuals once. Returns true if visual was found and broadcast.
@@ -25,7 +27,24 @@ async function pollVisualOnce(senseUid: string, visualId: string, attempt: numbe
       return false;
     }
 
-    if (data?.payload) {
+    // Check for failure sentinel before checking payload.
+    // generate-visual writes this record when it permanently fails (Gemini error,
+    // validation failure, DB insert failure) so we stop polling immediately
+    // instead of waiting out the full 100s auto-poll chain.
+    if (data && data.meta?.status === 'failed') {
+      logger.warn(
+        `[AutoPoll] Attempt ${attempt}: failure sentinel detected (${data.meta?.error}), sending ASSET_ERROR`,
+        undefined,
+        'useSynthesis',
+      );
+      await messageBus.send('ASSET_ERROR', {
+        assetId: senseUid,
+        error: data.meta.error ?? 'generation_failed',
+      }, 'auto-poll');
+      return true; // stop the poll chain
+    }
+
+    if (data?.payload && data.payload !== 'VISUAL_GENERATION_FAILED') {
       logger.info(`[AutoPoll] Attempt ${attempt}: visual found (${data.payload.length} chars), sending ASSET_LOADED`, undefined, 'useSynthesis');
       await messageBus.send('ASSET_LOADED', {
         uid: data.sense_id,
@@ -83,8 +102,31 @@ export function useSynthesis(): UseSynthesisResult {
   const [card, setCard] = useState<CardEntity | null>(null);
 
   const timeoutRef = useRef<ReturnType<typeof setTimeout>>();
+  // Prevents double-invocation from double-clicks, React StrictMode, etc.
+  const inFlightRef = useRef(false);
 
   const synthesize = useCallback(async (params: Omit<SynthesisRequest, 'userId'>) => {
+    if (inFlightRef.current) {
+      logger.warn('Synthesis already in progress — ignoring duplicate call', undefined, 'useSynthesis');
+      return;
+    }
+
+    // Global capacity check — uses getState() to always read the latest count
+    // without adding activeSynthesisCount to the dependency array.
+    const store = useGameStore.getState();
+    if (store.activeSynthesisCount >= MAX_CONCURRENT_SYNTHESES) {
+      store.addNotification(
+        { en: `Synthesis queue full (max ${MAX_CONCURRENT_SYNTHESES})`, zh: `合成队列已满（最多 ${MAX_CONCURRENT_SYNTHESES} 个）` },
+        'WARNING',
+        3000,
+      );
+      logger.warn(`[useSynthesis] Queue full (${store.activeSynthesisCount}/${MAX_CONCURRENT_SYNTHESES}), rejecting new synthesis`, undefined, 'useSynthesis');
+      return;
+    }
+
+    inFlightRef.current = true;
+    useGameStore.getState().incrementSynthesisCount();
+
     setState('processing');
     setError(null);
     setResult(null);
@@ -95,11 +137,15 @@ export function useSynthesis(): UseSynthesisResult {
       setState(prev => (prev === 'processing' ? 'processing-long' : prev));
     }, 15000);
 
+    // Unique ID for this synthesis attempt — lets the backend detect network-level
+    // duplicate delivery and replay the stored result instead of re-running Gemini.
+    const requestId = crypto.randomUUID();
+
     try {
-      logger.info('Invoking synthesize-sense edge function...', params, 'useSynthesis');
+      logger.info('Invoking synthesize-sense edge function...', { ...params, request_id: requestId }, 'useSynthesis');
 
       const { data, error: invokeError } = await supabase.functions.invoke('synthesize-sense', {
-        body: params,
+        body: { ...params, request_id: requestId },
       });
 
       if (invokeError) throw invokeError;
@@ -140,13 +186,37 @@ export function useSynthesis(): UseSynthesisResult {
 
       logger.info('Synthesis successful', { uid: response.sense.uid, cached: response.cached }, 'useSynthesis');
 
+      // Background completion notification — extract the English concept word safely
+      const conceptEn = (() => {
+        try {
+          const enShells = (response.sense as any)?.shells?.['en'];
+          if (!Array.isArray(enShells) || !enShells[0]) return null;
+          const sh = enShells[0];
+          return (sh?.text?.value ?? sh?.text ?? null) as string | null;
+        } catch { return null; }
+      })();
+      useGameStore.getState().addNotification(
+        conceptEn
+          ? { en: `"${conceptEn}" discovered!`, zh: `「${conceptEn}」已发现！` }
+          : { en: 'Synthesis complete!', zh: '合成完成！' },
+        'SUCCESS',
+        5000,
+      );
+
     } catch (err: any) {
       const errorMessage = err.message || 'Synthesis failed unexpectedly';
       logger.error('Synthesis error', err, 'useSynthesis');
       setError(errorMessage);
       setState('error');
+      useGameStore.getState().addNotification(
+        { en: 'Synthesis failed', zh: '合成失败' },
+        'ERROR',
+        4000,
+      );
     } finally {
       clearTimeout(timeoutRef.current);
+      inFlightRef.current = false;
+      useGameStore.getState().decrementSynthesisCount();
     }
   }, []);
 

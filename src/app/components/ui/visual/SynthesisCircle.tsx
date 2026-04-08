@@ -10,6 +10,7 @@ import { DEFAULT_LANGUAGE } from '@/types/CardEntity';
 import type { CardEntity } from '@/types/CardEntity';
 import { useSynthesis } from '@/app/hooks/useSynthesis';
 import { useGameStore } from '@store/index';
+import { MAX_CONCURRENT_SYNTHESES } from '@/config/constants';
 import { levelDistributionSampler } from '@core/services/LevelDistributionSampler';
 import type { Language } from '@/types/index';
 
@@ -41,6 +42,7 @@ export const SynthesisCircle: React.FC<SynthesisCircleProps> = ({
         state => state.player?.languageProgress?.[learninglang as Language]?.level ?? 1
     );
     const activeModelId = useGameStore(state => state.activeModelId);
+    const activeSynthesisCount = useGameStore(state => state.activeSynthesisCount);
 
     // Drop Targets (Slots)
     const [{ isOver1 }, drop1] = useDrop(() => ({
@@ -130,7 +132,9 @@ export const SynthesisCircle: React.FC<SynthesisCircleProps> = ({
     const card1 = inputCards.find(c => c.cardData.rawSense.uid === state.slot1_uid);
     const card2 = inputCards.find(c => c.cardData.rawSense.uid === state.slot2_uid);
     const isSynthesizing = synthState === 'processing' || synthState === 'processing-long';
-    const canSynthesize = !!card1 && !!card2 && !state.isProcessing && !isSynthesizing;
+    // canSynthesize: this circle must be free AND global queue must have capacity
+    const canSynthesize = !!card1 && !!card2 && !state.isProcessing && !isSynthesizing
+        && activeSynthesisCount < MAX_CONCURRENT_SYNTHESES;
 
     const handleSynthesize = () => {
         if (!canSynthesize) return;
@@ -164,9 +168,10 @@ export const SynthesisCircle: React.FC<SynthesisCircleProps> = ({
 
     const statusText = (() => {
         if (state.errorMessage) return state.errorMessage;
-        if (synthState === 'processing-long') return 'Still processing...';
-        if (synthState === 'processing' || state.isProcessing) return 'Synthesizing...';
+        if (synthState === 'processing-long') return 'Synthesizing in background...';
+        if (synthState === 'processing') return 'Synthesizing in background...';
         if (synthState === 'success') return 'Complete';
+        if (activeSynthesisCount > 0) return `${activeSynthesisCount}/${MAX_CONCURRENT_SYNTHESES} synthesizing`;
         return 'Awaiting Reagents';
     })();
 

@@ -1,6 +1,5 @@
 import { callGemini } from './utils/gemini.ts';
 import { buildSensePrompt } from './lib/SensePromtBackend.ts';
-import { buildVisualPrompt } from './lib/VisualPromptsBackend.ts';
 import { injectSenseMeta } from './lib/injectSenseMeta.ts';
 import type { RawSenseAIOutput, SenseAIPayload, SynthesisRequest } from './types.ts';
 
@@ -88,20 +87,6 @@ function parseGeminiJson<T>(rawText: string): T {
     return JSON.parse(repairJsonString(extractJson(stripMarkdown(rawText)))) as T;
 }
 
-/**
- * Validate TSX visual payload for safety constraints.
- * Returns true only if all rules pass.
- */
-function validateVisualPayload(payload: string): string | null {
-    if (!payload.includes('export default')) return 'missing export default';
-    if (payload.includes('useEffect')) return 'contains forbidden hook: useEffect';
-    if (payload.includes('useState')) return 'contains forbidden hook: useState';
-    if (payload.includes('useRef')) return 'contains forbidden hook: useRef';
-    if (!payload.includes("from 'motion/react'") && !payload.includes('from "motion/react"')) return "missing import from 'motion/react'";
-    if (payload.length < 200) return `length ${payload.length} < 200`;
-    if (payload.length > 20_000) return `length ${payload.length} > 20000`;
-    return null;
-}
 
 /**
  * Module A: Full Sense generation flow.
@@ -118,7 +103,8 @@ export async function generateSense(
     definition: string,
     request: SynthesisRequest,
     discovererUserId: string,
-    supabaseAdmin: any
+    supabaseAdmin: any,
+    corrId = 'unknown',
 ): Promise<{ sense: SenseAIPayload & { uid: string }; visual: null }> {
     const {
         learninglang,
@@ -153,7 +139,7 @@ export async function generateSense(
         tag: 'moduleA-sense',
         model: modelId,
     });
-    console.log(`[TIMING] 10_moduleA_gemini took ${Date.now() - t10}ms`);
+    console.log(`[corr:${corrId}][TIMING] 10_moduleA_gemini took ${Date.now() - t10}ms`);
 
     // ③ Parse AI output and inject meta
     let rawJson: RawSenseAIOutput;
@@ -187,7 +173,7 @@ export async function generateSense(
         console.error('[moduleA] senses INSERT error:', senseError);
         throw new Error('GENERATION_FAILED');
     }
-    console.log('[moduleA] senses INSERT ok:', uid);
+    console.log(`[corr:${corrId}][moduleA] senses INSERT ok:`, uid);
 
     // ④-B Write sense_word_shells table (single row per sense, shells=JSONB, traits=JSONB)
     const { error: shellsError } = await supabaseAdmin.from('sense_word_shells').insert({
@@ -200,7 +186,7 @@ export async function generateSense(
         console.error('[moduleA] sense_word_shells INSERT error:', shellsError);
         throw new Error('GENERATION_FAILED');
     }
-    console.log('[moduleA] sense_word_shells INSERT ok');
+    console.log(`[corr:${corrId}][moduleA] sense_word_shells INSERT ok`);
 
     // ④-C Write sense_flavor_texts table (one row per persona)
     if (sensePayload.flavorText.length > 0) {
@@ -223,65 +209,39 @@ export async function generateSense(
         if (flavorError) {
             console.error('[moduleA] sense_flavor_texts INSERT error (non-fatal):', flavorError);
         } else {
-            console.log(`[moduleA] sense_flavor_texts INSERT ok (${flavorInserts.length} personas)`);
+            console.log(`[corr:${corrId}][moduleA] sense_flavor_texts INSERT ok (${flavorInserts.length} personas)`);
         }
     }
 
     // ⑤ Return immediately with visual: null (VisualPrompt is non-blocking)
     const result = { sense: { ...sensePayload, uid }, visual: null } as const;
 
-    // ⑥ Fire-and-forget: async visual generation (kept alive by EdgeRuntime.waitUntil)
-    const visualTask = (async () => {
-        try {
-            const { systemPrompt: vSys, userPrompt: vUser } = buildVisualPrompt({
-                concept,
-                definition,
-                visualId: visual_id,
-            });
-
-            const t14 = Date.now();
-            const visualRawText = await callGemini({
-                systemPrompt: vSys,
-                userPrompt: vUser,
-                temperature: 0.6,
-                responseMimeType: 'text/plain',
-                tag: 'moduleA-visual',
-                model: modelId,
-            });
-            console.log(`[TIMING] 14_visual_gemini took ${Date.now() - t14}ms`);
-
-            // Extract TSX code after the delimiter
-            const parts = visualRawText.split('// --- CODE BELOW ---');
-            let code = (parts.length > 1 ? parts[1] : visualRawText).trim();
-            code = stripMarkdown(code);
-
-            const visualErr = validateVisualPayload(code);
-            if (visualErr) {
-                console.warn('[moduleA] Visual validation failed:', visualErr);
-                return;
-            }
-
-            const { error: visErr } = await supabaseAdmin.from('sense_visuals').insert({
-                sense_id: uid,
-                id: visual_id,
-                payload: code,
-                meta: {
-                    stability: 50.0,
-                    firstDiscoverer: discovererUserId,
-                    firstDiscoveredAt: now,
-                },
-            });
-
-            if (visErr) {
-                console.error('[moduleA] sense_visuals INSERT error (async, non-fatal):', visErr);
-            } else {
-                console.log(`[TIMING] 15_visual_insert done (took ${Date.now() - t14}ms since visual_gemini start)`);
-            }
-        } catch (e) {
-            console.error('[moduleA] Visual async task failed (non-fatal):', e);
-        }
-    })();
-    (globalThis as any).EdgeRuntime?.waitUntil(visualTask);
+    // ⑥ Fire-and-forget: delegate visual generation to generate-visual function
+    //    (gives it an independent 150s wall-clock budget, free of this function's remaining time)
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    console.log(`[corr:${corrId}][moduleA] invoking generate-visual (fire-and-forget) sense=${uid} visual=${visual_id}`);
+    const visualFetch = fetch(`${supabaseUrl}/functions/v1/generate-visual`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${serviceKey}`,
+            'apikey': serviceKey,
+        },
+        body: JSON.stringify({
+            sense_id: uid,
+            visual_id,
+            concept,
+            definition,
+            discoverer_user_id: discovererUserId,
+            model_id: modelId,
+            corr_id: corrId,
+        }),
+    }).catch((e: unknown) => {
+        const msg = e instanceof Error ? e.message : String(e);
+        console.error(`[moduleA] generate-visual invoke failed (non-fatal): ${msg}`);
+    });
+    (globalThis as any).EdgeRuntime?.waitUntil(visualFetch);
 
     return result;
 }

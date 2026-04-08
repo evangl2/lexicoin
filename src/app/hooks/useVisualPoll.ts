@@ -56,7 +56,17 @@ export function useVisualPoll(senseUid: string, visualId = 'default') {
         .eq('id', visualId)
         .maybeSingle();
 
-      if (data?.payload) {
+      // Failure sentinel: generation permanently failed, give up immediately
+      if (data && data.meta?.status === 'failed') {
+        logger.warn(`Manual poll: failure sentinel for ${senseUid} (${data.meta?.error}), giving up`, undefined, 'useVisualPoll');
+        messageBus.send('ASSET_ERROR', {
+          assetId: senseUid,
+          error: data.meta.error ?? 'generation_failed',
+        }, 'useVisualPoll');
+        return;
+      }
+
+      if (data?.payload && data.payload !== 'VISUAL_GENERATION_FAILED') {
         messageBus.send('ASSET_LOADED', {
           uid: data.sense_id,
           id: data.id,

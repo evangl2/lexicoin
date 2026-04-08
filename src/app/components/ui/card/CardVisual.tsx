@@ -471,7 +471,6 @@ export const CardVisual = React.memo<CardVisualProps>(({
             background: Persona.tokens.colors.bgFront,
             backfaceVisibility: 'hidden',
             WebkitBackfaceVisibility: 'hidden',
-            transform: isExpanded ? undefined : 'translateZ(0)',
           }}
         >
           <Persona.visuals.Background />
@@ -533,7 +532,6 @@ export const CardVisual = React.memo<CardVisualProps>(({
             border: `2px solid ${Persona.tokens.colors.goldMetallic || Persona.definitions.colors.goldBase}`,
             backfaceVisibility: 'hidden',
             WebkitBackfaceVisibility: 'hidden',
-            transform: isExpanded ? undefined : 'translateZ(0)',
           }}
         >
           {/* Dynamic Scrollbar Styling */}

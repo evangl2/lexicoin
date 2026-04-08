@@ -18,6 +18,8 @@ export interface SynthesisRequest {
     personaNarrative?: string;
     visual_id?: string;
     modelId?: string;
+    /** Client-generated UUID for request-level idempotency. Optional but strongly recommended. */
+    request_id?: string;
 }
 
 export type SynthesisErrorCode =

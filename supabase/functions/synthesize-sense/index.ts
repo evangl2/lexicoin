@@ -15,7 +15,6 @@ import { callGemini } from './utils/gemini.ts';
 import { buildSynthesisPrompt } from './lib/SynthesisPromptsBackend.ts';
 import { buildDeltaPrompt } from './lib/DeltaPromptBackend.ts';
 import type { DeltaMissing } from './lib/DeltaPromptBackend.ts';
-import { buildVisualPrompt } from './lib/VisualPromptsBackend.ts';
 import { injectSenseMeta } from './lib/injectSenseMeta.ts';
 import type {
     SynthesisRequest,
@@ -103,17 +102,6 @@ function releaseDeltaLock(senseId: string): void {
     deltaLocks.delete(senseId);
 }
 
-// ── Validate TSX visual payload — returns null if valid, reason string if invalid ─
-function validateVisualPayload(payload: string): string | null {
-    if (!payload.includes('export default')) return 'missing export default';
-    if (payload.includes('useEffect')) return 'contains forbidden hook: useEffect';
-    if (payload.includes('useState')) return 'contains forbidden hook: useState';
-    if (payload.includes('useRef')) return 'contains forbidden hook: useRef';
-    if (!payload.includes("from 'motion/react'") && !payload.includes('from "motion/react"')) return "missing import from 'motion/react'";
-    if (payload.length < 200) return `length ${payload.length} < 200`;
-    if (payload.length > 20_000) return `length ${payload.length} > 20000`;
-    return null;
-}
 
 // ── Assemble a full SenseEntityPayload from raw DB rows ──────────────────────
 function assembleFromDbRows(
@@ -140,6 +128,18 @@ function assembleFromDbRows(
     };
 }
 
+// ── Idempotency helpers ───────────────────────────────────────────────────────
+
+/** Mark a request as successfully completed and store the response for replay. */
+async function storeIdempotencyResult(supabase: any, requestId: string | undefined, responseBody: object): Promise<void> {
+    if (!requestId) return;
+    const { error } = await supabase
+        .from('synthesis_requests')
+        .update({ status: 'done', response: responseBody })
+        .eq('request_id', requestId);
+    if (error) console.error('[Idempotency] Failed to store result:', error);
+}
+
 // ── Main handler ──────────────────────────────────────────────────────────────
 Deno.serve(async (req: Request) => {
     // Preflight
@@ -149,7 +149,8 @@ Deno.serve(async (req: Request) => {
 
     try {
         const t0 = Date.now();
-        console.log('[TIMING] 1_start');
+        const corrId = crypto.randomUUID().slice(0, 8);
+        console.log(`[corr:${corrId}][TIMING] 1_start`);
         const body: SynthesisRequest = await req.json();
         const {
             input_1_id,
@@ -176,6 +177,37 @@ Deno.serve(async (req: Request) => {
         const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
         const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
         const supabase = createClient(supabaseUrl, supabaseServiceKey);
+        const requestId: string | undefined = body.request_id;
+
+        // ③ Idempotency check — deduplicates network-level duplicate delivery
+        if (requestId) {
+            // Fire-and-forget: clean up expired records before inserting a new one
+            void supabase.from('synthesis_requests')
+                .delete()
+                .lt('expires_at', new Date().toISOString());
+
+            const { error: idempInsertErr } = await supabase
+                .from('synthesis_requests')
+                .insert({ request_id: requestId });
+
+            if (idempInsertErr) {
+                // request_id already exists in the table
+                const { data: idempRow } = await supabase
+                    .from('synthesis_requests')
+                    .select('status, response')
+                    .eq('request_id', requestId)
+                    .maybeSingle();
+
+                if (idempRow?.status === 'done' && idempRow?.response) {
+                    // A previous identical delivery already completed — replay the stored result
+                    console.log(`[corr:${corrId}][index] Idempotent replay: request_id=${requestId}`);
+                    return json(idempRow.response);
+                }
+                // Same request_id is still being processed by another instance
+                console.warn(`[corr:${corrId}][index] Duplicate in-flight: request_id=${requestId}`);
+                return json({ success: false, error: { code: 'DUPLICATE_REQUEST', message: 'This synthesis is already in progress' } }, 409);
+            }
+        }
 
         // Extract discoverer from JWT if present, else fallback to anonymous
         let discovererUserId = 'anonymous';
@@ -475,59 +507,33 @@ Deno.serve(async (req: Request) => {
             // --- Non-blocking Visual delta ---
             const activeVisual = (visuals ?? []).find((v: any) => v.id === visual_id);
             if (!activeVisual) {
-                const visualTask = (async () => {
-                    try {
-                        // Use english name from shells for visual concept context
-                        const shellsEn = existingShells['en'] as any;
-                        const conceptEn = shellsEn?.[0]?.text?.value ?? shellsEn?.[0]?.text ?? 'Unknown';
-                        const defEn: string = senseRow.meaning?.['en']?.value ?? senseRow.meaning?.['en'] ?? '';
+                // Use english name from shells for visual concept context
+                const shellsEn = existingShells['en'] as any;
+                const conceptEn = shellsEn?.[0]?.text?.value ?? shellsEn?.[0]?.text ?? 'Unknown';
+                const defEn: string = senseRow.meaning?.['en']?.value ?? senseRow.meaning?.['en'] ?? '';
 
-                        const { systemPrompt: vSys, userPrompt: vUser } = buildVisualPrompt({
-                            concept: conceptEn,
-                            definition: defEn,
-                            visualId: visual_id,
-                        });
-
-                        const visualRawText = await callGemini({
-                            systemPrompt: vSys,
-                            userPrompt: vUser,
-                            temperature: 0.6,
-                            maxTokens: 6000,
-                            responseMimeType: 'text/plain',
-                            tag: 'delta-visual',
-                            model: modelId,
-                        });
-
-                        const parts = visualRawText.split('// --- CODE BELOW ---');
-                        let code = (parts.length > 1 ? parts[1] : visualRawText).trim();
-                        code = stripMarkdown(code);
-
-                        const deltaVisualErr = validateVisualPayload(code);
-                        if (deltaVisualErr) {
-                            console.warn('[Visual delta] Validation failed:', deltaVisualErr);
-                            return;
-                        }
-
-                        const { error: visualInsertErr } = await supabase.from('sense_visuals').insert({
-                            sense_id: resultSenseId,
-                            id: visual_id,
-                            payload: code,
-                            meta: {
-                                stability: 50.0,
-                                firstDiscoverer: discovererUserId,
-                                firstDiscoveredAt: Date.now(),
-                            },
-                        });
-                        if (visualInsertErr) {
-                            console.error('[Visual delta] sense_visuals INSERT error:', visualInsertErr);
-                        } else {
-                            console.log('[Visual delta] sense_visuals INSERT ok:', resultSenseId);
-                        }
-                    } catch (e) {
-                        console.error('[Visual delta] Async failed (non-fatal):', e);
-                    }
-                })();
-                (globalThis as any).EdgeRuntime?.waitUntil(visualTask);
+                console.log(`[corr:${corrId}][Visual delta] invoking generate-visual sense=${resultSenseId} visual=${visual_id}`);
+                const visualFetch = fetch(`${supabaseUrl}/functions/v1/generate-visual`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${supabaseServiceKey}`,
+                        'apikey': supabaseServiceKey,
+                    },
+                    body: JSON.stringify({
+                        sense_id: resultSenseId,
+                        visual_id,
+                        concept: conceptEn,
+                        definition: defEn,
+                        discoverer_user_id: discovererUserId,
+                        model_id: modelId,
+                        corr_id: corrId,
+                    }),
+                }).catch((e: unknown) => {
+                    const msg = e instanceof Error ? e.message : String(e);
+                    console.error(`[Visual delta] generate-visual invoke failed (non-fatal): ${msg}`);
+                });
+                (globalThis as any).EdgeRuntime?.waitUntil(visualFetch);
             }
 
             // Re-fetch updated data for response (simplified: use existing + delta merged)
@@ -537,8 +543,8 @@ Deno.serve(async (req: Request) => {
 
             const senseEntityPayload = assembleFromDbRows(senseRow, shellRow, flavors ?? [], '');
 
-            console.log(`[RESULT] cached=true new=false sense=${resultSenseId} visual=${activeVisual ? 'ready' : 'pending'} total=+${Date.now() - t0}ms`);
-            return json({
+            console.log(`[corr:${corrId}][RESULT] cached=true new=false sense=${resultSenseId} visual=${activeVisual ? 'ready' : 'pending'} total=+${Date.now() - t0}ms`);
+            const cacheHitResponse = {
                 success: true,
                 data: {
                     sense: senseEntityPayload,
@@ -547,7 +553,9 @@ Deno.serve(async (req: Request) => {
                     isNewDiscovery: false,
                     archetypeUsed: cacheRow.method_id ? String(cacheRow.method_id) : 'Unknown',
                 },
-            });
+            };
+            await storeIdempotencyResult(supabase, requestId, cacheHitResponse);
+            return json(cacheHitResponse);
         }
 
         // ──────────────────────────── CACHE MISS ──────────────────────────────
@@ -588,8 +596,8 @@ Deno.serve(async (req: Request) => {
         const defA = extractEnDef(sense1Row.meaning);
         const nameB = extractEnName(shell2Row?.shells);
         const defB = extractEnDef(sense2Row.meaning);
-        console.log(`[TIMING] 3_input_fetch +${Date.now() - t0}ms`);
-        console.log(`[index] synthesizing: "${nameA}" + "${nameB}" → system=${systemlang} learning=${learninglang}`);
+        console.log(`[corr:${corrId}][TIMING] 3_input_fetch +${Date.now() - t0}ms`);
+        console.log(`[corr:${corrId}][index] synthesizing: "${nameA}" + "${nameB}" → system=${systemlang} learning=${learninglang}`);
 
         // Module B — SynthesisPrompt, attempt 1: random archetype
         let randomArchtype: number;
@@ -626,7 +634,7 @@ Deno.serve(async (req: Request) => {
                 temperature: 0.7, responseMimeType: 'application/json', tag: 'moduleB-attempt1',
                 model: modelId,
             });
-            console.log(`[TIMING] 4_moduleB_gemini +${Date.now() - t0}ms (took ${Date.now() - t4}ms)`);
+            console.log(`[corr:${corrId}][TIMING] 4_moduleB_gemini +${Date.now() - t0}ms (took ${Date.now() - t4}ms)`);
 
             try {
                 synthesisOutput = JSON.parse(repairJsonString(stripMarkdown(synthesisText1)));
@@ -791,7 +799,8 @@ Deno.serve(async (req: Request) => {
                 resultDefinitionEn,
                 body,
                 discovererUserId,
-                supabase
+                supabase,
+                corrId,
             );
 
             senseFinal = sense;
@@ -817,9 +826,9 @@ Deno.serve(async (req: Request) => {
             }
         }
 
-        console.log(`[RESULT] cached=false new=${isNewDiscovery} sense=${senseFinal?.uid ?? 'n/a'} visual=${visualFinal ? 'ready' : 'pending'} total=+${Date.now() - t0}ms`);
-        console.log(`[TIMING] 9_total +${Date.now() - t0}ms`);
-        return json({
+        console.log(`[corr:${corrId}][RESULT] cached=false new=${isNewDiscovery} sense=${senseFinal?.uid ?? 'n/a'} visual=${visualFinal ? 'ready' : 'pending'} total=+${Date.now() - t0}ms`);
+        console.log(`[corr:${corrId}][TIMING] 9_total +${Date.now() - t0}ms`);
+        const cacheMissResponse = {
             success: true,
             data: {
                 sense: senseFinal,
@@ -828,7 +837,9 @@ Deno.serve(async (req: Request) => {
                 isNewDiscovery,
                 archetypeUsed: finalArchetypeUsed,
             },
-        });
+        };
+        await storeIdempotencyResult(supabase, requestId, cacheMissResponse);
+        return json(cacheMissResponse);
 
     } catch (error: any) {
         console.error('[index] Uncaught error:', error);
