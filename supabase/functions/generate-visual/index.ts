@@ -16,7 +16,7 @@
 
 import { createClient } from 'npm:@supabase/supabase-js';
 import { buildVisualPrompt } from '../synthesize-sense/lib/VisualPromptsBackend.ts';
-import { callGemini } from '../synthesize-sense/utils/gemini.ts';
+import { callAI } from '../synthesize-sense/utils/callAI.ts';
 
 // ── CORS headers ──────────────────────────────────────────────────────────────
 const corsHeaders = {
@@ -123,7 +123,7 @@ Deno.serve(async (req: Request) => {
         const t2 = Date.now();
         let visualRawText: string;
         try {
-            visualRawText = await callGemini({
+            visualRawText = await callAI({
                 systemPrompt,
                 userPrompt,
                 temperature: 0.6,

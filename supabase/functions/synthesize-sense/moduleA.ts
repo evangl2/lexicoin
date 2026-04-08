@@ -1,4 +1,4 @@
-import { callGemini } from './utils/gemini.ts';
+import { callAI } from './utils/callAI.ts';
 import { buildSensePrompt } from './lib/SensePromtBackend.ts';
 import { injectSenseMeta } from './lib/injectSenseMeta.ts';
 import type { RawSenseAIOutput, SenseAIPayload, SynthesisRequest } from './types.ts';
@@ -131,7 +131,7 @@ export async function generateSense(
     });
 
     const t10 = Date.now();
-    const aiRawText = await callGemini({
+    const aiRawText = await callAI({
         systemPrompt,
         userPrompt,
         temperature: 0.4,

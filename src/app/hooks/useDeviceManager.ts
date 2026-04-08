@@ -58,7 +58,10 @@ export const useDeviceManager = () => {
                     mx: motionValue(Number.isFinite(rec.x) ? rec.x : 0),
                     my: motionValue(Number.isFinite(rec.y) ? rec.y : 0),
                     location: rec.location,
-                    state: rec.state
+                    // Always reset isProcessing on load — any in-flight synthesis
+                    // from a previous session is gone; persisting 'true' would leave
+                    // the circle permanently stuck.
+                    state: { ...rec.state, isProcessing: false },
                 }));
 
                 setDevices(loadedDevices);

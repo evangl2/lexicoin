@@ -89,6 +89,8 @@ export type SynthesisState = 'idle' | 'processing' | 'processing-long' | 'succes
 
 export interface UseSynthesisResult {
   synthesize: (params: Omit<SynthesisRequest, 'userId'>) => Promise<void>;
+  /** Forcibly reset all synthesis state — use when the circle gets stuck. */
+  reset: () => void;
   state: SynthesisState;
   error: string | null;
   result: SynthesisResponse | null;
@@ -102,8 +104,21 @@ export function useSynthesis(): UseSynthesisResult {
   const [card, setCard] = useState<CardEntity | null>(null);
 
   const timeoutRef = useRef<ReturnType<typeof setTimeout>>();
+  const abortRef = useRef<AbortController | null>(null);
   // Prevents double-invocation from double-clicks, React StrictMode, etc.
   const inFlightRef = useRef(false);
+
+  const reset = useCallback(() => {
+    clearTimeout(timeoutRef.current);
+    if (inFlightRef.current) {
+      inFlightRef.current = false;
+      useGameStore.getState().decrementSynthesisCount();
+    }
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setState('idle');
+    setError(null);
+  }, []);
 
   const synthesize = useCallback(async (params: Omit<SynthesisRequest, 'userId'>) => {
     if (inFlightRef.current) {
@@ -141,12 +156,25 @@ export function useSynthesis(): UseSynthesisResult {
     // duplicate delivery and replay the stored result instead of re-running Gemini.
     const requestId = crypto.randomUUID();
 
+    // Hard 90s timeout via Promise.race — does not rely on SDK signal support.
+    // If the edge function hangs (OpenRouter retries, network stall, wall-clock limit),
+    // this rejects the race and falls through to the catch block, freeing the circle.
+    let hardTimeoutId: ReturnType<typeof setTimeout>;
+    const raceTimeout = new Promise<never>((_, reject) => {
+      hardTimeoutId = setTimeout(() => {
+        reject(Object.assign(new Error('Synthesis timed out (90s)'), { name: 'AbortError' }));
+      }, 90_000);
+    });
+
     try {
       logger.info('Invoking synthesize-sense edge function...', { ...params, request_id: requestId }, 'useSynthesis');
 
-      const { data, error: invokeError } = await supabase.functions.invoke('synthesize-sense', {
-        body: { ...params, request_id: requestId },
-      });
+      const { data, error: invokeError } = await Promise.race([
+        supabase.functions.invoke('synthesize-sense', {
+          body: { ...params, request_id: requestId },
+        }),
+        raceTimeout,
+      ]);
 
       if (invokeError) throw invokeError;
 
@@ -204,23 +232,30 @@ export function useSynthesis(): UseSynthesisResult {
       );
 
     } catch (err: any) {
-      const errorMessage = err.message || 'Synthesis failed unexpectedly';
+      const isAbort = err?.name === 'AbortError' || err?.message?.includes('timed out');
+      const errorMessage = isAbort
+        ? 'Synthesis timed out (90s)'
+        : (err.message || 'Synthesis failed unexpectedly');
       logger.error('Synthesis error', err, 'useSynthesis');
       setError(errorMessage);
       setState('error');
       useGameStore.getState().addNotification(
-        { en: 'Synthesis failed', zh: '合成失败' },
+        isAbort
+          ? { en: 'Synthesis timed out', zh: '合成超时，请重试' }
+          : { en: 'Synthesis failed', zh: '合成失败' },
         'ERROR',
         4000,
       );
     } finally {
+      clearTimeout(hardTimeoutId!);
       clearTimeout(timeoutRef.current);
+      abortRef.current = null;
       inFlightRef.current = false;
       useGameStore.getState().decrementSynthesisCount();
     }
   }, []);
 
-  return { synthesize, state, error, result, card };
+  return { synthesize, reset, state, error, result, card };
 }
 
 export default useSynthesis;

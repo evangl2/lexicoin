@@ -37,7 +37,7 @@ export const SynthesisCircle: React.FC<SynthesisCircleProps> = ({
     onCardEnter, onCardEject, mergedVariants = {}, onDropIntoRepository,
     onSynthesisComplete, systemlang, learninglang
 }) => {
-    const { synthesize, state: synthState, card: synthCard, error: synthError } = useSynthesis();
+    const { synthesize, reset: resetSynthesis, state: synthState, card: synthCard, error: synthError } = useSynthesis();
     const languageLevel = useGameStore(
         state => state.player?.languageProgress?.[learninglang as Language]?.level ?? 1
     );
@@ -229,6 +229,17 @@ export const SynthesisCircle: React.FC<SynthesisCircleProps> = ({
                         >
                             {(state.isProcessing || isSynthesizing) ? <Loader2 className="animate-spin" /> : <Sparkles size={24} />}
                         </button>
+                        {(state.isProcessing || isSynthesizing) && (
+                            <button
+                                onClick={() => {
+                                    resetSynthesis();
+                                    updateState(uid, { isProcessing: false });
+                                }}
+                                className="text-[10px] text-white/30 hover:text-red-400 transition-colors uppercase tracking-widest font-mono"
+                            >
+                                取消
+                            </button>
+                        )}
                     </div>
 
                     <Slot

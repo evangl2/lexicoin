@@ -11,7 +11,7 @@
 
 import { createClient } from 'npm:@supabase/supabase-js';
 import { generateSense } from './moduleA.ts';
-import { callGemini } from './utils/gemini.ts';
+import { callAI } from './utils/callAI.ts';
 import { buildSynthesisPrompt } from './lib/SynthesisPromptsBackend.ts';
 import { buildDeltaPrompt } from './lib/DeltaPromptBackend.ts';
 import type { DeltaMissing } from './lib/DeltaPromptBackend.ts';
@@ -392,7 +392,7 @@ Deno.serve(async (req: Request) => {
                             personaNarrative,
                         });
 
-                        const rawDeltaText = await callGemini({
+                        const rawDeltaText = await callAI({
                             systemPrompt: dSys,
                             userPrompt: dUsr,
                             temperature: 0.4,
@@ -629,7 +629,7 @@ Deno.serve(async (req: Request) => {
             });
 
             const t4 = Date.now();
-            const synthesisText1 = await callGemini({
+            const synthesisText1 = await callAI({
                 systemPrompt: p1.systemPrompt, userPrompt: p1.userPrompt,
                 temperature: 0.7, responseMimeType: 'application/json', tag: 'moduleB-attempt1',
                 model: modelId,
@@ -698,7 +698,7 @@ Deno.serve(async (req: Request) => {
         if (synthesisOutput!.outcome === 'failure' && proceedToAttempt2 && !existingUid) {
             console.log('[Module B] Attempt 2 (Untethered AI).');
             const p2 = buildSynthesisPrompt({ nameA, defA, nameB, defB, systemlang, learninglang, targetLanguages: target_languages, maxLevel: max_level });
-            const synthesisText2 = await callGemini({
+            const synthesisText2 = await callAI({
                 systemPrompt: p2.systemPrompt, userPrompt: p2.userPrompt,
                 temperature: 0.7, responseMimeType: 'application/json', tag: 'moduleB-attempt2',
                 model: modelId,
