@@ -24,6 +24,9 @@ import { visualRepository } from '@core/storage/VisualRepository';
 import { INITIAL_SENSES } from '@schemas/data/initialSenses';
 import { ALL_INITIAL_VISUALS } from '@schemas/data/InitialItem';
 import { db } from '@core/storage/db';
+import { visualRegistry } from '@core/registries/VisualRegistry';
+import { supabase } from '@core/infra/supabaseClient';
+import type { VisualEntry } from '@schemas/schemas/SenseEntity.schema';
 import type { BaseMessage } from '@app-types/protocol';
 import './DevConsole.css';
 
@@ -103,9 +106,12 @@ export const DevConsole: React.FC = () => {
     const [messages, setMessages] = useState<BaseMessage[]>([]);
     const [logs, setLogs] = useState<any[]>([]);
     const [logFilter, setLogFilter] = useState('');
+    const setSenses = useGameStore(s => s.setSenses);
     const [messageFilter, setMessageFilter] = useState('');
     const [autoScroll, setAutoScroll] = useState(true);
     const [isPaused, setIsPaused] = useState(false);
+    const [isRefetching, setIsRefetching] = useState(false);
+    const [refetchResult, setRefetchResult] = useState<string | null>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
     // Real-time message subscription
@@ -157,6 +163,82 @@ export const DevConsole: React.FC = () => {
 
     const injectMessage = (type: string, payload: any) => {
         messageBus.send(type, payload, 'DevConsole');
+    };
+
+    const handleRefetchVisuals = async () => {
+        setIsRefetching(true);
+        setRefetchResult(null);
+        logger.info('🚀 Starting refetch for missing visuals...', undefined, 'DevConsole');
+        
+        try {
+            // 1. Get current senses from IndexedDB (same source as useCardManager)
+            const currentSenses = await senseRepository.getAll();
+
+            // 2. Identify missing or failed UIDs
+            const missingUids = currentSenses
+                .map(s => s.uid)
+                .filter(uid => {
+                    const entry = visualRegistry.get(uid);
+                    // Refetch if:
+                    // - Not in registry at all
+                    // - In registry but payload is missing or is the 'failed' placeholder
+                    return !entry || !entry.payload || entry.payload === 'VISUAL_GENERATION_FAILED';
+                });
+
+            if (missingUids.length === 0) {
+                setRefetchResult('✅ All visuals are already loaded.');
+                logger.info('✅ No missing visuals found on current senses.', undefined, 'DevConsole');
+                return;
+            }
+
+            logger.info(`🔍 Found ${missingUids.length} potential missing visuals. Checking Supabase...`, undefined, 'DevConsole');
+
+            // 3. Fetch from Supabase
+            const { data, error } = await supabase
+                .from('sense_visuals')
+                .select('sense_id, id, payload, meta')
+                .in('sense_id', missingUids)
+                .eq('id', 'default');
+
+            if (error) throw error;
+
+            if (!data || data.length === 0) {
+                setRefetchResult('ℹ️ No backfilled visuals found in DB yet.');
+                return;
+            }
+
+            // 4. Update Registry & Repository & Notify via MessageBus
+            // Note: useCardManager listens to ASSET_LOADED and will update the React UI.
+            let succeeded = 0;
+            for (const row of data) {
+                if (row.meta?.status === 'failed') continue;
+                if (!row.payload || row.payload === 'VISUAL_GENERATION_FAILED') continue;
+                
+                const entry: VisualEntry = {
+                    uid: row.sense_id,
+                    id: row.id,
+                    payload: row.payload,
+                    meta: row.meta,
+                };
+                
+                // Persist & Cache
+                await visualRepository.upsert(entry);
+                // Propagate! This triggers the re-render in useCardManager
+                messageBus.send('ASSET_LOADED', entry, 'DevConsole');
+                succeeded++;
+            }
+
+            setRefetchResult(
+                `Checked ${missingUids.length} UIDs. Successfully refetched ${succeeded} ✅`
+            );
+            logger.info(`✅ Refetch complete. ${succeeded} assets updated and propagated.`, undefined, 'DevConsole');
+        } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err);
+            setRefetchResult(`❌ Error: ${msg}`);
+            logger.error(`❌ Refetch Failed: ${msg}`, err, 'DevConsole');
+        } finally {
+            setIsRefetching(false);
+        }
     };
 
     if (!isOpen) {
@@ -440,7 +522,20 @@ export const DevConsole: React.FC = () => {
                                 These actions are destructive and cannot be undone.
                             </p>
 
-                            <div className="system-actions">
+                            <div className="system-actions" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
+                                <button
+                                    className="action-btn"
+                                    onClick={handleRefetchVisuals}
+                                    disabled={isRefetching}
+                                >
+                                    {isRefetching ? '⏳ Fetching...' : '🔄 Refetch Missing Visuals'}
+                                </button>
+                                {refetchResult && (
+                                    <p className="action-result">{refetchResult}</p>
+                                )}
+                                
+                                <div style={{ height: '24px' }} />
+
                                 <button
                                     className="danger-btn"
                                     onClick={async () => {
