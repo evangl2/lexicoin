@@ -62,6 +62,7 @@ interface CardProps {
   groupFeedback?: { merge: string[], split: string[], timestamp: number } | null;
   onDropIntoSlot?: (cardId: string, deviceUid: string, slotId: number) => void;
   onDropIntoRepository?: (cardId: string) => void;
+  isZoomingRef?: React.MutableRefObject<boolean>;
 }
 
 export const Card = React.memo<CardProps>(({
@@ -85,6 +86,7 @@ export const Card = React.memo<CardProps>(({
   externalScale,
   onDropIntoSlot,
   onDropIntoRepository,
+  isZoomingRef,
 }) => {
   // ========== Variant Logic (Extracted) ==========
   const {

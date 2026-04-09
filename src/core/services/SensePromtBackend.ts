@@ -219,7 +219,8 @@ You must strictly output the JSON according to this structure:
 - **Frequency**: 1-100 score. 100 = universal daily concept; 1 = extremely rare/specialized sense.
 
 #### **C. Meaning & FlavorText**
-- **meaning**: meaning must be **dictionary-level detailed explanations, no more than 40 words/characters**.
+- **meaning**: A single, unambiguous dictionary definition strictly derived from the provided **Definition (Base)**.
+  Max 40 words/characters per language. Translate/adapt the base sense faithfully into each language's natural phrasing.
 - **flavorText STRUCTURE (CRITICAL)**: Each element in \`flavorText\` represents ONE persona. Inside each element, \`text\` and \`example\` are language maps containing ALL languages as keys — NOT one array element per language.
   - ✓ CORRECT: \`[{ "persona": "default", "text": {"en": "...", "zh-CN": "...", "fr": "..."}, "example": {"en": "...", "zh-CN": "...", "fr": "..."} }]\`
   - ✗ WRONG: \`[{ "persona": "default", "text": {"en": "..."} }, { "persona": "default", "text": {"zh-CN": "..."} }]\`
@@ -250,6 +251,10 @@ ${sectionF}`;
   const userPrompt = `[TASK DATA]
 Concept: "${concept}"
 Definition (Base): "${definition}"
+
+[CONSTRAINT]
+"Definition (Base)" is the AUTHORITATIVE sense for this card. The "meaning" field MUST represent ONLY this specific sense.
+Do NOT blend in other dictionary meanings. Do NOT combine multiple senses with "or", "/", or any separator.
 
 [EXECUTION]
 Construct the SenseEntity JSON. Ensure all ${target_languages.length} languages are filled in meaning, shells, and wordFamily with high precision.

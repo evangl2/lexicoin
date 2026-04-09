@@ -1,7 +1,6 @@
 import React, { useRef, useEffect } from 'react';
 import { useGesture } from '@use-gesture/react';
 import { motion, useTransform } from 'motion/react';
-import { useWindowDimensions } from '@/app/hooks/useWindowDimensions';
 import { useCanvasPersona } from '@/app/context/PersonaContext';
 import { Slot } from '@/app/components/persona/slots';
 
@@ -11,13 +10,25 @@ interface CanvasProps {
   x: any;     // MotionValue
   y: any;     // MotionValue
   onDoubleClick?: (e: React.MouseEvent) => void;
+  isZoomingRef?: React.MutableRefObject<boolean>;
 }
 
-export const Canvas: React.FC<CanvasProps> = ({ children, scale, x, y, onDoubleClick }) => {
+export const Canvas: React.FC<CanvasProps> = ({ children, scale, x, y, onDoubleClick, isZoomingRef }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasPersona = useCanvasPersona();
   const { palette: { colors }, slots } = canvasPersona;
-  const { windowWidth, windowHeight } = useWindowDimensions();
+
+  // Plain refs for screen dimensions — cheaper than MotionValue.get() on every frame
+  const screenWRef = useRef(typeof window !== 'undefined' ? window.innerWidth : 0);
+  const screenHRef = useRef(typeof window !== 'undefined' ? window.innerHeight : 0);
+  useEffect(() => {
+    const onResize = () => {
+      screenWRef.current = window.innerWidth;
+      screenHRef.current = window.innerHeight;
+    };
+    window.addEventListener('resize', onResize, { passive: true });
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
 
   // ============================================================
   // WORLD DIMENSIONS
@@ -39,10 +50,31 @@ export const Canvas: React.FC<CanvasProps> = ({ children, scale, x, y, onDoubleC
   const latestMouseX = useRef(0);       // primitive refs — no heap allocation per event
   const latestMouseY = useRef(0);
 
+  // ============================================================
+  // ZOOM STATE SIGNALING
+  // ============================================================
+  const isZoomingInternalRef = useRef(false);
+  const zoomEndTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const markZoomStart = () => {
+    isZoomingInternalRef.current = true;
+    if (isZoomingRef) isZoomingRef.current = true;
+  };
+
+  const markZoomEnd = () => {
+    if (zoomEndTimerRef.current) clearTimeout(zoomEndTimerRef.current);
+    zoomEndTimerRef.current = setTimeout(() => {
+      isZoomingInternalRef.current = false;
+      if (isZoomingRef) isZoomingRef.current = false;
+      // Re-emit scale so Card LOD subscribers fire once after zoom settles
+      scale.set(scale.get());
+    }, 150);
+  };
+
   const clampCamera = (currentX: number, currentY: number, currentScale: number) => {
     if (typeof window === 'undefined') return { x: currentX, y: currentY };
-    const screenW = windowWidth.get();
-    const screenH = windowHeight.get();
+    const screenW = screenWRef.current;
+    const screenH = screenHRef.current;
 
     // Canvas Overscroll Distance (Allow users to see slightly beyond the edge)
     const OVERSCROLL_X = 300;
@@ -94,10 +126,13 @@ export const Canvas: React.FC<CanvasProps> = ({ children, scale, x, y, onDoubleC
       accumulatedDy.current = 0;
     }
 
+    markZoomStart();
+
     const v = zoomVelocityRef.current;
     if (Math.abs(v) < ZOOM_MIN_VELOCITY) {
       zoomVelocityRef.current = 0;
       inertiaRafRef.current = null;
+      markZoomEnd();
       return;
     }
 
@@ -106,8 +141,8 @@ export const Canvas: React.FC<CanvasProps> = ({ children, scale, x, y, onDoubleC
     const currentScale = scale.get();
     const currentX = x.get();
     const currentY = y.get();
-    const screenW = windowWidth.get();
-    const screenH = windowHeight.get();
+    const screenW = screenWRef.current;
+    const screenH = screenHRef.current;
     const limitMinScale = Math.max(0.08, Math.max(screenW / WORLD_W, screenH / WORLD_H));
 
     // Apply (1 - FRICTION) fraction of velocity this frame; remainder decays next frame
@@ -131,6 +166,7 @@ export const Canvas: React.FC<CanvasProps> = ({ children, scale, x, y, onDoubleC
       // Scale limit reached — drain velocity so loop terminates
       zoomVelocityRef.current = 0;
       inertiaRafRef.current = null;
+      markZoomEnd();
       return;
     }
 
@@ -141,6 +177,7 @@ export const Canvas: React.FC<CanvasProps> = ({ children, scale, x, y, onDoubleC
   // Cancel any in-flight inertia on unmount
   useEffect(() => () => {
     if (inertiaRafRef.current !== null) cancelAnimationFrame(inertiaRafRef.current);
+    if (zoomEndTimerRef.current !== null) clearTimeout(zoomEndTimerRef.current);
   }, []);
 
   useGesture(
@@ -180,7 +217,7 @@ export const Canvas: React.FC<CanvasProps> = ({ children, scale, x, y, onDoubleC
         if (isDiscreteWheel) {
           // Mouse wheel: apply immediately in one frame — one click = one zoom step, no tail.
           const cs = scale.get(), cx = x.get(), cy = y.get();
-          const sw = windowWidth.get(), sh = windowHeight.get();
+          const sw = screenWRef.current, sh = screenHRef.current;
           const minScale = Math.max(0.08, Math.max(sw / WORLD_W, sh / WORLD_H));
           const ns = Math.min(Math.max(minScale, cs * Math.exp(-normalizedDy * 0.001)), 2.0);
           if (ns !== cs) {
@@ -190,9 +227,11 @@ export const Canvas: React.FC<CanvasProps> = ({ children, scale, x, y, onDoubleC
               we.clientY - (we.clientY - cy) * r,
               ns
             );
+            markZoomStart();
             scale.set(ns);
             x.set(clamped.x);
             y.set(clamped.y);
+            markZoomEnd();
           }
         } else {
           // Trackpad: feed inertia loop for smooth continuous zoom

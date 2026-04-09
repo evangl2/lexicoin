@@ -30,7 +30,8 @@
       "Read(//tmp/**)",
       "Bash(git log:*)",
       "Bash(supabase --version)",
-      "Bash(python -c \":*)"
+      "Bash(python -c \":*)",
+      "Bash(find /a/lexicoin/lexicoin -type f \\\\\\( -name \"*.sql\" -o -name \"*.ts\" \\\\\\) -exec grep -l \"synthesis_cache\" {} \\\\;)"
     ]
   }
 }

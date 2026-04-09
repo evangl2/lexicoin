@@ -505,7 +505,7 @@ Deno.serve(async (req: Request) => {
             }
 
             // --- Non-blocking Visual delta ---
-            const activeVisual = (visuals ?? []).find((v: any) => v.id === visual_id);
+            const activeVisual = (visuals ?? []).find((v: any) => v.id === visual_id && v.meta?.status !== 'failed' && v.payload && v.payload !== 'VISUAL_GENERATION_FAILED') ?? null;
             if (!activeVisual) {
                 // Use english name from shells for visual concept context
                 const shellsEn = existingShells['en'] as any;
@@ -769,7 +769,39 @@ Deno.serve(async (req: Request) => {
             ]);
 
             senseFinal = assembleFromDbRows(existingSenseRow, existingShellRow, existingFlavorsRows ?? [], '');
-            visualFinal = (existingVisualsRows ?? []).find((v: any) => v.id === visual_id) ?? null;
+            const existingVisual = (existingVisualsRows ?? []).find((v: any) => v.id === visual_id && v.meta?.status !== 'failed' && v.payload && v.payload !== 'VISUAL_GENERATION_FAILED') ?? null;
+            visualFinal = existingVisual;
+
+            // If no valid visual exists for this visual_id, fire generate-visual async
+            if (!existingVisual && existingSenseRow) {
+                const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+                const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+                const shellsEn = existingShellRow?.shells?.['en'] as any;
+                const conceptEn: string = shellsEn?.[0]?.text?.value ?? shellsEn?.[0]?.text ?? 'Unknown';
+                const defEn: string = existingSenseRow.meaning?.['en']?.value ?? existingSenseRow.meaning?.['en'] ?? '';
+                console.log(`[corr:${corrId}][Visual] existingUid path: invoking generate-visual sense=${existingUid} visual=${visual_id}`);
+                const visualFetch = fetch(`${supabaseUrl}/functions/v1/generate-visual`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${serviceKey}`,
+                        'apikey': serviceKey,
+                    },
+                    body: JSON.stringify({
+                        sense_id: existingUid,
+                        visual_id,
+                        concept: conceptEn,
+                        definition: defEn,
+                        discoverer_user_id: discovererUserId,
+                        model_id: modelId,
+                        corr_id: corrId,
+                    }),
+                }).catch((e: unknown) => {
+                    const msg = e instanceof Error ? e.message : String(e);
+                    console.error(`[Visual] existingUid path: generate-visual invoke failed (non-fatal): ${msg}`);
+                });
+                (globalThis as any).EdgeRuntime?.waitUntil(visualFetch);
+            }
 
             // Write synthesis_cache to record this combination → existing sense
             if (!skipCacheWrite) {

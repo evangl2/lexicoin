@@ -9,6 +9,7 @@ import { DefaultCardPersona } from '../../persona/default/Card.persona.default';
 import { DEFAULT_LANGUAGE } from '@/types/CardEntity';
 import type { CardEntity } from '@/types/CardEntity';
 import { useSynthesis } from '@/app/hooks/useSynthesis';
+import { useResumeProcessing } from '@/app/hooks/useResumeProcessing';
 import { useGameStore } from '@store/index';
 import { MAX_CONCURRENT_SYNTHESES } from '@/config/constants';
 import { levelDistributionSampler } from '@core/services/LevelDistributionSampler';
@@ -37,7 +38,9 @@ export const SynthesisCircle: React.FC<SynthesisCircleProps> = ({
     onCardEnter, onCardEject, mergedVariants = {}, onDropIntoRepository,
     onSynthesisComplete, systemlang, learninglang
 }) => {
-    const { synthesize, reset: resetSynthesis, state: synthState, card: synthCard, error: synthError } = useSynthesis();
+    const { synthesize, state: synthState, card: synthCard, error: synthError } = useSynthesis();
+
+    useResumeProcessing(state.isProcessing, state.slot1_uid, state.slot2_uid, synthesize, systemlang, learninglang);
     const languageLevel = useGameStore(
         state => state.player?.languageProgress?.[learninglang as Language]?.level ?? 1
     );
@@ -229,17 +232,6 @@ export const SynthesisCircle: React.FC<SynthesisCircleProps> = ({
                         >
                             {(state.isProcessing || isSynthesizing) ? <Loader2 className="animate-spin" /> : <Sparkles size={24} />}
                         </button>
-                        {(state.isProcessing || isSynthesizing) && (
-                            <button
-                                onClick={() => {
-                                    resetSynthesis();
-                                    updateState(uid, { isProcessing: false });
-                                }}
-                                className="text-[10px] text-white/30 hover:text-red-400 transition-colors uppercase tracking-widest font-mono"
-                            >
-                                取消
-                            </button>
-                        )}
                     </div>
 
                     <Slot

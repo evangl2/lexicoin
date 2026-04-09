@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import type { RefObject } from 'react';
 import type { MotionValue } from 'motion/react';
 
@@ -33,6 +33,7 @@ export function useViewportCulling(
   );
 
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const rafGuardRef = useRef<number | null>(null);
 
   // Keep mutable refs to avoid re-subscribing when items/zoomed change
   const itemsRef = useRef(items);
@@ -123,17 +124,27 @@ export function useViewportCulling(
       timerRef.current = setTimeout(() => compute.current(), DEBOUNCE_MS);
     };
 
+    // Frame-level dedup: x, y, scale each fire on the same frame — only enter debounced once
+    const debouncedWithRafGuard = () => {
+      if (rafGuardRef.current !== null) return;
+      rafGuardRef.current = requestAnimationFrame(() => {
+        rafGuardRef.current = null;
+        debounced();
+      });
+    };
+
     compute.current(); // immediate on mount / camera MV change
 
     const unsubs = [
-      cameraX.on('change', debounced),
-      cameraY.on('change', debounced),
-      cameraScale.on('change', debounced),
+      cameraX.on('change', debouncedWithRafGuard),
+      cameraY.on('change', debouncedWithRafGuard),
+      cameraScale.on('change', debouncedWithRafGuard),
     ];
 
     return () => {
       unsubs.forEach(u => u());
       if (timerRef.current) clearTimeout(timerRef.current);
+      if (rafGuardRef.current !== null) cancelAnimationFrame(rafGuardRef.current);
     };
   }, [cameraX, cameraY, cameraScale]);
 

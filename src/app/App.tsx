@@ -58,6 +58,10 @@ function InnerApp() {
   // React flushes × ~10ms each = 50ms jank per click (confirmed via perf trace 2026-04-04).
   const draggingIdRef = useRef<string | null>(null);
 
+  // Shared signal for canvas zoom state — passed to Canvas, useViewportCulling, and Card.
+  // Lets those systems defer expensive work (LOD checks, O(n) culling) until zoom settles.
+  const isZoomingRef = useRef<boolean>(false);
+
   // Single global pointerdown listener that delegates to all registered card handlers.
   // Replaces N per-card window listeners (one per expanded/flipped card) with one.
   useEffect(() => {
@@ -281,7 +285,7 @@ function InnerApp() {
           if (isDeckOpen) closeDeck();
         }}
       >
-        <Canvas scale={camera.scale} x={camera.x} y={camera.y}>
+        <Canvas scale={camera.scale} x={camera.x} y={camera.y} isZoomingRef={isZoomingRef}>
           {/* Render Active Canvas Items */}
           {visibleCanvasItems.map((item: any) => (
             <Card
@@ -304,6 +308,7 @@ function InnerApp() {
 
               onDropIntoSlot={handleDropIntoSlot}
               onDropIntoRepository={handleCardDropIntoRepository}
+              isZoomingRef={isZoomingRef}
             />
           ))}
 
@@ -356,6 +361,7 @@ function InnerApp() {
               updatePosition={handleUpdatePosition} // Use stable handler here too
               isHidden={false}
               externalScale={item.scale}
+              isZoomingRef={isZoomingRef}
             />
           ))}
 
