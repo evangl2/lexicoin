@@ -1,8 +1,8 @@
 /**
  * Security test for APIClient logging
  */
-import { apiClient } from '../core/infra/APIClient';
-import { logger } from '../utils/logger';
+import { apiClient } from '../core/infra/APIClient.ts';
+import { logger } from '../utils/logger.ts';
 
 async function runTest() {
     console.log('Starting API security test...');
