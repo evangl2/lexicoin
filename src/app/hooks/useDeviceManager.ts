@@ -105,54 +105,76 @@ export const useDeviceManager = () => {
     // ==== Actions ====
 
     const storeDevice = useCallback((uid: string, onEject?: (slotUid: string, x: number, y: number) => void) => {
-        setDevices(prev => prev.map(d => {
-            if (d.uid === uid) {
-                // Ejection Logic
-                if (onEject) {
-                    const currentX = d.mx.get();
-                    const currentY = d.my.get();
+        setDevices(prev => {
+            // ⚡ Bolt Performance Optimization:
+            // Replaced .map() with .findIndex() to avoid O(N) full array iteration
+            // and prevent unnecessary React re-renders when the target item is missing.
+            const index = prev.findIndex(d => d.uid === uid);
+            if (index === -1) return prev;
 
-                    // Eject Slot 1
-                    if (d.state.slot1_uid) {
-                        // Offset slightly for visibility
-                        onEject(d.state.slot1_uid, currentX - 60, currentY);
-                    }
-                    // Eject Slot 2
-                    if (d.state.slot2_uid) {
-                        onEject(d.state.slot2_uid, currentX + 60, currentY);
-                    }
+            const newDevices = [...prev];
+            const d = newDevices[index] as DeviceItem;
+
+            // Ejection Logic
+            if (onEject) {
+                const currentX = d.mx.get();
+                const currentY = d.my.get();
+
+                // Eject Slot 1
+                if (d.state.slot1_uid) {
+                    // Offset slightly for visibility
+                    onEject(d.state.slot1_uid, currentX - 60, currentY);
                 }
-
-                return {
-                    ...d,
-                    location: 'repository',
-                    // Clear slots on store - MUTUALLY EXCLUSIVE
-                    state: { ...d.state, slot1_uid: null, slot2_uid: null }
-                };
+                // Eject Slot 2
+                if (d.state.slot2_uid) {
+                    onEject(d.state.slot2_uid, currentX + 60, currentY);
+                }
             }
-            return d;
-        }));
+
+            newDevices[index] = {
+                ...d,
+                location: 'repository',
+                // Clear slots on store - MUTUALLY EXCLUSIVE
+                state: { ...d.state, slot1_uid: null, slot2_uid: null }
+            };
+
+            return newDevices;
+        });
     }, []);
 
     const retrieveDevice = useCallback((uid: string, x: number, y: number) => {
-        setDevices(prev => prev.map(d => {
-            if (d.uid === uid) {
-                // Return new object with new MotionValues to reset velocity (same as cards)
-                return {
-                    ...d,
-                    location: 'canvas',
-                    mx: motionValue(x),
-                    my: motionValue(y)
-                };
-            }
-            return d;
-        }));
+        setDevices(prev => {
+            // ⚡ Bolt Performance Optimization:
+            // Short-circuiting single element updates prevents redundant re-renders.
+            const index = prev.findIndex(d => d.uid === uid);
+            if (index === -1) return prev;
+
+            const newDevices = [...prev];
+            const d = newDevices[index] as DeviceItem;
+
+            // Return new object with new MotionValues to reset velocity (same as cards)
+            newDevices[index] = {
+                ...d,
+                location: 'canvas',
+                mx: motionValue(x),
+                my: motionValue(y)
+            };
+
+            return newDevices;
+        });
     }, []);
 
     const updateDeviceState = useCallback((uid: string, newState: Partial<DeviceState>) => {
-        setDevices(prev => prev.map(d =>
-            d.uid === uid ? { ...d, state: { ...d.state, ...newState } } : d
-        ));
+        setDevices(prev => {
+            // ⚡ Bolt Performance Optimization
+            const index = prev.findIndex(d => d.uid === uid);
+            if (index === -1) return prev;
+
+            const newDevices = [...prev];
+            const d = newDevices[index] as DeviceItem;
+            newDevices[index] = { ...d, state: { ...d.state, ...newState } };
+            return newDevices;
+        });
     }, []);
 
     const updateDevicePosition = useCallback((uid: string, x: number, y: number) => {
