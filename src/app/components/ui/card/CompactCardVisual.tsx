@@ -32,16 +32,14 @@ export const CompactCardVisual: React.FC<CompactCardVisualProps> = React.memo(({
     const { word, level } = learningData;
     const { durability, ontology } = senseInfo;
 
-    // --- COMPONENT REUSE (Strictly from Persona) ---
-    const Background = Persona.visuals.Background;
+    const Background   = Persona.visuals.Background;
     const TextureOverlay = Persona.visuals.TextureOverlay;
-    const Corners = Persona.visuals.Corners;
-    const ScrapLabel = Persona.visuals.ScrapLabel;
+    const Corners      = Persona.visuals.Corners;
+    const ScrapLabel   = Persona.visuals.ScrapLabel;
     const DurabilityBar = Persona.visuals.DurabilityBar;
 
     // --- RENDER HELPERS ---
 
-    // 1. Repository Mode: Full detailed miniature
     const renderRepository = () => (
         <div className="relative w-full h-full flex flex-col p-2 isolate">
             {/* Visual background watermark */}
@@ -51,7 +49,7 @@ export const CompactCardVisual: React.FC<CompactCardVisualProps> = React.memo(({
                 </div>
             </div>
 
-            {/* Header: Difficulty (ScrapLabel) */}
+            {/* Header: Difficulty */}
             <div className="relative z-30 flex justify-end items-start w-full">
                 {ScrapLabel ? (
                     <div className="drop-shadow-lg p-1">
@@ -62,11 +60,11 @@ export const CompactCardVisual: React.FC<CompactCardVisualProps> = React.memo(({
                         <span
                             className="text-xs font-bold tracking-widest"
                             style={{
-                                fontFamily: Persona.tokens.typography.label.family,
-                                color: Persona.tokens.colors.textHighlight,
-                                background: Persona.tokens.typography.label.gradient,
-                                WebkitBackgroundClip: Persona.tokens.typography.label.gradient ? 'text' : undefined,
-                                WebkitTextFillColor: Persona.tokens.typography.label.gradient ? 'transparent' : undefined,
+                                fontFamily: 'var(--card-font-label)',
+                                color: 'var(--card-color-text-highlight)',
+                                background: 'var(--card-gradient-label-text)',
+                                WebkitBackgroundClip: 'var(--card-gradient-label-text)' ? 'text' : undefined,
+                                WebkitTextFillColor: 'var(--card-gradient-label-text)' ? 'transparent' : undefined,
                             }}
                         >
                             {level}
@@ -75,19 +73,17 @@ export const CompactCardVisual: React.FC<CompactCardVisualProps> = React.memo(({
                 )}
             </div>
 
-            {/* Center: Main Word (Dynamic Tiered Text) */}
+            {/* Center: Main Word */}
             <div className="flex-1 flex flex-col items-center justify-center relative z-20 pointer-events-none w-full px-1">
                 <TieredText
                     text={word}
                     style={{
-                        fontFamily: Persona.tokens.typography.label.family,
-                        color: Persona.tokens.colors.textHighlight,
-                        // gradient handled by TieredText prop or style? TieredText supports gradient prop.
-                        // But here we use backgroundImage for text clip. TieredText supports style override.
-                        backgroundImage: Persona.tokens.typography.label.gradient,
-                        WebkitBackgroundClip: Persona.tokens.typography.label.gradient ? 'text' : undefined,
-                        WebkitTextFillColor: Persona.tokens.typography.label.gradient ? 'transparent' : undefined,
-                        textShadow: `0 2px 10px ${Persona.tokens.colors.bgDeep}`,
+                        fontFamily: 'var(--card-font-label)',
+                        color: 'var(--card-color-text-highlight)',
+                        backgroundImage: 'var(--card-gradient-label-text)',
+                        WebkitBackgroundClip: 'text',
+                        WebkitTextFillColor: 'transparent',
+                        textShadow: '0 2px 10px var(--card-color-bg-deep)',
                     }}
                 />
             </div>
@@ -99,10 +95,10 @@ export const CompactCardVisual: React.FC<CompactCardVisualProps> = React.memo(({
                         <span
                             className="text-[8px] uppercase tracking-widest font-bold px-1.5 py-0.5 rounded-full border"
                             style={{
-                                backgroundColor: Persona.tokens.colors.bgDeep,
-                                borderColor: Persona.tokens.colors.borderSubtle,
-                                color: Persona.tokens.colors.textSecondary,
-                                fontFamily: Persona.tokens.typography.label.family,
+                                backgroundColor: 'var(--card-color-bg-deep)',
+                                borderColor: 'var(--card-color-border-subtle)',
+                                color: 'var(--card-color-text-secondary)',
+                                fontFamily: 'var(--card-font-label)',
                             }}
                         >
                             {ontology}
@@ -118,17 +114,13 @@ export const CompactCardVisual: React.FC<CompactCardVisualProps> = React.memo(({
         </div>
     );
 
-    // 2. Icon Mode: Square visual only
     const renderIcon = () => (
         <div className="relative w-full h-full flex flex-col isolate">
-            {/* SVG Image - static but colorful */}
             <div className="absolute inset-0 z-10 flex items-center justify-center p-2">
-                {/* We use standard blend modes but keep opacity high to maintain color */}
                 <div className="w-full h-full scale-125">
                     <DynamicVisual code={visual.payload} fallbackElement={word} isActive={false} />
                 </div>
             </div>
-            {/* Durability at bottom */}
             <div className="absolute bottom-1 left-1 right-1 z-20">
                 {DurabilityBar && (
                     <div className="w-full transform scale-y-[1.5] origin-bottom opacity-80">
@@ -139,25 +131,20 @@ export const CompactCardVisual: React.FC<CompactCardVisualProps> = React.memo(({
         </div>
     );
 
-    // 3. Word Mode: Horizontal Bar
-    // 3. Word Mode: Horizontal Bar
     const renderWord = () => (
         <div className="relative w-full h-full flex items-center justify-center isolate group">
-            {/* Word Centered (Dynamic Tiered Text) */}
             <div className="relative z-20 flex items-center justify-center px-2 pb-1 w-full h-full">
                 <TieredText
                     text={word}
                     style={{
-                        fontFamily: Persona.tokens.typography.label.family,
-                        color: Persona.tokens.colors.textHighlight,
-                        backgroundImage: Persona.tokens.typography.label.gradient,
-                        WebkitBackgroundClip: Persona.tokens.typography.label.gradient ? 'text' : undefined,
-                        WebkitTextFillColor: Persona.tokens.typography.label.gradient ? 'transparent' : undefined,
+                        fontFamily: 'var(--card-font-label)',
+                        color: 'var(--card-color-text-highlight)',
+                        backgroundImage: 'var(--card-gradient-label-text)',
+                        WebkitBackgroundClip: 'text',
+                        WebkitTextFillColor: 'transparent',
                     }}
                 />
             </div>
-
-            {/* Durability at Absolute Bottom (Full Width) */}
             <div className="absolute bottom-0 left-0 right-0 h-[4px] z-30 opacity-80 group-hover:opacity-100 transition-opacity">
                 {DurabilityBar && (
                     <div className="w-full h-full">
@@ -172,13 +159,13 @@ export const CompactCardVisual: React.FC<CompactCardVisualProps> = React.memo(({
         <div
             className="relative w-full h-full overflow-hidden select-none"
             style={{
-                borderRadius: mode === 'word' ? '6px' : Persona.tokens.layout.radius,
-                backgroundColor: Persona.tokens.colors.bgFront,
-                boxShadow: mode === 'word' ? 'none' : `inset 0 0 0 ${Persona.tokens.layout.borderThin || '1px'} ${Persona.tokens.colors.borderOuter}`,
-                border: mode === 'word' ? `${Persona.tokens.layout.borderThin || '1px'} solid ${Persona.tokens.colors.borderSubtle}` : 'none',
+                borderRadius: mode === 'word' ? '6px' : 'var(--card-radius)',
+                backgroundColor: 'var(--card-color-bg-front)',
+                boxShadow: mode === 'word' ? 'none' : `inset 0 0 0 var(--card-border-thin) var(--card-color-border-outer)`,
+                border: mode === 'word' ? `var(--card-border-thin) solid var(--card-color-border-subtle)` : 'none',
             }}
         >
-            {/* --- UNDERLAY LAYERS --- */}
+            {/* Underlay layers */}
             {mode === 'repository' && Background && (
                 <div className="absolute inset-0 z-0 pointer-events-none">
                     <Background />
@@ -190,19 +177,16 @@ export const CompactCardVisual: React.FC<CompactCardVisualProps> = React.memo(({
                 </div>
             )}
 
-
-            {/* --- MAIN MODE RENDER --- */}
             {mode === 'repository' && renderRepository()}
-            {mode === 'icon' && renderIcon()}
-            {mode === 'word' && renderWord()}
+            {mode === 'icon'       && renderIcon()}
+            {mode === 'word'       && renderWord()}
 
-            {/* Active/Hover Highlight */}
-            {(isActive) && (
+            {isActive && (
                 <div
                     className="absolute inset-0 z-[60] pointer-events-none border-2 rounded-[inherit] ring-4 ring-offset-0 animate-pulse"
                     style={{
-                        borderColor: Persona.tokens.colors.highlight,
-                        boxShadow: `0 0 15px ${Persona.tokens.colors.highlight}, inset 0 0 5px ${Persona.tokens.colors.highlight}`
+                        borderColor: 'var(--card-color-gold-metallic)',
+                        boxShadow: '0 0 15px var(--card-color-gold-metallic), inset 0 0 5px var(--card-color-gold-metallic)',
                     }}
                 />
             )}

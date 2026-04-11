@@ -12,6 +12,7 @@ import { Canvas } from "@/app/components/ui/canvas/Canvas";
 import { Card } from "@/app/components/ui/card/Card";
 import { Dock } from "@/app/components/ui/shell/Dock";
 import { PersonaProvider } from "@/app/context/PersonaContext";
+import { CardPersonaVarsInjector } from "@/app/components/persona/CardPersonaVarsInjector";
 import { AudioProvider } from "@/app/context/AudioContext";
 
 // Hooks
@@ -61,6 +62,14 @@ function InnerApp() {
   // Shared signal for canvas zoom state — passed to Canvas, useViewportCulling, and Card.
   // Lets those systems defer expensive work (LOD checks, O(n) culling) until zoom settles.
   const isZoomingRef = useRef<boolean>(false);
+
+  // Shared signal for canvas pan state — reserved for future LOD-during-pan optimization.
+  const isPanningRef = useRef<boolean>(false);
+
+  // Tracks expanded/flipped card UIDs for viewport culling — updated imperatively by Card,
+  // never triggers a React re-render. Decouples culling from Zustand zoomedCardIds so that
+  // expand/collapse no longer forces an App re-render just to update the visible set.
+  const expandedIdsRef = useRef<Set<string>>(new Set());
 
   // Single global pointerdown listener that delegates to all registered card handlers.
   // Replaces N per-card window listeners (one per expanded/flipped card) with one.
@@ -164,7 +173,7 @@ function InnerApp() {
     camera.x,
     camera.y,
     camera.scale,
-    zoomedCardIds,
+    expandedIdsRef,
     draggingIdRef,
   );
 
@@ -285,7 +294,7 @@ function InnerApp() {
           if (isDeckOpen) closeDeck();
         }}
       >
-        <Canvas scale={camera.scale} x={camera.x} y={camera.y} isZoomingRef={isZoomingRef}>
+        <Canvas scale={camera.scale} x={camera.x} y={camera.y} isZoomingRef={isZoomingRef} isPanningRef={isPanningRef}>
           {/* Render Active Canvas Items */}
           {visibleCanvasItems.map((item: any) => (
             <Card
@@ -309,6 +318,7 @@ function InnerApp() {
               onDropIntoSlot={handleDropIntoSlot}
               onDropIntoRepository={handleCardDropIntoRepository}
               isZoomingRef={isZoomingRef}
+              expandedIdsRef={expandedIdsRef}
             />
           ))}
 
@@ -362,6 +372,7 @@ function InnerApp() {
               isHidden={false}
               externalScale={item.scale}
               isZoomingRef={isZoomingRef}
+              expandedIdsRef={expandedIdsRef}
             />
           ))}
 
@@ -431,6 +442,7 @@ export default function App() {
 
   return (
     <PersonaProvider>
+      <CardPersonaVarsInjector />
       <AudioProvider isMuted={muted} volume={volume}>
         <DndProvider backend={HTML5Backend}>
           <InnerApp />

@@ -1,6 +1,6 @@
 import React, { useRef, useEffect } from 'react';
 import { useGesture } from '@use-gesture/react';
-import { motion, useTransform } from 'motion/react';
+import { motion, useMotionValue, useSpring, useTransform } from 'motion/react';
 import { useCanvasPersona } from '@/app/context/PersonaContext';
 import { Slot } from '@/app/components/persona/slots';
 
@@ -11,10 +11,12 @@ interface CanvasProps {
   y: any;     // MotionValue
   onDoubleClick?: (e: React.MouseEvent) => void;
   isZoomingRef?: React.MutableRefObject<boolean>;
+  isPanningRef?: React.MutableRefObject<boolean>;
 }
 
-export const Canvas: React.FC<CanvasProps> = ({ children, scale, x, y, onDoubleClick, isZoomingRef }) => {
+export const Canvas: React.FC<CanvasProps> = ({ children, scale, x, y, onDoubleClick, isZoomingRef, isPanningRef }) => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const worldRef = useRef<HTMLDivElement>(null);
   const canvasPersona = useCanvasPersona();
   const { palette: { colors }, slots } = canvasPersona;
 
@@ -33,21 +35,22 @@ export const Canvas: React.FC<CanvasProps> = ({ children, scale, x, y, onDoubleC
   // ============================================================
   // WORLD DIMENSIONS
   // ============================================================
-  const WORLD_W = 16000;  // Initial World Width (pixels)
-  const WORLD_H = 10000;  // Initial World Height (pixels)
+  const WORLD_W = 16000;
+  const WORLD_H = 10000;
   const HALF_W = WORLD_W / 2;
   const HALF_H = WORLD_H / 2;
 
   // ============================================================
   // ZOOM INERTIA STATE
   // ============================================================
-  // Wheel events accumulate pixel-delta into zoomVelocity.
-  // The inertia loop consumes velocity each frame with friction — total zoom applied equals
-  // accumulated input, but spread over ~10 frames instead of 1 → smooth deceleration.
-  const accumulatedDy = useRef(0);      // wheel delta buffer (consumed by inertia loop)
-  const zoomVelocityRef = useRef(0);    // remaining velocity in pixel-delta units
+  // All wheel input (mouse + trackpad) feeds this accumulator.
+  // The inertia loop spreads the zoom over ~10 frames → smooth deceleration.
+  // Mouse wheel: one click = one step, same total zoom, but eased over ~233ms.
+  // Trackpad: continuous input, naturally smooth.
+  const accumulatedDy = useRef(0);
+  const zoomVelocityRef = useRef(0);
   const inertiaRafRef = useRef<number | null>(null);
-  const latestMouseX = useRef(0);       // primitive refs — no heap allocation per event
+  const latestMouseX = useRef(0);
   const latestMouseY = useRef(0);
 
   // ============================================================
@@ -57,8 +60,14 @@ export const Canvas: React.FC<CanvasProps> = ({ children, scale, x, y, onDoubleC
   const zoomEndTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const markZoomStart = () => {
+    if (isZoomingInternalRef.current) return; // 已在缩放中，无需重复执行
     isZoomingInternalRef.current = true;
     if (isZoomingRef) isZoomingRef.current = true;
+    // 1. 禁用 blur — 消除 transform + filter 双重合成 pass
+    blurPx.set(0);
+    // 2. 禁用卡片层 hit-test — 缩放期间无需计算子元素指针碰撞
+    // 注意：作用于 world div 而非 container，container 需要保持接收 wheel 事件
+    if (worldRef.current) worldRef.current.style.pointerEvents = 'none';
   };
 
   const markZoomEnd = () => {
@@ -66,24 +75,52 @@ export const Canvas: React.FC<CanvasProps> = ({ children, scale, x, y, onDoubleC
     zoomEndTimerRef.current = setTimeout(() => {
       isZoomingInternalRef.current = false;
       if (isZoomingRef) isZoomingRef.current = false;
+      // 还原卡片层 pointer-events
+      if (worldRef.current) worldRef.current.style.pointerEvents = '';
       // Re-emit scale so Card LOD subscribers fire once after zoom settles
       scale.set(scale.get());
     }, 150);
   };
+
+  // ============================================================
+  // PAN STATE — ref used by background-freeze logic and App.tsx
+  // ============================================================
+  // Declared here (before useGesture) so the onDrag closure captures it correctly.
+  const isPanningInternalRef = useRef(false);
+
+  // ============================================================
+  // CURSOR STATE — direct DOM write, no React re-render
+  // ============================================================
+  const setCursor = (grabbing: boolean) => {
+    if (containerRef.current) {
+      containerRef.current.style.cursor = grabbing ? 'grabbing' : 'grab';
+    }
+  };
+
+  // ============================================================
+  // MOTION BLUR STATE
+  // ============================================================
+  const BLUR_SPEED_THRESHOLD = 1;   // px/frame below which no blur is applied
+  const BLUR_MAX_SPEED = 25;        // px/frame at which blur reaches max
+  const BLUR_MAX_PX = 2;            // max blur (GPU cost vs. effect balance)
+
+  const blurPx = useMotionValue(0);
+  const blurSmooth = useSpring(blurPx, { stiffness: 120, damping: 25, mass: 0.5 });
+  const blurFilter = useTransform(blurSmooth, (v: number) =>
+    v < 0.05 ? 'none' : `blur(${v.toFixed(2)}px)`
+  );
 
   const clampCamera = (currentX: number, currentY: number, currentScale: number) => {
     if (typeof window === 'undefined') return { x: currentX, y: currentY };
     const screenW = screenWRef.current;
     const screenH = screenHRef.current;
 
-    // Canvas Overscroll Distance (Allow users to see slightly beyond the edge)
     const OVERSCROLL_X = 300;
     const OVERSCROLL_Y = 150;
 
     const worldScreenW = WORLD_W * currentScale;
     const worldScreenH = WORLD_H * currentScale;
 
-    // Calculate X Limits
     let minPosX, maxPosX;
     if (worldScreenW < screenW) {
       const centerX = screenW / 2;
@@ -94,7 +131,6 @@ export const Canvas: React.FC<CanvasProps> = ({ children, scale, x, y, onDoubleC
       minPosX = screenW - (worldScreenW / 2) - OVERSCROLL_X;
     }
 
-    // Calculate Y Limits
     let minPosY, maxPosY;
     if (worldScreenH < screenH) {
       const centerY = screenH / 2;
@@ -114,10 +150,10 @@ export const Canvas: React.FC<CanvasProps> = ({ children, scale, x, y, onDoubleC
   // ============================================================
   // ZOOM INERTIA LOOP
   // ============================================================
-  // FRICTION = 0.72: each frame retains 72% of velocity → ~14 frames to 1% → ~233ms coast.
-  // Total applied = v * (1-F) * (1 + F + F² + ...) = v * (1-F)/(1-F) = v  (same as instant).
+  // FRICTION = 0.72: retains 72% per frame → ~14 frames to 1% → ~233ms coast.
+  // Total zoom applied equals accumulated input — same as instant, but spread over frames.
   const ZOOM_FRICTION = 0.72;
-  const ZOOM_MIN_VELOCITY = 0.5; // pixel-delta units; below this, stop the loop
+  const ZOOM_MIN_VELOCITY = 0.5;
 
   const runZoomInertia = () => {
     // Absorb any wheel events queued since last frame
@@ -145,7 +181,6 @@ export const Canvas: React.FC<CanvasProps> = ({ children, scale, x, y, onDoubleC
     const screenH = screenHRef.current;
     const limitMinScale = Math.max(0.08, Math.max(screenW / WORLD_W, screenH / WORLD_H));
 
-    // Apply (1 - FRICTION) fraction of velocity this frame; remainder decays next frame
     const applied = v * (1 - ZOOM_FRICTION);
     const newScale = Math.min(
       Math.max(limitMinScale, currentScale * Math.exp(-applied * 0.001)),
@@ -163,7 +198,6 @@ export const Canvas: React.FC<CanvasProps> = ({ children, scale, x, y, onDoubleC
       x.set(clamped.x);
       y.set(clamped.y);
     } else {
-      // Scale limit reached — drain velocity so loop terminates
       zoomVelocityRef.current = 0;
       inertiaRafRef.current = null;
       markZoomEnd();
@@ -182,18 +216,54 @@ export const Canvas: React.FC<CanvasProps> = ({ children, scale, x, y, onDoubleC
 
   useGesture(
     {
-      onDrag: ({ delta: [dx, dy], event }) => {
+      onDrag: ({ delta: [dx, dy], first, last, event }) => {
         if ((event.target as HTMLElement).closest('.canvas-card')) return;
-        const currentScale = scale.get();
+
+        if (first) {
+          setCursor(true);
+          // Freeze background elements for pan duration — see isPanningInternalRef comment above.
+          isPanningInternalRef.current = true;
+          if (isPanningRef) isPanningRef.current = true;
+        }
+
+        // Move camera
         const nextX = x.get() + dx;
         const nextY = y.get() + dy;
-        const clamped = clampCamera(nextX, nextY, currentScale);
+        const clamped = clampCamera(nextX, nextY, scale.get());
         x.set(clamped.x);
         y.set(clamped.y);
+
+        // Speed-based blur (raw delta per frame — no EMA needed without inertia)
+        const speed = Math.sqrt(dx * dx + dy * dy);
+        if (speed < BLUR_SPEED_THRESHOLD) {
+          blurPx.set(0);
+        } else {
+          const normalized = Math.min(
+            (speed - BLUR_SPEED_THRESHOLD) / (BLUR_MAX_SPEED - BLUR_SPEED_THRESHOLD),
+            1
+          );
+          blurPx.set(normalized * BLUR_MAX_PX);
+        }
+
+        if (last) {
+          blurPx.set(0);
+          setCursor(false);
+          // Unfreeze background and snap to final camera position.
+          // Values were held constant during pan; apply the accumulated delta now
+          // so gears/noise reflect the new camera position without a jarring jump.
+          isPanningInternalRef.current = false;
+          if (isPanningRef) isPanningRef.current = false;
+          const fx = x.get();
+          const fy = y.get();
+          rotateSlow.set(fx * 0.015);
+          rotateReverse.set(fx * -0.015);
+          bgX.set(fx);
+          bgY.set(fy);
+        }
       },
       onWheel: ({ event, last }) => {
-        // use-gesture fires a final onWheel with last:true (via 200ms timeout) reusing the last
-        // real WheelEvent. Skipping it prevents every scroll tick from applying zoom twice.
+        // use-gesture fires a final onWheel with last:true reusing the last real WheelEvent.
+        // Skipping it prevents every scroll tick from applying zoom twice.
         if (last) return;
         event.preventDefault();
         const we = event as WheelEvent;
@@ -211,11 +281,10 @@ export const Canvas: React.FC<CanvasProps> = ({ children, scale, x, y, onDoubleC
         // Discrete (mouse wheel) vs continuous (trackpad) detection:
         // deltaMode !== 0  → line/page mode, always a physical wheel
         // deltaMode === 0 with large per-event delta → mouse in pixel mode
-        // deltaMode === 0 with small delta → trackpad continuous gesture
         const isDiscreteWheel = we.deltaMode !== 0 || Math.abs(we.deltaY) >= 50;
 
         if (isDiscreteWheel) {
-          // Mouse wheel: apply immediately in one frame — one click = one zoom step, no tail.
+          // Mouse wheel: apply instantly in one frame — no inertia tail.
           const cs = scale.get(), cx = x.get(), cy = y.get();
           const sw = screenWRef.current, sh = screenHRef.current;
           const minScale = Math.max(0.08, Math.max(sw / WORLD_W, sh / WORLD_H));
@@ -249,14 +318,44 @@ export const Canvas: React.FC<CanvasProps> = ({ children, scale, x, y, onDoubleC
     }
   );
 
-  // Rotation values for animations (passed to slots)
-  const rotateSlow = useTransform(x, (v: number) => v * 0.015);
-  const rotateReverse = useTransform(x, (v: number) => v * -0.015);
+  // ============================================================
+  // BACKGROUND PARALLAX / ROTATION — FROZEN DURING PAN & ZOOM
+  // ============================================================
+  // CornerGears (×4) + TransmutationCircle (×3) subscribe to rotateSlow/Reverse.
+  // ScriptNoise subscribes to bgX/bgY.
+  // All 8 elements carry CSS filter + mix-blend-* which forces the browser onto
+  // the main-thread paint path on every style write.
+  // During pan: x/y change at 60 Hz → 8 × 60 = 480 expensive repaints/s.
+  // Fix: gate updates with isPanningInternalRef so background elements hold still
+  // while the camera moves. Values are snapped to final position on pan-end.
+
+  const rotateSlow = useMotionValue(x.get() * 0.015);
+  const rotateReverse = useMotionValue(x.get() * -0.015);
+  // Frozen copies of camera x/y passed to ScriptNoise instead of raw x/y.
+  const bgX = useMotionValue(x.get());
+  const bgY = useMotionValue(y.get());
+
+  useEffect(() => {
+    const unsubX = x.on('change', (v: number) => {
+      // Gate: skip during zoom (zoom-to-cursor changes x every frame) AND during pan
+      if (isZoomingInternalRef.current || isPanningInternalRef.current) return;
+      rotateSlow.set(v * 0.015);
+      rotateReverse.set(v * -0.015);
+      bgX.set(v);
+    });
+    const unsubY = y.on('change', (v: number) => {
+      if (isZoomingInternalRef.current || isPanningInternalRef.current) return;
+      bgY.set(v);
+    });
+    return () => { unsubX(); unsubY(); };
+  // x/y/rotateSlow/rotateReverse/bgX/bgY are stable MotionValue object refs
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <div
       ref={containerRef}
-      className="w-full h-full overflow-hidden relative touch-none cursor-move"
+      className="w-full h-full overflow-hidden relative touch-none cursor-grab"
       style={{ backgroundColor: colors.bgVoid }}
     >
       {/* --- THE VOID: SLOTS LAYERS --- */}
@@ -267,8 +366,8 @@ export const Canvas: React.FC<CanvasProps> = ({ children, scale, x, y, onDoubleC
       {/* 2. Metal Texture */}
       <Slot slot={slots.MetalTexture} />
 
-      {/* 3. Parallax Noise */}
-      <Slot slot={slots.ScriptNoise} props={{ x, y }} />
+      {/* 3. Parallax Noise — use frozen bgX/bgY to avoid per-frame repaint during pan */}
+      <Slot slot={slots.ScriptNoise} props={{ x: bgX, y: bgY }} />
 
       {/* 4. Sacred Geometry (Background Lines) */}
       <Slot slot={slots.SacredGeometry} />
@@ -290,6 +389,7 @@ export const Canvas: React.FC<CanvasProps> = ({ children, scale, x, y, onDoubleC
 
       {/* --- THE WORLD: OBSIDIAN TABLET --- */}
       <motion.div
+        ref={worldRef}
         style={{
           x,
           y,
@@ -298,6 +398,7 @@ export const Canvas: React.FC<CanvasProps> = ({ children, scale, x, y, onDoubleC
           height: WORLD_H,
           top: -HALF_H,
           left: -HALF_W,
+          filter: blurFilter,
         }}
         className="absolute origin-center"
       >

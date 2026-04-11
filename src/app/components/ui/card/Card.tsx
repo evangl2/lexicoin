@@ -63,6 +63,7 @@ interface CardProps {
   onDropIntoSlot?: (cardId: string, deviceUid: string, slotId: number) => void;
   onDropIntoRepository?: (cardId: string) => void;
   isZoomingRef?: React.MutableRefObject<boolean>;
+  expandedIdsRef?: React.MutableRefObject<Set<string>>;
 }
 
 export const Card = React.memo<CardProps>(({
@@ -87,6 +88,7 @@ export const Card = React.memo<CardProps>(({
   onDropIntoSlot,
   onDropIntoRepository,
   isZoomingRef,
+  expandedIdsRef,
 }) => {
   // ========== Variant Logic (Extracted) ==========
   const {
@@ -161,12 +163,19 @@ export const Card = React.memo<CardProps>(({
   const blurCard = useGameStore(s => s.blurCard);
   useEffect(() => {
     if (isExpanded || isFlipped) {
+      // Update ref first (synchronous, no re-render) so viewport culling immediately sees
+      // this card as "expanded" — avoids a culling recompute that would drop it mid-animation.
+      expandedIdsRef?.current?.add(uid);
       focusCard(uid);
     } else {
+      expandedIdsRef?.current?.delete(uid);
       blurCard(uid);
     }
-    return () => { blurCard(uid); };
-  }, [isExpanded, isFlipped, uid, focusCard, blurCard]);
+    return () => {
+      expandedIdsRef?.current?.delete(uid);
+      blurCard(uid);
+    };
+  }, [isExpanded, isFlipped, uid, focusCard, blurCard, expandedIdsRef]);
 
   // ========== Visual Feedback Logic ==========
   const [visualFeedback, setVisualFeedback] = useState<'merge' | 'split' | null>(null);
@@ -286,21 +295,31 @@ export const Card = React.memo<CardProps>(({
   const displayRotateY = isFlipped ? zeroRotation : (isExpanded ? mouseRotateY : velocityRotateY);
   const displayRotateZ = isFlipped ? zeroRotation : (isExpanded ? zeroRotation : velocityRotateZ);
 
-  const targetCenterX = useTransform([canvasX, canvasScale, windowWidth], (latest: number[]) => {
-    const cx = latest[0] || 0;
-    const s = latest[1] || 1;
-    const w = latest[2] || 0;
-    if (typeof window === 'undefined') return 0;
-    return (w / 2 - cx) / (s || 1);
-  });
+  // targetCenterX / targetCenterY: only subscribed to camera when card is expanded or flipped.
+  // As useTransform they would fire for every card on every zoom frame (canvasScale/X/Y changes).
+  // As conditional imperative subscriptions they are silent during normal zoom → 0 overhead.
+  const targetCenterX = useMotionValue(0);
+  const targetCenterY = useMotionValue(0);
 
-  const targetCenterY = useTransform([canvasY, canvasScale, windowHeight], (latest: number[]) => {
-    const cy = latest[0] || 0;
-    const s = latest[1] || 1;
-    const h = latest[2] || 0;
-    if (typeof window === 'undefined') return 0;
-    return (h / 2 - cy) / (s || 1);
-  });
+  useEffect(() => {
+    if (!isExpanded && !isFlipped) return;
+    const update = () => {
+      const s = canvasScale.get() || 1;
+      targetCenterX.set((window.innerWidth / 2 - canvasX.get()) / s);
+      targetCenterY.set((window.innerHeight / 2 - canvasY.get()) / s);
+    };
+    update();
+    const unsubs = [
+      canvasX.on('change', update),
+      canvasY.on('change', update),
+      canvasScale.on('change', update),
+    ];
+    window.addEventListener('resize', update, { passive: true });
+    return () => {
+      unsubs.forEach(u => u());
+      window.removeEventListener('resize', update);
+    };
+  }, [isExpanded, isFlipped, canvasX, canvasY, canvasScale, targetCenterX, targetCenterY]);
 
   const zoomSpring = useSpring(0, CardPersona.physics.springs.flip);
   useEffect(() => {
@@ -322,15 +341,27 @@ export const Card = React.memo<CardProps>(({
   });
 
   // ========== Scale Logic Optimization ==========
-  // We use MotionValues instead of Re-rendering to calculate scale
-  const expandedScale = useTransform([canvasScale, windowWidth, windowHeight], ([s = 1, w = 0, h = 0]: number[]) => {
-    if (w === 0 || h === 0) return 1.5;
-    const minScreenDim = Math.min(w, h);
-    const targetSize = minScreenDim * 0.8;
-    const cardMaxDim = Math.max(width, height);
-    const safeScale = s > 0 ? s : 1;
-    return targetSize / (cardMaxDim * safeScale);
-  });
+  // expandedScale: same treatment as targetCenterX/Y — only subscribed when card is active.
+  const expandedScale = useMotionValue(1.5);
+
+  useEffect(() => {
+    if (!isExpanded && !isFlipped) return;
+    const update = () => {
+      const s = canvasScale.get();
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      if (!w || !h) { expandedScale.set(1.5); return; }
+      const safeScale = s > 0 ? s : 1;
+      expandedScale.set((Math.min(w, h) * 0.8) / (Math.max(width, height) * safeScale));
+    };
+    update();
+    const unsubs = [canvasScale.on('change', update)];
+    window.addEventListener('resize', update, { passive: true });
+    return () => {
+      unsubs.forEach(u => u());
+      window.removeEventListener('resize', update);
+    };
+  }, [isExpanded, isFlipped, canvasScale, expandedScale, width, height]);
 
   const scaleSpring = useSpring(1, CardPersona.physics.springs.scale);
 
@@ -376,42 +407,100 @@ export const Card = React.memo<CardProps>(({
 
   // --- Imperative transforms on outer card + scale on inner wrapper.
   // Removes ALL MotionValues from FM's style prop so FM never sets will-change:transform.
-  // Without will-change:transform, Chrome doesn't create a GPU layer at scale=1.
-  // Instead, will-change is set manually AFTER the expansion spring settles (at 3.5x),
-  // so Chrome composites at the correct rasterization scale → always crisp.
   useLayoutEffect(() => {
     const el = cardRef.current;
     if (!el) return;
     const apply = () => {
       el.style.transform = `translateX(${displayX.get()}px) translateY(${displayY.get()}px) rotateX(${displayRotateX.get()}deg) rotateY(${displayRotateY.get()}deg) rotateZ(${displayRotateZ.get()}deg)`;
     };
+    // Dedup: displayX, displayY, displayRotate* often change in the same FM frame (all driven
+    // by zoomSpring). Coalesce to one apply() per frame via microtask — 5 calls → 1.
+    let pending = false;
+    const scheduleApply = () => {
+      if (pending) return;
+      pending = true;
+      Promise.resolve().then(() => { pending = false; apply(); });
+    };
     apply();
     const unsubs = [
-      displayX.on('change', apply),
-      displayY.on('change', apply),
-      displayRotateX.on('change', apply),
-      displayRotateY.on('change', apply),
-      displayRotateZ.on('change', apply),
+      displayX.on('change', scheduleApply),
+      displayY.on('change', scheduleApply),
+      displayRotateX.on('change', scheduleApply),
+      displayRotateY.on('change', scheduleApply),
+      displayRotateZ.on('change', scheduleApply),
     ];
     return () => unsubs.forEach(u => u());
   }, [displayX, displayY, displayRotateX, displayRotateY, displayRotateZ]);
+
+  const flipSpring = useSpring(0, CardPersona.physics.springs.flip);
+  useEffect(() => { flipSpring.set(isFlipped ? 1 : 0); }, [isFlipped, flipSpring]);
+  const flipScaleX = useTransform(flipSpring, [0, 0.5, 1], [1, 0, 1]);
+  const frontOpacity = useTransform(flipSpring, [0.45, 0.55], [1, 0]);
+  const backOpacity = useTransform(flipSpring, [0.45, 0.55], [0, 1]);
 
   useLayoutEffect(() => {
     const wrapper = scaleWrapperRef.current;
     const card = cardRef.current;
     if (!wrapper || !card) return;
     const scaleSource = externalScale ?? scaleSpring;
+
+    let hasSettled = false;
+    let settleRafId: number | null = null;
+
     const apply = (v: number) => {
       wrapper.style.transform = `scale(${v})`;
-      // For expanded cards (scale > 1.5): set will-change ONLY after spring settles,
-      // so Chrome rasterizes the compositing layer at the correct (3.5x) scale.
-      if (v > 1.5) {
-        card.style.willChange = Math.abs(scaleSource.getVelocity()) < 0.5 ? 'transform' : 'auto';
+      if (v > 1.01) {
+        const velocity = Math.abs(scaleSource.getVelocity());
+        if (velocity >= 0.5) {
+          // Actively animating — GPU layer for smooth compositor-driven scaling.
+          // Texture rasterizes at the current (lower) scale, but frames are zero-cost on CPU.
+          if (settleRafId !== null) { cancelAnimationFrame(settleRafId); settleRafId = null; }
+          hasSettled = false;
+          card.style.willChange = 'transform';
+        } else if (!hasSettled) {
+          // Spring just settled — cycle will-change to re-rasterize at the correct final scale.
+          hasSettled = true;
+          card.style.willChange = 'auto';
+          settleRafId = requestAnimationFrame(() => {
+            settleRafId = null;
+            card.style.willChange = 'transform';
+          });
+        }
+        // Already settled: no-op (avoid redundant style writes)
+      } else {
+        // Card not expanded: no GPU layer needed
+        card.style.willChange = 'auto';
+        hasSettled = false;
+        if (settleRafId !== null) { cancelAnimationFrame(settleRafId); settleRafId = null; }
       }
     };
     apply(scaleSource.get());
-    return scaleSource.on('change', apply);
-  }, [externalScale, scaleSpring]);
+    const unsub = scaleSource.on('change', apply);
+
+    // After flip animation settles, force re-rasterization at the correct expanded scale.
+    // During flip, flipScaleX passes through 0 — Chrome may rasterize the GPU layer at
+    // lower resolution mid-animation. Cycling will-change after flip settles forces a fresh
+    // rasterization at the actual 3.5× display scale, eliminating post-flip blur.
+    const onFlipChange = (v: number) => {
+      const atRest = v < 0.01 || v > 0.99;
+      if (atRest && Math.abs(flipSpring.getVelocity()) < 0.5 && card.style.willChange === 'transform') {
+        hasSettled = false; // allow apply() settle path to re-trigger
+        card.style.willChange = 'auto';
+        settleRafId = requestAnimationFrame(() => {
+          settleRafId = null;
+          card.style.willChange = 'transform';
+          hasSettled = true;
+        });
+      }
+    };
+    const unsubFlip = flipSpring.on('change', onFlipChange);
+
+    return () => {
+      unsub();
+      unsubFlip();
+      if (settleRafId !== null) cancelAnimationFrame(settleRafId);
+    };
+  }, [externalScale, scaleSpring, flipSpring]);
 
   const bgParallaxX = useTransform(displayRotateY, [-20, 20], [15, -15]);
   const bgParallaxY = useTransform(displayRotateX, [-20, 20], [15, -15]);
@@ -423,12 +512,6 @@ export const Card = React.memo<CardProps>(({
     : isHoveredRef.current
       ? CardPersona.tokens.shadows.hover
       : CardPersona.tokens.shadows.base;
-
-  const flipSpring = useSpring(0, CardPersona.physics.springs.flip);
-  useEffect(() => { flipSpring.set(isFlipped ? 1 : 0); }, [isFlipped, flipSpring]);
-  const flipScaleX = useTransform(flipSpring, [0, 0.5, 1], [1, 0, 1]);
-  const frontOpacity = useTransform(flipSpring, [0.45, 0.55], [1, 0]);
-  const backOpacity = useTransform(flipSpring, [0.45, 0.55], [0, 1]);
 
   const dragConfig = useMemo(() => ({
     target: cardRef,
@@ -523,6 +606,13 @@ export const Card = React.memo<CardProps>(({
   }, dragConfig);
 
   const isActive = (isHovered || isExpanded || isOver || isOverlayOpen) && !isAnimating;
+
+  // Lazy-mount back face: once the card is expanded or flipped for the first time, the back face
+  // content mounts and stays mounted. This avoids rendering ~60 DOM nodes on cards that have
+  // never been opened, and prevents unmount/remount flicker during collapse animations.
+  const backFaceMountedRef = useRef(false);
+  if (isExpanded || isFlipped) backFaceMountedRef.current = true;
+  const backFaceMounted = backFaceMountedRef.current;
 
   // z-index is now driven imperatively via scaleSpring.on('change') above — removed from style prop.
 
@@ -632,6 +722,7 @@ export const Card = React.memo<CardProps>(({
             smoothXVelocity={smoothXVelocity}
             smoothYVelocity={smoothYVelocity}
             isExpanded={isExpanded}
+            backFaceMounted={backFaceMounted}
 
             isOverlayOpen={isOverlayOpen}
             selectionItems={selectionItems}
