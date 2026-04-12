@@ -105,54 +105,70 @@ export const useDeviceManager = () => {
     // ==== Actions ====
 
     const storeDevice = useCallback((uid: string, onEject?: (slotUid: string, x: number, y: number) => void) => {
-        setDevices(prev => prev.map(d => {
-            if (d.uid === uid) {
-                // Ejection Logic
-                if (onEject) {
-                    const currentX = d.mx.get();
-                    const currentY = d.my.get();
+        setDevices(prev => {
+            // Optimization: Use findIndex to update a single item. Avoids O(N) array allocation
+            // and skips re-render if the item is not found.
+            const idx = prev.findIndex(d => d.uid === uid);
+            if (idx === -1) return prev;
+            const next = [...prev];
+            const d = next[idx];
 
-                    // Eject Slot 1
-                    if (d.state.slot1_uid) {
-                        // Offset slightly for visibility
-                        onEject(d.state.slot1_uid, currentX - 60, currentY);
-                    }
-                    // Eject Slot 2
-                    if (d.state.slot2_uid) {
-                        onEject(d.state.slot2_uid, currentX + 60, currentY);
-                    }
+            // Ejection Logic
+            if (onEject) {
+                const currentX = d.mx.get();
+                const currentY = d.my.get();
+
+                // Eject Slot 1
+                if (d.state.slot1_uid) {
+                    // Offset slightly for visibility
+                    onEject(d.state.slot1_uid, currentX - 60, currentY);
                 }
-
-                return {
-                    ...d,
-                    location: 'repository',
-                    // Clear slots on store - MUTUALLY EXCLUSIVE
-                    state: { ...d.state, slot1_uid: null, slot2_uid: null }
-                };
+                // Eject Slot 2
+                if (d.state.slot2_uid) {
+                    onEject(d.state.slot2_uid, currentX + 60, currentY);
+                }
             }
-            return d;
-        }));
+
+            next[idx] = {
+                ...d,
+                location: 'repository',
+                // Clear slots on store - MUTUALLY EXCLUSIVE
+                state: { ...d.state, slot1_uid: null, slot2_uid: null }
+            };
+            return next;
+        });
     }, []);
 
     const retrieveDevice = useCallback((uid: string, x: number, y: number) => {
-        setDevices(prev => prev.map(d => {
-            if (d.uid === uid) {
-                // Return new object with new MotionValues to reset velocity (same as cards)
-                return {
-                    ...d,
-                    location: 'canvas',
-                    mx: motionValue(x),
-                    my: motionValue(y)
-                };
-            }
-            return d;
-        }));
+        setDevices(prev => {
+            // Optimization: Use findIndex to update a single item. Avoids O(N) array allocation
+            // and skips re-render if the item is not found.
+            const idx = prev.findIndex(d => d.uid === uid);
+            if (idx === -1) return prev;
+            const next = [...prev];
+            const d = next[idx];
+
+            // Return new object with new MotionValues to reset velocity (same as cards)
+            next[idx] = {
+                ...d,
+                location: 'canvas',
+                mx: motionValue(x),
+                my: motionValue(y)
+            };
+            return next;
+        });
     }, []);
 
     const updateDeviceState = useCallback((uid: string, newState: Partial<DeviceState>) => {
-        setDevices(prev => prev.map(d =>
-            d.uid === uid ? { ...d, state: { ...d.state, ...newState } } : d
-        ));
+        setDevices(prev => {
+            // Optimization: Use findIndex to update a single item. Avoids O(N) array allocation
+            // and skips re-render if the item is not found.
+            const idx = prev.findIndex(d => d.uid === uid);
+            if (idx === -1) return prev;
+            const next = [...prev];
+            next[idx] = { ...next[idx], state: { ...next[idx].state, ...newState } };
+            return next;
+        });
     }, []);
 
     const updateDevicePosition = useCallback((uid: string, x: number, y: number) => {
