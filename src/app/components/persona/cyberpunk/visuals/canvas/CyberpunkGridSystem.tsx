@@ -34,13 +34,13 @@ export const CyberpunkGridSystem: React.FC<Props> = ({ scale, width, height }) =
             {/* Neon Grid */}
             <svg className="absolute inset-0 w-full h-full pointer-events-none" xmlns="http://www.w3.org/2000/svg">
                 <defs>
-                    <pattern id="cpSmallGrid" width="50" height="50" patternUnits="userSpaceOnUse">
-                        <path d="M 50 0 L 0 0 0 50" fill="none" stroke={gridColor} strokeWidth="0.5" opacity="0.3" />
+                    <pattern id="cpSmallGrid" width="50" height="50" patternUnits="userSpaceOnUse" x={HALF_W - 25} y={HALF_H - 25}>
+                        <path d="M 25 0 L 25 50 M 0 25 L 50 25" fill="none" stroke={gridColor} strokeWidth="1" opacity="0.3" />
                     </pattern>
-                    <pattern id="cpLargeGrid" width="500" height="500" patternUnits="userSpaceOnUse">
-                        <rect width="500" height="500" fill="none" stroke={accentColor} strokeWidth="1" opacity="0.4" />
-                        <path d="M 0 0 L 10 0 M 0 0 L 0 10" stroke={colors.textHighlight} strokeWidth="2" />
-                        <circle cx="500" cy="500" r="3" fill={colors.textHighlight} />
+                    <pattern id="cpLargeGrid" width="500" height="500" patternUnits="userSpaceOnUse" x={HALF_W - 250} y={HALF_H - 250}>
+                        <path d="M 250 0 L 250 500 M 0 250 L 500 250" stroke={accentColor} strokeWidth="2" opacity="0.5" />
+                        <path d="M 240 250 L 260 250 M 250 240 L 250 260" stroke={colors.textHighlight} strokeWidth="3" />
+                        <circle cx="250" cy="250" r="4" fill={colors.textHighlight} />
                     </pattern>
                 </defs>
                 <motion.rect width="100%" height="100%" fill="url(#cpSmallGrid)" style={{ opacity: smallGridOpacity }} />

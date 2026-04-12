@@ -1,6 +1,7 @@
 import React, { useRef, useEffect } from 'react';
 import { useGesture } from '@use-gesture/react';
 import { motion, useMotionValue, useSpring, useTransform } from 'motion/react';
+import { useGameStore } from '@store/index';
 import { useCanvasPersona } from '@/app/context/PersonaContext';
 import { Slot } from '@/app/components/persona/slots';
 
@@ -12,9 +13,10 @@ interface CanvasProps {
   onDoubleClick?: (e: React.MouseEvent) => void;
   isZoomingRef?: React.MutableRefObject<boolean>;
   isPanningRef?: React.MutableRefObject<boolean>;
+  expandedIdsRef?: React.MutableRefObject<Set<string>>;
 }
 
-export const Canvas: React.FC<CanvasProps> = ({ children, scale, x, y, onDoubleClick, isZoomingRef, isPanningRef }) => {
+export const Canvas: React.FC<CanvasProps> = ({ children, scale, x, y, onDoubleClick, isZoomingRef, isPanningRef, expandedIdsRef }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const worldRef = useRef<HTMLDivElement>(null);
   const canvasPersona = useCanvasPersona();
@@ -35,8 +37,8 @@ export const Canvas: React.FC<CanvasProps> = ({ children, scale, x, y, onDoubleC
   // ============================================================
   // WORLD DIMENSIONS
   // ============================================================
-  const WORLD_W = 16000;
-  const WORLD_H = 10000;
+  const WORLD_W = 9600;
+  const WORLD_H = 6000;
   const HALF_W = WORLD_W / 2;
   const HALF_H = WORLD_H / 2;
 
@@ -63,9 +65,7 @@ export const Canvas: React.FC<CanvasProps> = ({ children, scale, x, y, onDoubleC
     if (isZoomingInternalRef.current) return; // 已在缩放中，无需重复执行
     isZoomingInternalRef.current = true;
     if (isZoomingRef) isZoomingRef.current = true;
-    // 1. 禁用 blur — 消除 transform + filter 双重合成 pass
-    blurPx.set(0);
-    // 2. 禁用卡片层 hit-test — 缩放期间无需计算子元素指针碰撞
+    // 1. 禁用卡片层 hit-test — 缩放期间无需计算子元素指针碰撞
     // 注意：作用于 world div 而非 container，container 需要保持接收 wheel 事件
     if (worldRef.current) worldRef.current.style.pointerEvents = 'none';
   };
@@ -98,17 +98,6 @@ export const Canvas: React.FC<CanvasProps> = ({ children, scale, x, y, onDoubleC
   };
 
   // ============================================================
-  // MOTION BLUR STATE
-  // ============================================================
-  const BLUR_SPEED_THRESHOLD = 1;   // px/frame below which no blur is applied
-  const BLUR_MAX_SPEED = 25;        // px/frame at which blur reaches max
-  const BLUR_MAX_PX = 2;            // max blur (GPU cost vs. effect balance)
-
-  const blurPx = useMotionValue(0);
-  const blurSmooth = useSpring(blurPx, { stiffness: 120, damping: 25, mass: 0.5 });
-  const blurFilter = useTransform(blurSmooth, (v: number) =>
-    v < 0.05 ? 'none' : `blur(${v.toFixed(2)}px)`
-  );
 
   const clampCamera = (currentX: number, currentY: number, currentScale: number) => {
     if (typeof window === 'undefined') return { x: currentX, y: currentY };
@@ -233,20 +222,7 @@ export const Canvas: React.FC<CanvasProps> = ({ children, scale, x, y, onDoubleC
         x.set(clamped.x);
         y.set(clamped.y);
 
-        // Speed-based blur (raw delta per frame — no EMA needed without inertia)
-        const speed = Math.sqrt(dx * dx + dy * dy);
-        if (speed < BLUR_SPEED_THRESHOLD) {
-          blurPx.set(0);
-        } else {
-          const normalized = Math.min(
-            (speed - BLUR_SPEED_THRESHOLD) / (BLUR_MAX_SPEED - BLUR_SPEED_THRESHOLD),
-            1
-          );
-          blurPx.set(normalized * BLUR_MAX_PX);
-        }
-
         if (last) {
-          blurPx.set(0);
           setCursor(false);
           // Unfreeze background and snap to final camera position.
           // Values were held constant during pan; apply the accumulated delta now
@@ -352,6 +328,8 @@ export const Canvas: React.FC<CanvasProps> = ({ children, scale, x, y, onDoubleC
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const isAnyCardZoomed = useGameStore(s => s.zoomedCardIds.length > 0);
+
   return (
     <div
       ref={containerRef}
@@ -398,7 +376,8 @@ export const Canvas: React.FC<CanvasProps> = ({ children, scale, x, y, onDoubleC
           height: WORLD_H,
           top: -HALF_H,
           left: -HALF_W,
-          filter: blurFilter,
+          willChange: isAnyCardZoomed ? 'auto' : 'transform',
+          contain: 'layout',
         }}
         className="absolute origin-center"
       >

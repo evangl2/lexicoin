@@ -266,8 +266,8 @@ export const CardVisual = React.memo<CardVisualProps>(({
           style={{
             borderRadius: 'var(--card-radius)',
             background: 'var(--card-color-bg-front)',
-            backfaceVisibility: 'hidden',
-            WebkitBackfaceVisibility: 'hidden',
+            backfaceVisibility: isActive ? 'visible' : 'hidden',
+            WebkitBackfaceVisibility: isActive ? 'visible' : 'hidden',
           }}
         >
           <Persona.visuals.Background />
@@ -335,8 +335,8 @@ export const CardVisual = React.memo<CardVisualProps>(({
             borderRadius: 'var(--card-radius)',
             backgroundColor: 'var(--card-color-bg-back)',
             border: '2px solid var(--card-color-gold-metallic)',
-            backfaceVisibility: 'hidden',
-            WebkitBackfaceVisibility: 'hidden',
+            backfaceVisibility: isActive ? 'visible' : 'hidden',
+            WebkitBackfaceVisibility: isActive ? 'visible' : 'hidden',
           }}
         >
         {backFaceMounted && <>

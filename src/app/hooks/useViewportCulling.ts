@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import type { RefObject } from 'react';
 import type { MotionValue } from 'motion/react';
+import { GRID_CELL_W, GRID_CELL_H } from './useGridSnap';
 
 export interface CullItem {
   uid: string;
@@ -10,15 +11,15 @@ export interface CullItem {
   height: number;
 }
 
-// Extra pixels outside the viewport to keep rendered (prevents pop-in during slow pans)
-const MARGIN = 350;
-// Milliseconds to wait after camera stops before recomputing visibility
-const DEBOUNCE_MS = 100;
+// Extra pixels outside the viewport to keep rendered (prevents pop-in during pans/zooms)
+// Expanded to 2500 to aggressively pre-mount cards. This provides a massive buffer so that 
+// React renders don't need to fire quickly during zooms, completely resolving zoom reconciliation lag!
+const CULL_MARGIN = 2500;
 
 /**
  * Returns the set of card UIDs that are currently inside (or near) the viewport.
  * Subscribes to camera MotionValues imperatively — no React re-render per frame.
- * Re-renders App only after the debounce fires and the visible set actually changes.
+ * Re-renders App only when the visible set actually changes.
  *
  * expandedIdsRef: a MutableRefObject<Set<string>> updated imperatively by Card when expanding
  * or collapsing — never triggers a React re-render, so expand/collapse no longer causes App
@@ -31,13 +32,15 @@ export function useViewportCulling(
   cameraScale: MotionValue<number>,
   expandedIdsRef: RefObject<Set<string>>,
   draggingIdRef: RefObject<string | null>,
+  isZoomingRef?: RefObject<boolean>,
 ): Set<string> {
   const [visibleIds, setVisibleIds] = useState<Set<string>>(
     () => new Set(items.map(i => i.uid)),
   );
 
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const rafGuardRef = useRef<number | null>(null);
+  const rafIdRef = useRef<number | null>(null);
+  const lastCullXRef = useRef(0);
+  const lastCullYRef = useRef(0);
 
   // Keep a mutable ref to items so compute() always sees the latest list
   // without needing to re-subscribe to camera MotionValues on every items change.
@@ -71,8 +74,8 @@ export function useViewportCulling(
       const hw = (item.width / 2) * scale;
       const hh = (item.height / 2) * scale;
       if (
-        cx + hw > -MARGIN && cx - hw < sw + MARGIN &&
-        cy + hh > -MARGIN && cy - hh < sh + MARGIN
+        cx + hw > -CULL_MARGIN && cx - hw < sw + CULL_MARGIN &&
+        cy + hh > -CULL_MARGIN && cy - hh < sh + CULL_MARGIN
       ) {
         next.add(item.uid);
       }
@@ -85,34 +88,43 @@ export function useViewportCulling(
     });
   };
 
-  // Subscribe to camera MotionValues (debounced + rAF-guarded to fire at most once per frame)
+  // Subscribe to camera MotionValues — rAF throttle: at most one culling check per frame
   useEffect(() => {
-    const debounced = () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-      timerRef.current = setTimeout(() => computeRef.current(), DEBOUNCE_MS);
-    };
+    const throttledCompute = () => {
+      // 缩放期间卡片位置固定（grid snap），跳过调度
+      // markZoomEnd 会 re-emit scale，届时自动触发一次裁剪
+      if (isZoomingRef?.current) return;
 
-    // Frame-level dedup: x, y, scale each fire on the same frame — only enter debounced once
-    const debouncedWithRafGuard = () => {
-      if (rafGuardRef.current !== null) return;
-      rafGuardRef.current = requestAnimationFrame(() => {
-        rafGuardRef.current = null;
-        debounced();
+      // 平移时：摄像机移动量不足半个格子，可见集不会变化，跳过
+      const currX = cameraX.get();
+      const currY = cameraY.get();
+      const halfCellX = (GRID_CELL_W * cameraScale.get()) / 2;
+      const halfCellY = (GRID_CELL_H * cameraScale.get()) / 2;
+      if (
+        Math.abs(currX - lastCullXRef.current) < halfCellX &&
+        Math.abs(currY - lastCullYRef.current) < halfCellY
+      ) return;
+
+      if (rafIdRef.current !== null) return;
+      rafIdRef.current = requestAnimationFrame(() => {
+        rafIdRef.current = null;
+        lastCullXRef.current = cameraX.get();
+        lastCullYRef.current = cameraY.get();
+        computeRef.current();
       });
     };
 
     computeRef.current(); // immediate on mount / camera MV change
 
     const unsubs = [
-      cameraX.on('change', debouncedWithRafGuard),
-      cameraY.on('change', debouncedWithRafGuard),
-      cameraScale.on('change', debouncedWithRafGuard),
+      cameraX.on('change', throttledCompute),
+      cameraY.on('change', throttledCompute),
+      cameraScale.on('change', throttledCompute),
     ];
 
     return () => {
       unsubs.forEach(u => u());
-      if (timerRef.current) clearTimeout(timerRef.current);
-      if (rafGuardRef.current !== null) cancelAnimationFrame(rafGuardRef.current);
+      if (rafIdRef.current !== null) cancelAnimationFrame(rafIdRef.current);
     };
   }, [cameraX, cameraY, cameraScale]);
 

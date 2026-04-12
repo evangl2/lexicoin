@@ -20,8 +20,8 @@ import { useCanvasCamera } from "@/app/hooks/useCanvasCamera";
 import { useCardManager } from "@/app/hooks/useCardManager";
 import { useDeviceManager } from "@/app/hooks/useDeviceManager"; // Added
 import { useCardGrouping } from "@/app/hooks/useCardGrouping";
-import { usePhysics } from "@/app/hooks/usePhysics";
 import { useViewportCulling } from "@/app/hooks/useViewportCulling";
+import { snapPosition, applySnap } from "@/app/hooks/useGridSnap";
 
 // UI Components
 import { DragLayer } from "@/app/components/ui/canvas/DragLayer";
@@ -135,26 +135,15 @@ function InnerApp() {
     return ids;
   }, [deviceManager.canvasDevices]);
 
-  // All non-slotted canvas items (used for physics — not affected by viewport culling)
+  // All non-slotted canvas items (not affected by viewport culling)
   const allCanvasItems = useMemo(() =>
     data.canvasItems.filter((item: any) => !slottedCardIds.has(item.cardData.rawSense.uid)),
     [data.canvasItems, slottedCardIds]
   );
 
-  // 5. Physics Engine (runs on all cards, independent of culling)
-  const physicsItems = useMemo(
-    () =>
-      allCanvasItems.map((item: any) => ({
-        id: item.cardData.rawSense.uid,
-        x: item.mx,
-        y: item.my,
-        width: item.width,
-        height: item.height,
-      })),
-    [allCanvasItems],
-  );
-
-  usePhysics(physicsItems, draggingIdRef);
+  // Stable ref so useDrop (factory) can always read the latest canvas items
+  const allCanvasItemsRef = useRef(allCanvasItems);
+  allCanvasItemsRef.current = allCanvasItems;
 
   // Viewport culling — only render cards visible on screen (+ 350px margin)
   const cullItems = useMemo(
@@ -175,6 +164,7 @@ function InnerApp() {
     camera.scale,
     expandedIdsRef,
     draggingIdRef,
+    isZoomingRef,
   );
 
   const visibleCanvasItems = useMemo(
@@ -214,8 +204,15 @@ function InnerApp() {
       const dropX = (clientOffset.x - cx) / s;
       const dropY = (clientOffset.y - cy) / s;
 
-      const x = dropX - (item.width / 2);
-      const y = dropY - (item.height / 2);
+      const rawX = dropX - (item.width / 2);
+      const rawY = dropY - (item.height / 2);
+
+      const occupied = allCanvasItemsRef.current.map((ci: any) => ({
+        id: ci.cardData.rawSense.uid,
+        x: ci.mx.get(),
+        y: ci.my.get(),
+      }));
+      const { x, y } = snapPosition(rawX, rawY, occupied);
 
       if (item.type === 'DEVICE') {
         deviceManager.retrieveDevice(item.uid, x, y);
@@ -231,9 +228,20 @@ function InnerApp() {
 
   const handleDragEnd = useCallback((id: string) => {
     draggingIdRef.current = null;
-    // Pass mergedVariants to ensure "Sense Position" is updated
+
+    const draggedItem = allCanvasItems.find((item: any) => item.cardData.rawSense.uid === id);
+    if (draggedItem) {
+      const occupied = allCanvasItems.map((item: any) => ({
+        id: item.cardData.rawSense.uid,
+        x: item.mx.get(),
+        y: item.my.get(),
+      }));
+      const snapped = snapPosition(draggedItem.mx.get(), draggedItem.my.get(), occupied, id);
+      applySnap(draggedItem.mx, draggedItem.my, snapped.x, snapped.y);
+    }
+
     data.saveItems(grouping.mergedVariants);
-  }, [data, grouping.mergedVariants]);
+  }, [data, grouping.mergedVariants, allCanvasItems]);
 
   const handleDeviceDragEnd = useCallback((uid: string) => {
     // checkDeckCollision(uid, true); // Removed
@@ -294,7 +302,7 @@ function InnerApp() {
           if (isDeckOpen) closeDeck();
         }}
       >
-        <Canvas scale={camera.scale} x={camera.x} y={camera.y} isZoomingRef={isZoomingRef} isPanningRef={isPanningRef}>
+        <Canvas scale={camera.scale} x={camera.x} y={camera.y} isZoomingRef={isZoomingRef} isPanningRef={isPanningRef} expandedIdsRef={expandedIdsRef}>
           {/* Render Active Canvas Items */}
           {visibleCanvasItems.map((item: any) => (
             <Card
@@ -319,6 +327,7 @@ function InnerApp() {
               onDropIntoRepository={handleCardDropIntoRepository}
               isZoomingRef={isZoomingRef}
               expandedIdsRef={expandedIdsRef}
+              isPanningRef={isPanningRef}
             />
           ))}
 
@@ -373,6 +382,7 @@ function InnerApp() {
               externalScale={item.scale}
               isZoomingRef={isZoomingRef}
               expandedIdsRef={expandedIdsRef}
+              isPanningRef={isPanningRef}
             />
           ))}
 
