@@ -4,6 +4,7 @@ import { indexedDBStorage } from './persistence';
 import { createConfigSlice } from './slices/createConfigSlice';
 import { createCardStateSlice } from './slices/createCardStateSlice';
 import { createProgressionSlice } from './slices/createProgressionSlice';
+import { createGrimoireSlice } from './slices/createGrimoireSlice';
 
 import type {
     PlayerState,
@@ -28,10 +29,8 @@ import type { GameStore, LibraryFilter } from './interfaces';
 
 const initialPlayer: PlayerState = {
     id: generateId(),
-    hp: 100,
-    maxHp: 100,
-    mp: 50,
-    maxMp: 50,
+    stamina: 300,
+    maxStamina: 300,
     phase: 'GENESIS',
     settings: {
         interfaceLang: 'zh',
@@ -49,6 +48,13 @@ const initialPlayer: PlayerState = {
     },
     languageProgress: {},
     streak: { current: 0, best: 0, lastPlayDate: '' },
+    grimoireMastery: {
+        aCount: 0,
+        bCount: 0,
+        cCount: 0,
+        dCount: 0,
+        sScore: 0,
+    },
     createdAt: Date.now(),
     lastLoginAt: Date.now(),
 };
@@ -86,6 +92,7 @@ export const useGameStore = create<GameStore>()(
             ...createConfigSlice(set, get, api),
             ...createCardStateSlice(set, get, api),
             ...createProgressionSlice(set, get, api),
+            ...createGrimoireSlice(set, get, api),
 
             // Player State
             player: initialPlayer,
@@ -290,6 +297,10 @@ export const useGameStore = create<GameStore>()(
                 libraryFilter: state.libraryFilter,
                 reviewDueSenses: state.reviewDueSenses,
                 activeReviewSession: state.activeReviewSession,
+
+                // Grimoire State
+                libraryGrimoires: state.libraryGrimoires,
+                grimoireMastery: state.player.grimoireMastery, // Note: This is now inside player but we can persist it explicitly if needed
             }),
             // Exclude everything else (dragState, notifications, modulesReady, isConfigOpen, etc.)
         }

@@ -17,6 +17,7 @@ export interface DeviceItem {
 }
 
 const INITIAL_DEVICE_UID = 'device-synthesis-circle-01';
+const INITIAL_SUMMONER_UID = 'device-grimoire-summoner-01';
 
 export const useDeviceManager = () => {
     const [devices, setDevices] = useState<DeviceItem[]>([]);
@@ -35,26 +36,39 @@ export const useDeviceManager = () => {
             try {
                 const records = await db.devices.toArray();
 
-                // Seed initial device if DB is empty
-                if (records.length === 0) {
-                    const initialDevice: DeviceRecord = {
+                // Seed initial devices if missing (Checking individually)
+                const hasSyncCircle = records.some(r => r.uid === INITIAL_DEVICE_UID);
+                const hasSummoner = records.some(r => r.uid === INITIAL_SUMMONER_UID);
+
+                const newRecords: DeviceRecord[] = [];
+                if (!hasSyncCircle) {
+                    newRecords.push({
                         uid: INITIAL_DEVICE_UID,
                         type: 'synthesis-circle',
-                        x: 0,
-                        y: 0,
-                        location: 'repository',
+                        x: 0, y: 0, location: 'repository',
                         state: { slot1_uid: null, slot2_uid: null, isProcessing: false }
-                    };
-                    await db.devices.add(initialDevice);
-                    records.push(initialDevice);
+                    });
+                }
+                if (!hasSummoner) {
+                    newRecords.push({
+                        uid: INITIAL_SUMMONER_UID,
+                        type: 'grimoire-summoner',
+                        x: 0, y: 0, location: 'repository',
+                        state: { slot1_uid: null, isProcessing: false, status: 'IDLE' }
+                    });
+                }
+
+                if (newRecords.length > 0) {
+                    await db.devices.bulkAdd(newRecords);
+                    records.push(...newRecords);
                 }
 
                 if (cancelled) return;
 
                 const loadedDevices = records.map(rec => ({
                     uid: rec.uid,
-                    type: rec.type,
-                    name: 'Synthesis Circle', // Hardcoded for now, could be dynamic
+                    type: rec.type as DeviceType,
+                    name: rec.type === 'grimoire-summoner' ? 'Grimoire Summoner' : 'Synthesis Circle',
                     mx: motionValue(Number.isFinite(rec.x) ? rec.x : 0),
                     my: motionValue(Number.isFinite(rec.y) ? rec.y : 0),
                     location: rec.location,

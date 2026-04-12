@@ -48,15 +48,11 @@ export interface VisualRecord {
 
 export interface DeviceRecord {
     uid: string;
-    type: 'synthesis-circle';
+    type: string;
     x: number;
     y: number;
-    location: CardLocation; // Reuse CardLocation ('canvas' | 'repository')
-    state: {
-        slot1_uid: string | null;
-        slot2_uid: string | null;
-        isProcessing: boolean;
-    };
+    location: CardLocation;
+    state: any; // Allow different states for different devices
 }
 
 /** 玩家当前持有的卡牌库存（画布或仓库中存在的卡） */

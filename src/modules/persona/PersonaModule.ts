@@ -8,9 +8,8 @@
 import { logger } from '@utils/logger';
 import { messageBus } from '@core/protocol/MessageBus';
 import { generateId } from '@utils/helpers';
-import type { UUID, LocalizedText, CEFRLevel } from '../../types/index';
+import type { UUID, LocalizedText, CEFRLevel, PersonaType } from '../../types/index';
 
-export type PersonaType = 'LOGICIAN' | 'POET' | 'ALCHEMIST' | 'MYSTIC';
 
 export interface Persona {
     id: PersonaType;
@@ -23,6 +22,16 @@ export interface Persona {
     };
     unlockedAt: number;  // Player level required
     resonance: number;  // 0-100
+
+    // Grimoire specific visuals
+    spineColor: string;
+    glowColor: string;
+
+    // AI Evaluation logic
+    evalPrompt: string;  // Character-specific evaluation instruction
+    evalBias?: number;    // Optional scoring bias (-1.0 to 1.0)
+    genPrompt?: string;   // Character-specific generation prompt
+    excludedTypes?: GrimoireType[]; // Grimoire types this persona refuses to generate
 }
 
 export interface PersonaTask {
@@ -97,6 +106,12 @@ class PersonaModule {
                 },
                 unlockedAt: 3,
                 resonance: 0,
+                spineColor: '#1e3a8a',
+                glowColor: '#3b82f6',
+                evalPrompt: 'Evaluate based on logical consistency, precise categorization, and grammatical structure. Valorize clarity over metaphor.',
+                evalBias: 0,
+                genPrompt: 'You are obsessed with taxonomies, categories, and hierarchical structures. Use clinical, precise, and orderly language.',
+                excludedTypes: ['metaphor', 'qualia'], 
             },
             {
                 id: 'POET',
@@ -112,6 +127,12 @@ class PersonaModule {
                 },
                 unlockedAt: 7,
                 resonance: 0,
+                spineColor: '#831843',
+                glowColor: '#ec4899',
+                evalPrompt: 'Evaluate based on evocative power, aesthetic resonance, and metaphorical depth. Valorize beauty and emotional truth.',
+                evalBias: 0.2,
+                genPrompt: 'You are a master of metaphor and emotion. Use flowery, evocative, and rhythmic language. Find beauty in all things.',
+                excludedTypes: ['taxonomy', 'anatomy'],
             },
             {
                 id: 'ALCHEMIST',
@@ -127,6 +148,12 @@ class PersonaModule {
                 },
                 unlockedAt: 12,
                 resonance: 0,
+                spineColor: '#78350f',
+                glowColor: '#f59e0b',
+                evalPrompt: 'Evaluate based on essence, functional transformation, and underlying properties. Valorize technical accuracy and utility.',
+                evalBias: -0.1,
+                genPrompt: 'You see the world as components waiting to be transformed. Focus on utility, material property, and function.',
+                excludedTypes: ['spectrum', 'qualia'],
             },
             {
                 id: 'MYSTIC',
@@ -142,6 +169,12 @@ class PersonaModule {
                 },
                 unlockedAt: 20,
                 resonance: 0,
+                spineColor: '#4c1d95',
+                glowColor: '#8b5cf6',
+                evalPrompt: 'Evaluate based on profound connections, hidden archetypes, and spiritual depth. Valorize synchronicity and obscure links.',
+                evalBias: 0.1,
+                genPrompt: 'You speak in riddles and seek the hidden soul of things. Focus on the esoteric, the symbolic, and the mysterious.',
+                excludedTypes: ['anatomy', 'ritual'],
             },
         ];
 

@@ -27,6 +27,8 @@ import { snapPosition, applySnap } from "@/app/hooks/useGridSnap";
 import { DragLayer } from "@/app/components/ui/canvas/DragLayer";
 import { CanvasControl } from "@/app/components/ui/canvas/CanvasControl";
 import { SynthesisCircle } from "@/app/components/ui/visual/SynthesisCircle";
+import { GrimoireSummoner } from "@/app/components/ui/visual/GrimoireSummoner";
+import { Grimoire } from "@/app/components/ui/visual/Grimoire";
 import { ProgressionHUD } from "@/app/components/ui/shell/ProgressionHUD";
 import { LevelUpOverlay } from "@/app/components/ui/system/LevelUpOverlay";
 import { levelModule } from "@/modules/level/LevelModule";
@@ -82,6 +84,7 @@ function InnerApp() {
   // useShallow: prevents re-render when unrelated store fields change (only re-renders when
   // array content actually differs, not just on new array reference from any store update).
   const zoomedCardIds = useGameStore(useShallow(s => s.zoomedCardIds));
+  const activeGrimoires = useGameStore(useShallow(s => s.activeGrimoires));
 
   // Separate boolean for isZoomed (passed to Dock) — avoids array comparison overhead there
   const isZoomed = zoomedCardIds.length > 0;
@@ -332,33 +335,65 @@ function InnerApp() {
           ))}
 
           {/* Render Active Devices */}
-          {deviceManager.canvasDevices.map(device => (
-            <SynthesisCircle
-              key={device.uid}
-              uid={device.uid}
-              x={device.mx}
-              y={device.my}
-              state={device.state}
-              updateState={deviceManager.updateDeviceState}
-              inputCards={data.items}
-              canvasScale={camera.scale}
-              onDragEnd={handleDeviceDragEnd}
-              onCardEnter={(cid) => data.setCardLocation(cid, 'device')}
-              onCardEject={(cid) => data.setCardLocation(cid, 'canvas', { x: device.mx.get() + 80, y: device.my.get() + 50 })}
-              mergedVariants={grouping.mergedVariants}
-              onDropIntoRepository={handleDeviceDropIntoRepository}
-              systemlang={mappedSystemLang}
-              learninglang={mappedLearningLang}
-              onSynthesisComplete={(newCard) => {
-                const spread = 50 + Math.random() * 50;
-                const angle = Math.random() * Math.PI * 2;
-                setTimeout(() => {
-                  data.setCardLocation(newCard.uid, 'canvas', {
-                    x: device.mx.get() + Math.cos(angle) * spread,
-                    y: device.my.get() + Math.sin(angle) * spread,
-                  });
-                }, 50);
-              }}
+          {deviceManager.canvasDevices.map(device => {
+            if (device.type === 'grimoire-summoner') {
+              return (
+                <GrimoireSummoner
+                  key={device.uid}
+                  uid={device.uid}
+                  x={device.mx}
+                  y={device.my}
+                  state={device.state}
+                  updateState={deviceManager.updateDeviceState}
+                  inputCards={data.items}
+                  canvasScale={camera.scale}
+                  onDragEnd={handleDeviceDragEnd}
+                  onCardEnter={(cid) => data.setCardLocation(cid, 'device')}
+                  onCardEject={(cid) => data.setCardLocation(cid, 'canvas', { x: device.mx.get() + 80, y: device.my.get() + 50 })}
+                  mergedVariants={grouping.mergedVariants}
+                  onDropIntoRepository={handleDeviceDropIntoRepository}
+                />
+              );
+            }
+            return (
+              <SynthesisCircle
+                key={device.uid}
+                uid={device.uid}
+                x={device.mx}
+                y={device.my}
+                state={device.state}
+                updateState={deviceManager.updateDeviceState}
+                inputCards={data.items}
+                canvasScale={camera.scale}
+                onDragEnd={handleDeviceDragEnd}
+                onCardEnter={(cid) => data.setCardLocation(cid, 'device')}
+                onCardEject={(cid) => data.setCardLocation(cid, 'canvas', { x: device.mx.get() + 80, y: device.my.get() + 50 })}
+                mergedVariants={grouping.mergedVariants}
+                onDropIntoRepository={handleDeviceDropIntoRepository}
+                systemlang={mappedSystemLang}
+                learninglang={mappedLearningLang}
+                onSynthesisComplete={(newCard) => {
+                  const spread = 50 + Math.random() * 50;
+                  const angle = Math.random() * Math.PI * 2;
+                  setTimeout(() => {
+                    data.setCardLocation(newCard.uid, 'canvas', {
+                      x: device.mx.get() + Math.cos(angle) * spread,
+                      y: device.my.get() + Math.sin(angle) * spread,
+                    });
+                  }, 50);
+                }}
+              />
+            );
+          })}
+
+          {/* Render Active Grimoires */}
+          {activeGrimoires.map((grimoire) => (
+            <Grimoire
+                key={grimoire.id}
+                grimoire={grimoire}
+                x={grimoire.x}
+                y={grimoire.y}
+                canvasScale={camera.scale}
             />
           ))}
 

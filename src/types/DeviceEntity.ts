@@ -1,10 +1,16 @@
 import type { CardEntity } from './CardEntity';
 
-export type DeviceType = 'synthesis-circle';
+export type DeviceType = 'synthesis-circle' | 'grimoire-summoner';
 
 export interface DeviceState {
+    // Shared / Synthesis
     slot1_uid: string | null;
     slot2_uid: string | null;
+    
+    // Summoner specific
+    seed_uid?: string | null;
+    status?: string; // IDLE, GENERATING, READY
+    
     isProcessing: boolean;
     lastResult?: CardEntity;
     errorMessage?: string;
