@@ -5,3 +5,9 @@
 ## 2024-03-30 - [Avoid O(N) Array Allocation in Loops]
 **Learning:** Using `Array.from(map.values()).filter(...)` creates an intermediate array containing all elements before applying the filter. In high-frequency or large-scale data structures like `LibraryModule`'s catalog, this causes significant GC pressure and performance bottlenecks.
 **Action:** Replace `Array.from().filter()` patterns with single-pass `for...of` loops that push directly to a result array. This reduces O(N) array allocation overhead and improves throughput.
+## 2024-03-24 - React State Update Optimization (Array vs Map)
+**Learning:** In standard React array state updates, returning a strictly equal array reference () avoids triggering a re-render. Using `.map()` to search for and update an item always produces a new reference, forcing re-renders even when the target element is missing or unmodified.
+**Action:** Use early-terminating `findIndex()` checks before mutating array states for O(N) iteration that correctly leverages early bailouts to preserve array reference equality, preventing unnecessary React component re-rendering.
+## 2024-03-24 - React State Update Optimization
+**Learning:** Using map to update React array states always creates a new array reference, which forces re-renders even if the target item isn't in the list.
+**Action:** Use findIndex to locate items first, returning the unmodified previous state if not found. This skips the re-render and is faster for single-item updates.
