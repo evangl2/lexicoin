@@ -119,54 +119,74 @@ export const useDeviceManager = () => {
     // ==== Actions ====
 
     const storeDevice = useCallback((uid: string, onEject?: (slotUid: string, x: number, y: number) => void) => {
-        setDevices(prev => prev.map(d => {
-            if (d.uid === uid) {
-                // Ejection Logic
-                if (onEject) {
-                    const currentX = d.mx.get();
-                    const currentY = d.my.get();
+        setDevices(prev => {
+            const index = prev.findIndex(d => d.uid === uid);
+            if (index === -1) return prev;
 
-                    // Eject Slot 1
-                    if (d.state.slot1_uid) {
-                        // Offset slightly for visibility
-                        onEject(d.state.slot1_uid, currentX - 60, currentY);
-                    }
-                    // Eject Slot 2
-                    if (d.state.slot2_uid) {
-                        onEject(d.state.slot2_uid, currentX + 60, currentY);
-                    }
+            const targetDevice = prev[index];
+            if (!targetDevice) return prev;
+
+            // Ejection Logic
+            if (onEject) {
+                const currentX = targetDevice.mx.get();
+                const currentY = targetDevice.my.get();
+
+                // Eject Slot 1
+                if (targetDevice.state.slot1_uid) {
+                    // Offset slightly for visibility
+                    onEject(targetDevice.state.slot1_uid, currentX - 60, currentY);
                 }
-
-                return {
-                    ...d,
-                    location: 'repository',
-                    // Clear slots on store - MUTUALLY EXCLUSIVE
-                    state: { ...d.state, slot1_uid: null, slot2_uid: null }
-                };
+                // Eject Slot 2
+                if (targetDevice.state.slot2_uid) {
+                    onEject(targetDevice.state.slot2_uid, currentX + 60, currentY);
+                }
             }
-            return d;
-        }));
+
+            const newDevices = [...prev];
+            newDevices[index] = {
+                ...targetDevice,
+                location: 'repository',
+                // Clear slots on store - MUTUALLY EXCLUSIVE
+                state: { ...targetDevice.state, slot1_uid: null, slot2_uid: null }
+            };
+            return newDevices;
+        });
     }, []);
 
     const retrieveDevice = useCallback((uid: string, x: number, y: number) => {
-        setDevices(prev => prev.map(d => {
-            if (d.uid === uid) {
-                // Return new object with new MotionValues to reset velocity (same as cards)
-                return {
-                    ...d,
-                    location: 'canvas',
-                    mx: motionValue(x),
-                    my: motionValue(y)
-                };
-            }
-            return d;
-        }));
+        setDevices(prev => {
+            const index = prev.findIndex(d => d.uid === uid);
+            if (index === -1) return prev;
+
+            const targetDevice = prev[index];
+            if (!targetDevice) return prev;
+
+            const newDevices = [...prev];
+            newDevices[index] = {
+                ...targetDevice,
+                location: 'canvas',
+                mx: motionValue(x),
+                my: motionValue(y)
+            };
+            return newDevices;
+        });
     }, []);
 
     const updateDeviceState = useCallback((uid: string, newState: Partial<DeviceState>) => {
-        setDevices(prev => prev.map(d =>
-            d.uid === uid ? { ...d, state: { ...d.state, ...newState } } : d
-        ));
+        setDevices(prev => {
+            const index = prev.findIndex(d => d.uid === uid);
+            if (index === -1) return prev;
+
+            const targetDevice = prev[index];
+            if (!targetDevice) return prev;
+
+            const newDevices = [...prev];
+            newDevices[index] = {
+                ...targetDevice,
+                state: { ...targetDevice.state, ...newState }
+            };
+            return newDevices;
+        });
     }, []);
 
     const updateDevicePosition = useCallback((uid: string, x: number, y: number) => {
