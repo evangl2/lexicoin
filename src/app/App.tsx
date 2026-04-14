@@ -6,7 +6,7 @@ import {
 } from "react";
 import { DndProvider, useDrop } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
-import { useMotionValue } from "motion/react";
+import { useMotionValue, motion, AnimatePresence } from "motion/react";
 
 import { Canvas } from "@/app/components/ui/canvas/Canvas";
 import { Card } from "@/app/components/ui/card/Card";
@@ -31,6 +31,8 @@ import { GrimoireSummoner } from "@/app/components/ui/visual/GrimoireSummoner";
 import { Grimoire } from "@/app/components/ui/visual/Grimoire";
 import { ProgressionHUD } from "@/app/components/ui/shell/ProgressionHUD";
 import { LevelUpOverlay } from "@/app/components/ui/system/LevelUpOverlay";
+import { GrimoireOverlay } from "@/app/components/ui/visual/GrimoireOverlay";
+import { LibraryInterface } from "@/app/components/ui/visual/LibraryInterface";
 import { levelModule } from "@/modules/level/LevelModule";
 
 // Store & Utils
@@ -55,6 +57,7 @@ function InnerApp() {
   const openDeck = useGameStore(s => s.openDeck);
   const closeDeck = useGameStore(s => s.closeDeck);
   const setConfigOpen = useGameStore(s => s.setConfigOpen);
+  const viewMode = useGameStore(s => s.viewMode);
 
   // useRef instead of useState: drag state doesn't need to trigger a re-render.
   // Previously, setDraggingId() caused App.tsx to re-render → all N cards reconciled → 5 sync
@@ -295,136 +298,150 @@ function InnerApp() {
       className="w-full h-screen bg-black overflow-hidden relative font-sans text-zinc-200"
       onContextMenu={(e) => e.preventDefault()}
     >
-      <div
-        className="absolute inset-0 w-full h-full"
-        style={{
-          position: 'relative',
-          zIndex: 0
-        }}
-        onPointerDown={(e) => {
-          if (isDeckOpen) closeDeck();
-        }}
-      >
-        <Canvas scale={camera.scale} x={camera.x} y={camera.y} isZoomingRef={isZoomingRef} isPanningRef={isPanningRef} expandedIdsRef={expandedIdsRef}>
-          {/* Render Active Canvas Items */}
-          {visibleCanvasItems.map((item: any) => (
-            <Card
-              key={item.cardData.rawSense.uid}
-              cardData={item.cardData}
-              variants={grouping.mergedVariants[item.cardData.uid] || EMPTY_VARIANTS}
-              learningLanguage={mappedLearningLang}
-              systemLanguage={mappedSystemLang}
-              x={item.mx}
-              y={item.my}
-              width={item.width}
-              height={item.height}
-              canvasScale={camera.scale} // Pass MotionValue
-              canvasX={camera.x}
-              canvasY={camera.y}
-              onDragStart={handleDragStart}
-              onDragEnd={handleDragEnd}
-              updatePosition={handleUpdatePosition}
-              groupFeedback={grouping.groupFeedback}
+      <AnimatePresence mode="wait">
+        {viewMode === 'WORLD' ? (
+          <motion.div
+            key="world"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 w-full h-full"
+            style={{ zIndex: 0 }}
+            onPointerDown={(e) => {
+              if (isDeckOpen) closeDeck();
+            }}
+          >
+            <Canvas scale={camera.scale} x={camera.x} y={camera.y} isZoomingRef={isZoomingRef} isPanningRef={isPanningRef} expandedIdsRef={expandedIdsRef}>
+              {/* Render Active Canvas Items */}
+              {visibleCanvasItems.map((item: any) => (
+                <Card
+                  key={item.cardData.rawSense.uid}
+                  cardData={item.cardData}
+                  variants={grouping.mergedVariants[item.cardData.uid] || EMPTY_VARIANTS}
+                  learningLanguage={mappedLearningLang}
+                  systemLanguage={mappedSystemLang}
+                  x={item.mx}
+                  y={item.my}
+                  width={item.width}
+                  height={item.height}
+                  canvasScale={camera.scale} // Pass MotionValue
+                  canvasX={camera.x}
+                  canvasY={camera.y}
+                  onDragStart={handleDragStart}
+                  onDragEnd={handleDragEnd}
+                  updatePosition={handleUpdatePosition}
+                  groupFeedback={grouping.groupFeedback}
 
-              onDropIntoSlot={handleDropIntoSlot}
-              onDropIntoRepository={handleCardDropIntoRepository}
-              isZoomingRef={isZoomingRef}
-              expandedIdsRef={expandedIdsRef}
-              isPanningRef={isPanningRef}
-            />
-          ))}
-
-          {/* Render Active Devices */}
-          {deviceManager.canvasDevices.map(device => {
-            if (device.type === 'grimoire-summoner') {
-              return (
-                <GrimoireSummoner
-                  key={device.uid}
-                  uid={device.uid}
-                  x={device.mx}
-                  y={device.my}
-                  state={device.state}
-                  updateState={deviceManager.updateDeviceState}
-                  inputCards={data.items}
-                  canvasScale={camera.scale}
-                  onDragEnd={handleDeviceDragEnd}
-                  onCardEnter={(cid) => data.setCardLocation(cid, 'device')}
-                  onCardEject={(cid) => data.setCardLocation(cid, 'canvas', { x: device.mx.get() + 80, y: device.my.get() + 50 })}
-                  mergedVariants={grouping.mergedVariants}
-                  onDropIntoRepository={handleDeviceDropIntoRepository}
+                  onDropIntoSlot={handleDropIntoSlot}
+                  onDropIntoRepository={handleCardDropIntoRepository}
+                  isZoomingRef={isZoomingRef}
+                  expandedIdsRef={expandedIdsRef}
+                  isPanningRef={isPanningRef}
                 />
-              );
-            }
-            return (
-              <SynthesisCircle
-                key={device.uid}
-                uid={device.uid}
-                x={device.mx}
-                y={device.my}
-                state={device.state}
-                updateState={deviceManager.updateDeviceState}
-                inputCards={data.items}
-                canvasScale={camera.scale}
-                onDragEnd={handleDeviceDragEnd}
-                onCardEnter={(cid) => data.setCardLocation(cid, 'device')}
-                onCardEject={(cid) => data.setCardLocation(cid, 'canvas', { x: device.mx.get() + 80, y: device.my.get() + 50 })}
-                mergedVariants={grouping.mergedVariants}
-                onDropIntoRepository={handleDeviceDropIntoRepository}
-                systemlang={mappedSystemLang}
-                learninglang={mappedLearningLang}
-                onSynthesisComplete={(newCard) => {
-                  const spread = 50 + Math.random() * 50;
-                  const angle = Math.random() * Math.PI * 2;
-                  setTimeout(() => {
-                    data.setCardLocation(newCard.uid, 'canvas', {
-                      x: device.mx.get() + Math.cos(angle) * spread,
-                      y: device.my.get() + Math.sin(angle) * spread,
-                    });
-                  }, 50);
-                }}
-              />
-            );
-          })}
+              ))}
 
-          {/* Render Active Grimoires */}
-          {activeGrimoires.map((grimoire) => (
-            <Grimoire
-                key={grimoire.id}
-                grimoire={grimoire}
-                x={grimoire.x}
-                y={grimoire.y}
-                canvasScale={camera.scale}
+              {/* Render Active Devices */}
+              {deviceManager.canvasDevices.map(device => {
+                if (device.type === 'grimoire-summoner') {
+                  return (
+                    <GrimoireSummoner
+                      key={device.uid}
+                      uid={device.uid}
+                      x={device.mx}
+                      y={device.my}
+                      state={device.state}
+                      updateState={deviceManager.updateDeviceState}
+                      inputCards={data.items}
+                      canvasScale={camera.scale}
+                      onDragEnd={handleDeviceDragEnd}
+                      onCardEnter={(cid) => data.setCardLocation(cid, 'device')}
+                      onCardEject={(cid) => data.setCardLocation(cid, 'canvas', { x: device.mx.get() + 80, y: device.my.get() + 50 })}
+                      mergedVariants={grouping.mergedVariants}
+                      onDropIntoRepository={handleDeviceDropIntoRepository}
+                    />
+                  );
+                }
+                return (
+                  <SynthesisCircle
+                    key={device.uid}
+                    uid={device.uid}
+                    x={device.mx}
+                    y={device.my}
+                    state={device.state}
+                    updateState={deviceManager.updateDeviceState}
+                    inputCards={data.items}
+                    canvasScale={camera.scale}
+                    onDragEnd={handleDeviceDragEnd}
+                    onCardEnter={(cid) => data.setCardLocation(cid, 'device')}
+                    onCardEject={(cid) => data.setCardLocation(cid, 'canvas', { x: device.mx.get() + 80, y: device.my.get() + 50 })}
+                    mergedVariants={grouping.mergedVariants}
+                    onDropIntoRepository={handleDeviceDropIntoRepository}
+                    systemlang={mappedSystemLang}
+                    learninglang={mappedLearningLang}
+                    onSynthesisComplete={(newCard) => {
+                      const spread = 50 + Math.random() * 50;
+                      const angle = Math.random() * Math.PI * 2;
+                      setTimeout(() => {
+                        data.setCardLocation(newCard.uid, 'canvas', {
+                          x: device.mx.get() + Math.cos(angle) * spread,
+                          y: device.my.get() + Math.sin(angle) * spread,
+                        });
+                      }, 50);
+                    }}
+                  />
+                );
+              })}
+
+              {/* Render Active Grimoires */}
+              {activeGrimoires.map((grimoire) => (
+                <Grimoire
+                  key={grimoire.id}
+                  grimoire={grimoire}
+                  x={grimoire.x}
+                  y={grimoire.y}
+                  canvasScale={camera.scale}
+                />
+              ))}
+
+              {/* Render Exiting Items (Ghost Animations) */}
+              {grouping.exitingItems.map((item) => (
+                <Card
+                  key={'exiting-' + item.cardData.rawSense.uid}
+                  cardData={item.cardData}
+                  variants={[]}
+                  learningLanguage={mappedLearningLang}
+                  systemLanguage={mappedSystemLang}
+                  x={item.mx}
+                  y={item.my}
+                  width={item.width}
+                  height={item.height}
+                  canvasScale={camera.scale} // Pass MotionValue
+                  canvasX={camera.x}
+                  canvasY={camera.y}
+                  updatePosition={handleUpdatePosition} // Use stable handler here too
+                  isHidden={false}
+                  externalScale={item.scale}
+                  isZoomingRef={isZoomingRef}
+                  expandedIdsRef={expandedIdsRef}
+                  isPanningRef={isPanningRef}
+                />
+              ))}
+
+            </Canvas>
+
+            {/* UI Controls specific to world */}
+            <CanvasControl
+              onCenter={camera.centerCamera}
+              systemLang={systemLang}
+              getLoc={getLoc}
             />
-          ))}
+          </motion.div>
+        ) : viewMode === 'LIBRARY' ? (
+          <LibraryInterface key="library" />
+        ) : null}
+      </AnimatePresence>
 
-          {/* Render Exiting Items (Ghost Animations) */}
-          {grouping.exitingItems.map((item) => (
-            <Card
-              key={'exiting-' + item.cardData.rawSense.uid}
-              cardData={item.cardData}
-              variants={[]}
-              learningLanguage={mappedLearningLang}
-              systemLanguage={mappedSystemLang}
-              x={item.mx}
-              y={item.my}
-              width={item.width}
-              height={item.height}
-              canvasScale={camera.scale} // Pass MotionValue
-              canvasX={camera.x}
-              canvasY={camera.y}
-              updatePosition={handleUpdatePosition} // Use stable handler here too
-              isHidden={false}
-              externalScale={item.scale}
-              isZoomingRef={isZoomingRef}
-              expandedIdsRef={expandedIdsRef}
-              isPanningRef={isPanningRef}
-            />
-          ))}
-
-        </Canvas>
-      </div>
-
-      {/* Drag Preview Layer */}
+      {/* Drag Preview Layer (Always top) */}
       <DragLayer
         systemLang={systemLang}
         learningLang={learningLang}
@@ -439,18 +456,12 @@ function InnerApp() {
         />
       )}
 
-      {/* UI Controls */}
-      <CanvasControl
-        onCenter={camera.centerCamera}
-        systemLang={systemLang}
-        getLoc={getLoc}
-      />
-
       {/* Progression Shell */}
       <ProgressionHUD />
       <LevelUpOverlay />
+      <GrimoireOverlay />
 
-      {/* Bottom Dock */}
+      {/* Bottom Dock (Always visible for navigation) */}
       <Dock
         isDeckOpen={isDeckOpen}
         toggleDeck={toggleDeck}

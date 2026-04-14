@@ -40,7 +40,27 @@ export async function initializeModules(): Promise<void> {
         await initializeVisuals();
 
         // Mark modules as ready
-        useGameStore.getState().setModulesReady(true);
+        const store = useGameStore.getState();
+        store.setModulesReady(true);
+
+        // --- Daily Echo Reset ---
+        const today = new Date().toISOString().split('T')[0];
+        if (store.player.lastEchoReset !== today) {
+            store.resetEchoCharges();
+            logger.info(`Refilled Echo charges for new day: ${today}`, undefined, 'ModuleInit');
+        }
+
+        // --- Active Grimoire Expiry Check ---
+        const now = Date.now();
+        const expiredIds = store.activeGrimoires
+            .filter(g => g.expiresAt < now)
+            .map(g => g.id);
+            
+        if (expiredIds.length > 0) {
+            logger.info(`Cleaning up ${expiredIds.length} expired grimoires`, undefined, 'ModuleInit');
+            expiredIds.forEach(id => store.updateGrimoireStatus(id, 'EXPIRED'));
+            // Note: Use a dedicated cleanup action if needed, but for now we just mark them.
+        }
 
         logger.info('All modules initialized successfully', undefined, 'ModuleInit');
     } catch (error) {

@@ -20,6 +20,7 @@ export interface GrimoireState {
     activeGrimoires: GrimoireEntity[];
     libraryGrimoires: GrimoireEntity[];
     summonerStatus: 'IDLE' | 'GENERATING' | 'READY';
+    activeGrimoireId: UUID | null; // Currently opened in the evaluation overlay
 }
 
 export interface GrimoireActions {
@@ -35,6 +36,10 @@ export interface GrimoireActions {
     archiveGrimoire: (id: UUID) => void;
     /** Set the summoning device status */
     setSummonerStatus: (status: GrimoireState['summonerStatus']) => void;
+    /** Open/Close the detailed evaluation overlay */
+    setActiveGrimoireId: (id: UUID | null) => void;
+    /** Place a Sense card into a specific slot of a grimoire */
+    updateSlotSense: (grimoireId: UUID, slotId: UUID, senseId: UUID | null) => void;
 }
 
 export const createGrimoireSlice: StateCreator<
@@ -93,4 +98,13 @@ export const createGrimoireSlice: StateCreator<
     }),
 
     setSummonerStatus: (status) => set({ summonerStatus: status }),
+    setActiveGrimoireId: (id) => set({ activeGrimoireId: id }),
+    updateSlotSense: (grimoireId, slotId, senseId) => set((state) => ({
+        activeGrimoires: state.activeGrimoires.map((g) => 
+            g.id === grimoireId ? {
+                ...g,
+                slots: g.slots.map((s) => s.id === slotId ? { ...s, senseId } : s)
+            } : g
+        )
+    })),
 });

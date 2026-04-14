@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, useTransform, useMotionValue } from 'motion/react';
 import { Layers, LayoutTemplate, Target, Library, Settings, LucideIcon } from 'lucide-react';
+import { useGameStore } from '@/core/store';
 import { useWindowDimensions } from '@/app/hooks/useWindowDimensions';
 import { DeckRepository } from './DeckRepository';
 import { ConfigMenu } from './ConfigMenu';
@@ -64,7 +65,14 @@ export const Dock: React.FC<DockProps> = ({
    setActiveModelId = () => { }
 }) => {
    const interfacePersona = useInterfacePersona();
-   const [activeId, setActiveId] = useState<number>(1); // Default active: Canvas
+   const viewMode = useGameStore(s => s.viewMode);
+   const setViewMode = useGameStore(s => s.setViewMode);
+
+   // Map viewMode to local activeId for icon highlighting
+   const activeId = viewMode === 'WORLD' ? 1 : 
+                   viewMode === 'LIBRARY' ? 3 : 
+                   viewMode === 'SANCTUARY' ? 2 : 1;
+
    const [isHovered, setIsHovered] = useState(false);
    const [isBackdropActive, setIsBackdropActive] = useState(false);
 
@@ -115,24 +123,25 @@ export const Dock: React.FC<DockProps> = ({
    );
 
    const handleNodeClick = (index: number) => {
-      // 0 = DECK, 1 = CANVAS
+      // 0 = DECK, 4 = CONFIG (Overlays)
+      // 1 = CANVAS, 2 = FOCUS, 3 = LIBRARY (Main Views)
+
       if (index === 0) {
-         if (activeId === 1) {
+         if (viewMode === 'WORLD') {
             toggleDeck?.();
          } else {
-            setActiveId(1);
+            setViewMode('WORLD');
          }
-      } else if (index === 4) { // CONFIG
+      } else if (index === 4) {
          toggleConfig?.();
       } else {
-         setActiveId(index);
-         if (isDeckOpen && toggleDeck) {
-            toggleDeck();
-         }
-         // Close Config if open when switching to other tabs (optional but good UX)
-         if (isConfigOpen && toggleConfig) {
-            toggleConfig();
-         }
+         // Main View Switching
+         if (index === 1) setViewMode('WORLD');
+         if (index === 3) setViewMode('LIBRARY');
+         if (index === 2) setViewMode('SANCTUARY');
+
+         if (isDeckOpen && toggleDeck) toggleDeck();
+         if (isConfigOpen && toggleConfig) toggleConfig();
       }
    };
 

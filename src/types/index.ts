@@ -218,8 +218,10 @@ export interface PlayerState {
         tokensSpent: number;
     };
 
-    // Grimoire Mastery
+    // Grimoire Mechanics
     grimoireMastery: GrimoireMastery;
+    echoCharges: number;             // Daily charges for Echo extraction
+    lastEchoReset: string;           // 'YYYY-MM-DD' for daily reset
 
     // Timestamps
     createdAt: Timestamp;

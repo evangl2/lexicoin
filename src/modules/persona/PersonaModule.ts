@@ -247,7 +247,23 @@ class PersonaModule {
         const persona = this.personas.get(personaId);
         if (!persona) return 0;
 
+        const oldResonance = persona.resonance;
         persona.resonance = Math.max(0, Math.min(100, persona.resonance + amount));
+
+        // Milestone Check: Every 25% unlocks progress
+        const oldMilestone = Math.floor(oldResonance / 25);
+        const newMilestone = Math.floor(persona.resonance / 25);
+
+        if (newMilestone > oldMilestone) {
+            this.narrativeState.currentChapter += 1;
+            logger.info(`Narrative Milestone! Chapter advanced to ${this.narrativeState.currentChapter}`, undefined, 'PersonaModule');
+            
+            await messageBus.send('PERSONA_MILESTONE_REACHED', {
+                personaId,
+                milestone: newMilestone,
+                chapter: this.narrativeState.currentChapter
+            }, 'PersonaModule');
+        }
 
         await messageBus.send('RESONANCE_UPDATED', {
             personaId,

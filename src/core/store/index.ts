@@ -55,6 +55,8 @@ const initialPlayer: PlayerState = {
         dCount: 0,
         sScore: 0,
     },
+    echoCharges: 3,
+    lastEchoReset: new Date().toISOString().split('T')[0],
     createdAt: Date.now(),
     lastLoginAt: Date.now(),
 };
@@ -98,6 +100,16 @@ export const useGameStore = create<GameStore>()(
             player: initialPlayer,
             updatePlayer: (updates) => set((state) => ({
                 player: { ...state.player, ...updates }
+            })),
+            consumeEchoCharge: () => set((state) => ({
+                player: { ...state.player, echoCharges: Math.max(0, state.player.echoCharges - 1) }
+            })),
+            resetEchoCharges: () => set((state) => ({
+                player: {
+                    ...state.player,
+                    echoCharges: 3,
+                    lastEchoReset: new Date().toISOString().split('T')[0]
+                }
             })),
 
             // UI State

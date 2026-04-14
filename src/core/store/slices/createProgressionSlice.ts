@@ -68,11 +68,13 @@ export const createProgressionSlice: StateCreator<
 
     claimGrimoireReward: (grimoireId) => {
         const state = get();
-        const grimoire = state.libraryGrimoires.find(g => g.id === grimoireId);
+        // Check both active and library (though it usually comes from active)
+        const grimoire = state.activeGrimoires.find(g => g.id === grimoireId) || 
+                         state.libraryGrimoires.find(g => g.id === grimoireId);
         
-        if (!grimoire || grimoire.rewardClaimed) return;
+        if (!grimoire || grimoire.rewardClaimed || !grimoire.finalGrade) return;
         
-        const finalGrade = grimoire.finalGrade || 'D';
+        const finalGrade = grimoire.finalGrade;
         const rewards = GRIMOIRE_REWARDS[finalGrade];
         
         // 1. Award XP to current learning language
@@ -84,23 +86,37 @@ export const createProgressionSlice: StateCreator<
         // 2. Award Resonance XP to Persona
         state.updateResonance(grimoire.personaId, rewards.resonance);
 
-        // 3. Update Mastery Counters (Downward Propagation)
+        // 3. Update Mastery Counters & Archival
         set((state) => {
             const m = { ...state.player.grimoireMastery };
             const inc = rewards.increments;
             
-            // Downward propagation based on grade rank
+            // Increment counters based on grade tier
             if (finalGrade === 'S++' || finalGrade === 'S+' || finalGrade === 'S') {
                 m.sScore += inc;
-                m.aCount += inc; m.bCount += inc; m.cCount += inc; m.dCount += inc;
+                m.aCount += 1; m.bCount += 1; m.cCount += 1; m.dCount += 1;
             } else if (finalGrade === 'A') {
-                m.aCount += inc; m.bCount += inc; m.cCount += inc; m.dCount += inc;
+                m.aCount += 1; m.bCount += 1; m.cCount += 1; m.dCount += 1;
             } else if (finalGrade === 'B') {
-                m.bCount += inc; m.cCount += inc; m.dCount += inc;
+                m.bCount += 1; m.cCount += 1; m.dCount += 1;
             } else if (finalGrade === 'C') {
-                m.cCount += inc; m.dCount += inc;
+                m.cCount += 1; m.dCount += 1;
             } else if (finalGrade === 'D') {
-                m.dCount += inc;
+                m.dCount += 1;
+            }
+
+            // Move to library if it's still in active
+            const inActive = state.activeGrimoires.find(g => g.id === grimoireId);
+            let nextActive = state.activeGrimoires;
+            let nextLibrary = state.libraryGrimoires;
+
+            const updatedG = { ...grimoire, rewardClaimed: true, status: 'ARCHIVED' as const };
+
+            if (inActive) {
+                nextActive = state.activeGrimoires.filter(g => g.id !== grimoireId);
+                nextLibrary = [...state.libraryGrimoires, updatedG];
+            } else {
+                nextLibrary = state.libraryGrimoires.map(g => g.id === grimoireId ? updatedG : g);
             }
 
             return {
@@ -108,9 +124,8 @@ export const createProgressionSlice: StateCreator<
                     ...state.player,
                     grimoireMastery: m
                 },
-                libraryGrimoires: state.libraryGrimoires.map(g => 
-                    g.id === grimoireId ? { ...g, rewardClaimed: true } : g
-                )
+                activeGrimoires: nextActive,
+                libraryGrimoires: nextLibrary
             };
         });
     },

@@ -22,6 +22,7 @@ export type XPSourceId =
     | 'EVOLUTION_SUCCESS'   // 进化成功
     | 'CONSTRUCTION_CREATED' // 构建短语/句子
     | 'STREAK_BONUS'        // 每日连签奖励
+    | 'GRIMOIRE_COMPLETED'  // 完成魔典仪式
     | 'DEBUG';              // 调试发放
 
 class XPRegistry {
@@ -34,7 +35,7 @@ class XPRegistry {
     public async awardXP(
         language: Language, 
         sourceId: XPSourceId, 
-        context?: { cefrLevel?: CEFRLevel }
+        context?: { cefrLevel?: CEFRLevel, grade?: string }
     ): Promise<void> {
         // 1. 获取玩家当前进度
         const store = useGameStore.getState();
@@ -44,7 +45,7 @@ class XPRegistry {
         if (currentProgress.level >= MAX_LANGUAGE_LEVEL) return;
 
         // 3. 计算 XP 数量
-        const amount = this.calculateAmount(sourceId, context?.cefrLevel);
+        const amount = this.calculateAmount(sourceId, context?.cefrLevel, context?.grade);
         if (amount <= 0) return;
 
         // 4. 更新 Store
@@ -88,6 +89,12 @@ class XPRegistry {
                 return Math.floor(XP_SENSE_BASE * coef * 2); // 进化奖励翻倍
             case 'CONSTRUCTION_CREATED':
                 return 50; // 暂定固定值
+            case 'GRIMOIRE_COMPLETED':
+                // 根据 Grade 等级阶梯发放
+                const gradeMap: Record<string, number> = {
+                    'S++': 500, 'S+': 400, 'S': 300, 'A': 200, 'B': 100, 'C': 50, 'D': 25, 'F': 0
+                };
+                return gradeMap[cefrLevel || 'F'] || 50; // 复用 cefrLevel 字段传 Grade 字符串
             case 'DEBUG':
                 return 100;
             default:
