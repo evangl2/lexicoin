@@ -10,31 +10,28 @@
 
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, BookOpen, Send, Loader2, Scroll, Gift } from 'lucide-react';
+import { X, BookOpen, Send, Loader2, Scroll, Archive } from 'lucide-react';
 import { useGrimoireInteraction } from '@/app/hooks/useGrimoireInteraction';
-import { useGrimoireReward } from '@/app/hooks/useGrimoireReward';
+import { useGameStore } from '@/core/store';
 import { GrimoireSlotVisual } from './GrimoireSlotVisual';
-import { RewardCinematicOverlay } from './RewardCinematicOverlay';
 import { Award, Star } from 'lucide-react';
 
 export const GrimoireOverlay: React.FC = () => {
-    const { 
-        grimoire, 
-        submitting, 
-        error, 
-        handleUpdateSlot, 
-        submit, 
-        close,
-        status,
-        revealIndex,
-        setRevealIndex
+    const {
+        grimoire,
+        submitting,
+        error,
+        handleUpdateSlot,
+        submit,
+        close
     } = useGrimoireInteraction();
-    const { claim, isClaiming, rewardResult, resetReward } = useGrimoireReward();
+    const archiveGrimoire = useGameStore(s => s.archiveGrimoire);
 
     if (!grimoire) return null;
 
-    const isFailing = grimoire.status === 'NEEDS_REVISION';
-    const isEvaluating = grimoire.status === 'EVALUATING';
+    const grimoireStatus = grimoire.status;
+    const isFailing = grimoireStatus === 'NEEDS_REVISION';
+    const isEvaluating = grimoireStatus === 'EVALUATING';
 
     return (
         <AnimatePresence>
@@ -71,6 +68,7 @@ export const GrimoireOverlay: React.FC = () => {
                             </h1>
 
                             <div className="flex-1 overflow-y-auto pr-4 scrollbar-thin scrollbar-thumb-[#8d6e63]/20">
+                                {/* personaQuest: unified scene + voice from the Persona */}
                                 <p className="text-[#5d4037] font-serif italic text-lg leading-relaxed mb-8 indent-8 first-letter:text-5xl first-letter:font-black first-letter:mr-1 first-letter:float-left first-letter:leading-[0.8]">
                                     {grimoire.theme.description.system}
                                 </p>
@@ -121,14 +119,14 @@ export const GrimoireOverlay: React.FC = () => {
                                         slot={slot} 
                                         onDrop={handleUpdateSlot}
                                         isEvaluating={isEvaluating}
-                                        showGrade={revealIndex >= i || revealIndex === 99}
+                                        showGrade={slot.grade !== null}
                                     />
                                 ))}
                             </div>
 
                             {/* Final Grade Stamp - 仅在全部揭晓后显示 */}
                             <AnimatePresence>
-                                {revealIndex === 99 && grimoire.finalGrade && (
+                                {grimoireStatus === 'RESOLVED' && grimoire.finalGrade && (
                                     <motion.div
                                         initial={{ scale: 2, opacity: 0, rotate: -20 }}
                                         animate={{ scale: 1, opacity: 1, rotate: -12 }}
@@ -151,25 +149,19 @@ export const GrimoireOverlay: React.FC = () => {
                             {/* Actions / Footer */}
                             <div className="mt-8 pt-6 border-t border-[#3e2723]/10 flex justify-between items-center">
                                 <div className="text-[10px] text-[#3e2723]/40 font-mono italic">
-                                    {status === 'RESOLVED' ? 'Ritual completed. Essence awaiting extraction.' : 'Assemble the senses to fulfill the persona\'s logic.'}
+                                    {grimoireStatus === 'RESOLVED' ? 'Ritual completed. Archive to Library.' : 'Assemble the senses to fulfill the persona\'s logic.'}
                                 </div>
-                                
+
                                 <div className="flex gap-4">
-                                    {status === 'RESOLVED' ? (
+                                    {grimoireStatus === 'RESOLVED' ? (
                                         <motion.button
                                             whileHover={{ scale: 1.05 }}
                                             whileTap={{ scale: 0.95 }}
-                                            onClick={() => claim(grimoire.id)}
-                                            disabled={revealIndex < grimoire.slots.length || isClaiming}
-                                            className={`
-                                                flex items-center gap-2 px-8 py-3 rounded-full font-serif italic font-bold shadow-xl transition-all
-                                                ${revealIndex >= grimoire.slots.length 
-                                                    ? 'bg-amber-600 text-white hover:bg-amber-700 shadow-amber-900/20' 
-                                                    : 'bg-zinc-200 text-zinc-400 cursor-not-allowed'}
-                                            `}
+                                            onClick={() => { archiveGrimoire(grimoire!.id); close(); }}
+                                            className="flex items-center gap-2 px-8 py-3 rounded-full font-serif italic font-bold shadow-xl transition-all bg-amber-700 text-white hover:bg-amber-800 shadow-amber-900/20"
                                         >
-                                            {isClaiming ? <Loader2 className="animate-spin" size={20} /> : <Gift size={20} />}
-                                            {isClaiming ? 'Extracting...' : 'Claim Ritual Essence'}
+                                            <Archive size={20} />
+                                            Archive to Library
                                         </motion.button>
                                     ) : (
                                         <button 
@@ -201,18 +193,6 @@ export const GrimoireOverlay: React.FC = () => {
                 </motion.div>
             </motion.div>
 
-            {/* Reward Cinematic Overlay */}
-            <AnimatePresence>
-                {rewardResult && (
-                    <RewardCinematicOverlay 
-                        result={rewardResult} 
-                        onClose={() => {
-                            resetReward();
-                            close();
-                        }} 
-                    />
-                )}
-            </AnimatePresence>
         </AnimatePresence>
     );
 };

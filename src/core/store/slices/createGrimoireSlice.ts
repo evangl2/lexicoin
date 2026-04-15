@@ -28,6 +28,8 @@ export interface GrimoireActions {
     spawnGrimoire: (grimoire: GrimoireEntity) => void;
     /** Update a specific Grimoire's data or state */
     updateGrimoire: (id: UUID, updates: Partial<GrimoireEntity>) => void;
+    /** Update only the status of a Grimoire (convenience wrapper) */
+    updateGrimoireStatus: (id: UUID, status: GrimoireStatus) => void;
     /** Remove a Grimoire from the canvas (e.g. on expiration) */
     expireGrimoire: (id: UUID) => void;
     /** Resolve a Grimoire, calculating the final grade */
@@ -52,6 +54,7 @@ export const createGrimoireSlice: StateCreator<
     activeGrimoires: [],
     libraryGrimoires: [],
     summonerStatus: 'IDLE',
+    activeGrimoireId: null,
 
     // Actions
     spawnGrimoire: (grimoire) => set((state) => ({
@@ -59,13 +62,22 @@ export const createGrimoireSlice: StateCreator<
     })),
 
     updateGrimoire: (id, updates) => set((state) => ({
-        activeGrimoires: state.activeGrimoires.map((g) => 
+        activeGrimoires: state.activeGrimoires.map((g) =>
             g.id === id ? { ...g, ...updates } : g
         )
     })),
 
+    updateGrimoireStatus: (id, status) => set((state) => ({
+        activeGrimoires: state.activeGrimoires.map((g) =>
+            g.id === id ? { ...g, status } : g
+        )
+    })),
+
     expireGrimoire: (id) => set((state) => ({
-        activeGrimoires: state.activeGrimoires.filter((g) => g.id !== id)
+        // First mark as EXPIRED (for animation), then remove
+        activeGrimoires: state.activeGrimoires
+            .map((g) => g.id === id ? { ...g, status: 'EXPIRED' as GrimoireStatus } : g)
+            .filter((g) => g.id !== id)
     })),
 
     resolveGrimoire: (id) => {

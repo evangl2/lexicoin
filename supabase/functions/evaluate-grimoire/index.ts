@@ -1,11 +1,12 @@
 /**
  * evaluate-grimoire/index.ts
- * 
- * 职责：接收填充了词语的魔典槽位，调用 AI 进行分项评判。
- * 遵循 GDD §9.3 规范。
+ *
+ * Receives filled Grimoire slots and calls Gemini to grade each one.
+ * Persona identity (bias, affinityTags, evalPrompt) is resolved from the BACKEND dictionary.
+ * Based on GDD §9.3.
  */
 
-import { createClient } from 'npm:@supabase/supabase-js';
+import { getPersona } from '../lib/personaDictionary.ts';
 
 // ── CORS headers ──────────────────────────────────────────────────────────────
 const corsHeaders = {
@@ -20,7 +21,6 @@ function json(data: unknown, status = 200): Response {
     });
 }
 
-/** Strip markdown code fences */
 function stripMarkdown(raw: string): string {
     return raw.replace(/^```[a-z]*\n?/im, '').replace(/\n?```$/m, '').trim();
 }
@@ -35,7 +35,7 @@ async function callAI(params: {
     if (!apiKey) throw new Error('Missing GEMINI_API_KEY');
 
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${params.model}:generateContent?key=${apiKey}`;
-    
+
     const response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -44,9 +44,9 @@ async function callAI(params: {
             contents: [{ parts: [{ text: params.userPrompt }] }],
             generationConfig: {
                 temperature: params.temperature,
-                response_mime_type: 'application/json'
-            }
-        })
+                response_mime_type: 'application/json',
+            },
+        }),
     });
 
     if (!response.ok) {
@@ -58,6 +58,8 @@ async function callAI(params: {
     return data.candidates[0].content.parts[0].text;
 }
 
+// ── MAIN HANDLER ──────────────────────────────────────────────────────────────
+
 Deno.serve(async (req: Request) => {
     if (req.method === 'OPTIONS') {
         return new Response('ok', { headers: corsHeaders });
@@ -66,50 +68,87 @@ Deno.serve(async (req: Request) => {
     try {
         const body = await req.json();
         const {
+            personaId = 'CHILD',
             grimoire,
-            slotsToEvaluate, // 仅传入需要评级的槽位 (WBS §9.4)
+            slotsToEvaluate,
             learningLanguage = 'en',
             systemLanguage = 'zh',
-            modelId = 'gemini-1.5-flash'
+            modelId = 'gemini-2.0-flash',
         } = body;
 
         if (!grimoire || !slotsToEvaluate) {
-            return json({ success: false, error: 'Missing required parameters' }, 400);
+            return json({
+                success: false,
+                error: 'Missing required parameters: grimoire, slotsToEvaluate',
+            }, 400);
         }
 
-        // 3. Build Evaluation Prompt
+        // ── Resolve persona from backend dictionary ───────────────────────────
+        const persona = getPersona(personaId);
+        const evalBias: number = persona.evalBias;
+        const affinityTags: string[] = persona.affinityTags;
+
+        const biasLabel =
+            evalBias > 0.1  ? 'LENIENT' :
+            evalBias < -0.1 ? 'STRICT'  : 'NEUTRAL';
+
+        const biasDescription =
+            evalBias > 0.1
+                ? 'You are generous. When a word surprises you, reward it. Tip close calls upward.'
+                : evalBias < -0.1
+                ? 'You hold high standards. Mediocrity does not satisfy you. Tip close calls downward.'
+                : 'You are fair. Grade purely on merit.';
+
         const systemPrompt = `
 [ROLE DEFINITION]
-You are ${grimoire.persona.name}. 
-Archetype: ${grimoire.persona.description}
-Tone: ${grimoire.persona.evalPrompt || "Analytical and critical."}
+You are ${persona.name.en}.
+${persona.description}
+Your evaluation voice: ${persona.evalPrompt}
+
+[YOUR BIAS]
+Disposition: ${biasLabel} (${evalBias > 0 ? '+' : ''}${evalBias})
+${biasDescription}
+Affinity: You especially value words that are [${affinityTags.join(', ')}].
+When two grades are equally justified, let your affinity decide.
 
 [CONTEXT]
-- Explicit Instruction: "${grimoire.theme.explicitInstruction.learning}"
-- Design Rationale: "${grimoire.designRationale}"
-- Validation Reference: ${grimoire.validationTags.join(', ')}
+Seed Concept: "${grimoire.seedWord ?? ''}"
+Archetype: ${grimoire.grimoireType ?? ''}
+Explicit Instruction: "${grimoire.explicitInstruction?.learning ?? ''}"
+Design Rationale: "${grimoire.designRationale ?? ''}"
+Standard Answer Reference (hidden from player): ${(grimoire.validationTags ?? []).join(', ')}
 
-[GRADING CRITERIA]
-1. Relevance: Strictly follows ExplicitInstruction?
-2. Creativity: Deep, poetic, or unexpected connections?
-3. Persona Bias: Matches your specific archetype preference?
+[GRADING CRITERIA — apply in order]
+1. Relevance: Does the word strictly follow the Explicit Instruction?
+2. Creativity: Is the connection surprising, precise, or poetic?
+3. Persona Bias: Apply your disposition and affinity as the tiebreaker.
 
-[SCORING]
-- S++ / S+: Perfect fit. Deep semantic connection.
-- S / A: Strong connection, logical.
-- B / C: Weak/Generative connection.
-- D / F: Irrelevant or wrong category.
+[SCORING SCALE]
+S++  Inspired. Fulfills the task AND reveals unexpected depth. You are genuinely moved.
+S+   Fits perfectly and shows clear creative thinking.
+S    Clearly and correctly fulfills the task.
+A    Fits but is predictable or lacks depth.
+B    Loosely fits. A native speaker might use it, but it misses the core logic.
+C    Tangentially related. Misses the explicit rule but not entirely off-topic.
+D    Very weak semantic link. Almost wrong.
+F    Irrelevant, grammatically wrong, or nonsense. Must be replaced.
 
-[OUTPUT SCHEMA]
-Return a JSON object:
+[COMMENTARY RULES]
+- Length: 1–2 sentences maximum. No more.
+- Voice: First person. Write as ${persona.name.en} — use their vocabulary and emotional register.
+- Content: State what impressed you OR what is lacking. Do not restate the grade.
+- Language note: Briefly indicate WHY this word fits or doesn't in this semantic context.
+- Do NOT mention the Standard Answer Reference in your commentary.
+
+[OUTPUT SCHEMA — strict JSON, no markdown]
 {
   "results": [
     {
       "slotId": "uuid",
-      "grade": "S | A | B | C | D | F",
+      "grade": "S++ | S+ | S | A | B | C | D | F",
       "commentary": {
-        "learning": "First-person critique in ${learningLanguage}",
-        "system": "TRANSCREATE: Native ${systemLanguage} version of the critique"
+        "learning": "First-person critique in ${learningLanguage}. 1-2 sentences. Language note included.",
+        "system": "TRANSCREATE in ${systemLanguage}: same voice, same judgment, native register. Not a translation."
       }
     }
   ]
@@ -117,26 +156,26 @@ Return a JSON object:
         `.trim();
 
         const userPrompt = `
-Evaluate these slots:
+Evaluate the following submitted words. Each entry has slotId, word, meaning, and level.
+Grade each slot according to the criteria above. Output raw JSON only.
+
 ${JSON.stringify(slotsToEvaluate, null, 2)}
-Output raw JSON only.
         `.trim();
 
-        // 4. Call AI
-        console.log(`[evaluate-grimoire] Evaluating ${slotsToEvaluate.length} slots for ${grimoire.id}`);
+        console.log(
+            `[evaluate-grimoire] ${slotsToEvaluate.length} slots | persona=${personaId} | seed="${grimoire.seedWord}"`
+        );
+
         const rawResponse = await callAI({
             systemPrompt,
             userPrompt,
             model: modelId,
-            temperature: 0.5 // Lower temp for consistent grading
+            temperature: 0.6,
         });
 
         const evaluationData = JSON.parse(stripMarkdown(rawResponse));
 
-        return json({
-            success: true,
-            data: evaluationData
-        });
+        return json({ success: true, data: evaluationData });
 
     } catch (err: any) {
         console.error('[evaluate-grimoire] Error:', err);

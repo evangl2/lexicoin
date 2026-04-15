@@ -10,8 +10,9 @@
 import { useState } from 'react';
 import { useGameStore } from '@/core/store';
 import { supabase } from '@/core/infra/supabaseClient';
-import { UUID, GrimoireSlot, GrimoireStatus, Grade } from '@/types/index';
+import { UUID, GrimoireSlot, Grade } from '@/types/index';
 import { personaModule } from '@/modules/persona/PersonaModule';
+import { GRADE_VALUES, F_PENALTY_MULTIPLIER, FINAL_GRADE_THRESHOLDS } from '@/config/grimoireConfig';
 
 export function useGrimoireInteraction() {
     const [submitting, setSubmitting] = useState(false);
@@ -56,42 +57,32 @@ export function useGrimoireInteraction() {
         updateGrimoire(activeGrimoireId, { status: 'EVALUATING' });
 
         try {
-            // 准备 AI 评判数据
+            // 准备 AI 评判数据（不含 label —— AI 不应看到 slot 的预设提示）
+            const learningLang = useGameStore.getState().player.settings.learningLang;
             const slotsToEvaluate = pendingSlots.map(slot => {
                 const sense = senses.find(s => s.id === slot.senseId);
-                // 获取当前学习语言下的单词和定义
-                const learningLang = useGameStore.getState().player.settings.learningLang;
                 return {
                     slotId: slot.id,
-                    label: slot.label,
                     word: sense?.word[learningLang] || 'unknown',
                     meaning: sense?.meaning[learningLang] || 'unknown',
-                    level: sense?.level || 'A1'
+                    level: sense?.level || 'A1',
                 };
             });
 
-            // 获取 Persona 完整数据 (用于 Prompts)
-            const personaData = personaModule.getPersona(grimoire.personaId);
-            const personaPromptContext = {
-                name: personaData?.name.en || grimoire.personaId,
-                description: personaData?.description.en || "...",
-                evalPrompt: personaData?.evalPrompt || "...",
-                evalBias: personaData?.evalBias || 0
-            };
-
             const { data, error: invokeErr } = await supabase.functions.invoke('evaluate-grimoire', {
                 body: {
+                    personaId: grimoire.personaId,   // 后端查 personaDictionary
                     grimoire: {
                         id: grimoire.id,
-                        theme: grimoire.theme,
+                        seedWord: grimoire.seedWord,
+                        grimoireType: grimoire.grimoireType,
                         explicitInstruction: grimoire.explicitInstruction,
                         designRationale: grimoire.designRationale,
                         validationTags: grimoire.validationTags,
-                        persona: personaPromptContext, // 传入真实角色逻辑
                     },
                     slotsToEvaluate,
-                    learningLanguage: useGameStore.getState().player.settings.learningLang,
-                    systemLanguage: useGameStore.getState().player.settings.interfaceLang
+                    learningLanguage: learningLang,
+                    systemLanguage: useGameStore.getState().player.settings.interfaceLang,
                 }
             });
 
@@ -102,12 +93,10 @@ export function useGrimoireInteraction() {
             // 处理评判结果
             const apiResults = data.data.results; // [{ slotId, grade, commentary }]
             
-            let hasF = false;
             const updatedSlots = grimoire.slots.map(slot => {
                 const result = apiResults.find((r: any) => r.slotId === slot.id);
                 if (result) {
                     const isF = result.grade === 'F';
-                    if (isF) hasF = true;
                     return {
                         ...slot,
                         grade: result.grade,
@@ -121,31 +110,23 @@ export function useGrimoireInteraction() {
             // 计算是否全员通过 (RESOLVED)
             const allPassed = updatedSlots.every(s => s.grade && s.grade !== 'F');
 
-            // 最终等级计算逻辑
-            const calculateFinalGrade = (slots: GrimoireSlot[]): Grade => {
-                const gradeWeights: Record<string, number> = {
-                    'S++': 100, 'S+': 90, 'S': 80, 'A': 70, 'B': 50, 'C': 30, 'D': 10, 'F': 0
-                };
-                
-                const totalPoints = slots.reduce((acc, s) => acc + (gradeWeights[s.grade || 'F'] || 0), 0);
-                const avg = totalPoints / slots.length;
+            // fCount: 累加本轮所有 F 槽数量
+            const newFCount = (grimoire.fCount || 0) + updatedSlots.filter(s => s.grade === 'F').length;
 
-                if (avg >= 95) return 'S++';
-                if (avg >= 85) return 'S+';
-                if (avg >= 75) return 'S';
-                if (avg >= 65) return 'A';
-                if (avg >= 45) return 'B';
-                if (avg >= 25) return 'C';
-                if (avg >= 10) return 'D';
-                return 'F';
+            // 最终等级计算 — GDD §7.3 算法
+            const calculateFinalGrade = (slots: GrimoireSlot[], fCount: number): Grade => {
+                const rawScore = slots.reduce((acc, s) => acc + (GRADE_VALUES[s.grade as Grade] ?? 0), 0) / slots.length;
+                const finalScore = rawScore - fCount * F_PENALTY_MULTIPLIER;
+                const threshold = FINAL_GRADE_THRESHOLDS.find(t => finalScore >= t.min);
+                return threshold?.grade ?? 'D';
             };
 
-            const finalGrade = allPassed ? calculateFinalGrade(updatedSlots) : null;
+            const finalGrade = allPassed ? calculateFinalGrade(updatedSlots, newFCount) : null;
 
             updateGrimoire(activeGrimoireId, {
                 slots: updatedSlots,
                 status: allPassed ? 'RESOLVED' : 'NEEDS_REVISION',
-                fCount: hasF ? (grimoire.fCount || 0) + 1 : grimoire.fCount,
+                fCount: newFCount,
                 finalGrade
             });
 

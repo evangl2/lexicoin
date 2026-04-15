@@ -16,6 +16,8 @@ export interface ProgressionState {
     updateStreak: (updates: Partial<StreakData>) => void;
     /** 消耗体力 */
     consumeStamina: (amount: number) => boolean;
+    /** 退还体力（召唤失败时使用） */
+    regenerateStamina: (amount: number) => void;
     /** 领取魔典奖励 */
     claimGrimoireReward: (grimoireId: UUID) => void;
 }
@@ -64,6 +66,16 @@ export const createProgressionSlice: StateCreator<
             }
         }));
         return true;
+    },
+
+    regenerateStamina: (amount) => {
+        set((state) => ({
+            player: {
+                ...state.player,
+                stamina: Math.min(state.player.maxStamina, state.player.stamina + amount),
+                staminaLastUpdatedAt: Date.now(),
+            }
+        }));
     },
 
     claimGrimoireReward: (grimoireId) => {

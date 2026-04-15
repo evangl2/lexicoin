@@ -430,8 +430,8 @@ export const DevConsole: React.FC = () => {
                                 <button onClick={() => injectMessage('SENSE_CREATED', { id: 'test-sense' })}>
                                     Inject SENSE_CREATED
                                 </button>
-                                <button onClick={() => injectMessage('PERSONA_ACTIVATED', { personaId: 'LOGICIAN' })}>
-                                    Activate LOGICIAN
+                                <button onClick={() => injectMessage('PERSONA_ACTIVATED', { personaId: 'CHILD' })}>
+                                    Activate CHILD
                                 </button>
                                 <button onClick={() => injectMessage('ITEM_ADDED', { itemId: 'test-item', quantity: 1 })}>
                                     Add Test Item

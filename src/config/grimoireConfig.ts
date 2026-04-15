@@ -107,11 +107,11 @@ export const GRIMOIRE_TYPES_REGISTRY: Record<GrimoireType, GrimoireTypeInfo> = {
         description: 'Scenes and spatial relationships.',
         targetLogic: 'Focus on spatial or environmental co-occurrence.',
     },
-    script: {
-        id: 'script',
-        label: 'Script',
-        description: 'Events and chronological sequences.',
-        targetLogic: 'Focus on causal or temporal sequences.',
+    time: {
+        id: 'time',
+        label: 'Time',
+        description: 'Events, states, and their causes or effects across the time dimension.',
+        targetLogic: 'Bidirectional: seed can be Cause or Effect. Collect the opposite end.',
     },
     spectrum: {
         id: 'spectrum',

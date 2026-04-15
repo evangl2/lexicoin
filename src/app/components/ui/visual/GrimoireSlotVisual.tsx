@@ -1,11 +1,13 @@
 /**
  * GrimoireSlotVisual.tsx
- * 
+ *
  * 职责：显示魔典中的单个槽位。
  * 1. 作为 SENSE 卡片的放置目标。
- * 2. 显示 AI 生成的标签（Guideline）。
- * 3. 显示已填充卡片的预览。
- * 4. 显示评级 (Grade) 和评语入口。
+ * 2. 显示已填充卡片的预览。
+ * 3. 显示评级 (Grade) 和评语入口。
+ *
+ * Note: Slots have no labels — labels would reveal the answer.
+ * The player reasons from the quest's explicitInstruction alone.
  */
 
 import React from 'react';
@@ -84,14 +86,17 @@ export const GrimoireSlotVisual: React.FC<GrimoireSlotVisualProps> = ({ slot, on
                 )}
             </div>
 
-            {/* Content */}
+            {/* Content — no label, slot index conveyed by position */}
             <div className="flex-1 min-w-0">
-                <div className="text-[9px] text-[#8d6e63] uppercase tracking-[0.2em] mb-1 font-bold">
-                    Sacred Guideline
-                </div>
-                <div className="text-sm text-[#3e2723] font-serif leading-tight italic font-medium">
-                    "{slot.label}"
-                </div>
+                {filledSense ? (
+                    <div className="text-sm text-[#3e2723] font-serif leading-tight font-medium truncate">
+                        {filledSense.word[learningLang] as string}
+                    </div>
+                ) : (
+                    <div className="text-sm text-[#8d6e63]/60 font-serif italic">
+                        Place a Sense here…
+                    </div>
+                )}
             </div>
 
             {/* Grade / Evaluation */}

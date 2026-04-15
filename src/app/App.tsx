@@ -22,6 +22,7 @@ import { useDeviceManager } from "@/app/hooks/useDeviceManager"; // Added
 import { useCardGrouping } from "@/app/hooks/useCardGrouping";
 import { useViewportCulling } from "@/app/hooks/useViewportCulling";
 import { snapPosition, applySnap } from "@/app/hooks/useGridSnap";
+import { useGrimoireExpiry } from "@/app/hooks/useGrimoireExpiry";
 
 // UI Components
 import { DragLayer } from "@/app/components/ui/canvas/DragLayer";
@@ -291,6 +292,9 @@ function InnerApp() {
   useEffect(() => {
     levelModule.initialize();
   }, []);
+
+  // 8. Grimoire expiry polling
+  useGrimoireExpiry();
 
   return (
     <div

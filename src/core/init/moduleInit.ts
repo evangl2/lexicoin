@@ -50,6 +50,11 @@ export async function initializeModules(): Promise<void> {
             logger.info(`Refilled Echo charges for new day: ${today}`, undefined, 'ModuleInit');
         }
 
+        // --- Stamina Recovery (offline compensation) ---
+        store.recoverStamina();
+        // Continue recovering every 5 minutes while the app is running
+        setInterval(() => useGameStore.getState().recoverStamina(), 5 * 60 * 1000);
+
         // --- Active Grimoire Expiry Check ---
         const now = Date.now();
         const expiredIds = store.activeGrimoires

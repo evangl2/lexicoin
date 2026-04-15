@@ -28,6 +28,7 @@ export interface GameStore extends ConfigState, CardState, ProgressionState, Gri
     updatePlayer: (updates: Partial<PlayerState>) => void;
     consumeEchoCharge: () => void;
     resetEchoCharges: () => void;
+    recoverStamina: () => void;
 
     // UI State
     viewMode: ViewMode;

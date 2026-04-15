@@ -8,7 +8,7 @@
 import { logger } from '@utils/logger';
 import { messageBus } from '@core/protocol/MessageBus';
 import { generateId } from '@utils/helpers';
-import type { UUID, LocalizedText, CEFRLevel, PersonaType } from '../../types/index';
+import type { UUID, LocalizedText, CEFRLevel, PersonaType, GrimoireType } from '../../types/index';
 
 
 export interface Persona {
@@ -28,9 +28,10 @@ export interface Persona {
     glowColor: string;
 
     // AI Evaluation logic
-    evalPrompt: string;  // Character-specific evaluation instruction
-    evalBias?: number;    // Optional scoring bias (-1.0 to 1.0)
-    genPrompt?: string;   // Character-specific generation prompt
+    evalPrompt: string;          // Character-specific evaluation instruction
+    evalBias?: number;           // Optional scoring bias (-1.0 to 1.0)
+    genPrompt?: string;          // Character-specific generation prompt
+    affinityTags: string[];      // Semantic preferences that tip close calls
     excludedTypes?: GrimoireType[]; // Grimoire types this persona refuses to generate
 }
 
@@ -93,46 +94,48 @@ class PersonaModule {
     private initializePersonas(): Map<PersonaType, Persona> {
         const personas: Persona[] = [
             {
-                id: 'LOGICIAN',
-                name: { en: 'The Logician', zh: '逻辑学家' },
+                id: 'CHILD',
+                name: { en: 'The Child', zh: '孩童' },
                 description: {
-                    en: 'Master of reason and structure',
-                    zh: '理性与结构的大师'
+                    en: 'Sees the world with pure, unfiltered wonder',
+                    zh: '以纯粹而未被过滤的惊奇感看待世界'
                 },
                 themeColors: {
-                    primary: '#3b82f6',  // Blue
-                    secondary: '#1e40af',
-                    accent: '#60a5fa',
+                    primary: '#4ade80',  // Green
+                    secondary: '#16a34a',
+                    accent: '#86efac',
                 },
-                unlockedAt: 3,
+                unlockedAt: 0, // GDD §4.2: all personas unlocked by default
                 resonance: 0,
-                spineColor: '#1e3a8a',
-                glowColor: '#3b82f6',
-                evalPrompt: 'Evaluate based on logical consistency, precise categorization, and grammatical structure. Valorize clarity over metaphor.',
-                evalBias: 0,
-                genPrompt: 'You are obsessed with taxonomies, categories, and hierarchical structures. Use clinical, precise, and orderly language.',
-                excludedTypes: ['metaphor', 'qualia'], 
+                spineColor: '#166534',
+                glowColor: '#4ade80',
+                evalPrompt: 'Evaluate with the pure, honest instinct of a child. Does this word feel right? Is it alive? Does it paint a picture? Be direct and instinctive.',
+                evalBias: 0.15,
+                genPrompt: 'You see the world through a child\'s eyes — everything is vivid, tactile, and full of wonder. Use simple but image-rich language. Ask "what does it feel like?"',
+                affinityTags: ['sensory', 'vivid', 'concrete', 'playful'],
+                excludedTypes: ['taxonomy', 'spectrum'],
             },
             {
-                id: 'POET',
-                name: { en: 'The Poet', zh: '诗人' },
+                id: 'GARDENER',
+                name: { en: 'The Gardener', zh: '园丁' },
                 description: {
-                    en: 'Weaver of beauty and emotion',
-                    zh: '美与情感的编织者'
+                    en: 'Tends to the living network of meaning',
+                    zh: '照料意义的有机网络'
                 },
                 themeColors: {
-                    primary: '#ec4899',  // Pink
-                    secondary: '#be185d',
-                    accent: '#f9a8d4',
+                    primary: '#22d3ee',  // Cyan
+                    secondary: '#0891b2',
+                    accent: '#67e8f9',
                 },
-                unlockedAt: 7,
+                unlockedAt: 0,
                 resonance: 0,
-                spineColor: '#831843',
-                glowColor: '#ec4899',
-                evalPrompt: 'Evaluate based on evocative power, aesthetic resonance, and metaphorical depth. Valorize beauty and emotional truth.',
-                evalBias: 0.2,
-                genPrompt: 'You are a master of metaphor and emotion. Use flowery, evocative, and rhythmic language. Find beauty in all things.',
-                excludedTypes: ['taxonomy', 'anatomy'],
+                spineColor: '#164e63',
+                glowColor: '#22d3ee',
+                evalPrompt: 'Evaluate like a gardener: does this word belong in the ecosystem? Does it grow naturally from the seed concept? Favor organic connections over forced ones.',
+                evalBias: 0,
+                genPrompt: 'You nurture language like a garden — tending to growth, relationship, and life cycles. Focus on how things connect, depend on each other, and change over time.',
+                affinityTags: ['relational', 'growth', 'life cycle', 'organic'],
+                excludedTypes: ['time', 'taxonomy'],
             },
             {
                 id: 'ALCHEMIST',
@@ -146,35 +149,15 @@ class PersonaModule {
                     secondary: '#b45309',
                     accent: '#fbbf24',
                 },
-                unlockedAt: 12,
+                unlockedAt: 0,
                 resonance: 0,
                 spineColor: '#78350f',
                 glowColor: '#f59e0b',
-                evalPrompt: 'Evaluate based on essence, functional transformation, and underlying properties. Valorize technical accuracy and utility.',
+                evalPrompt: 'Evaluate based on essence, functional transformation, and underlying properties. Valorize technical accuracy and utility. Does this word capture the process or the material?',
                 evalBias: -0.1,
-                genPrompt: 'You see the world as components waiting to be transformed. Focus on utility, material property, and function.',
-                excludedTypes: ['spectrum', 'qualia'],
-            },
-            {
-                id: 'MYSTIC',
-                name: { en: 'The Mystic', zh: '神秘学家' },
-                description: {
-                    en: 'Seeker of hidden truths',
-                    zh: '隐秘真理的探寻者'
-                },
-                themeColors: {
-                    primary: '#8b5cf6',  // Purple
-                    secondary: '#6d28d9',
-                    accent: '#a78bfa',
-                },
-                unlockedAt: 20,
-                resonance: 0,
-                spineColor: '#4c1d95',
-                glowColor: '#8b5cf6',
-                evalPrompt: 'Evaluate based on profound connections, hidden archetypes, and spiritual depth. Valorize synchronicity and obscure links.',
-                evalBias: 0.1,
-                genPrompt: 'You speak in riddles and seek the hidden soul of things. Focus on the esoteric, the symbolic, and the mysterious.',
-                excludedTypes: ['anatomy', 'ritual'],
+                genPrompt: 'You see the world as components waiting to be transformed. Focus on utility, material property, and function. Ask "what does it DO? what is it MADE of?"',
+                affinityTags: ['transformative', 'compound', 'process verb', 'material'],
+                excludedTypes: ['time', 'taxonomy'],
             },
         ];
 
@@ -201,17 +184,10 @@ class PersonaModule {
     }
 
     /**
-     * Get unlocked personas for a player level
+     * Get unlocked personas — GDD §4.2: all personas are unlocked by default for now.
      */
-    getUnlockedPersonas(playerLevel: number): Persona[] {
-        // Bolt: Optimize memory usage and speed by avoiding intermediate Array allocation
-        const result: Persona[] = [];
-        for (const p of this.personas.values()) {
-            if (p.unlockedAt <= playerLevel) {
-                result.push(p);
-            }
-        }
-        return result;
+    getUnlockedPersonas(_playerLevel?: number): Persona[] {
+        return Array.from(this.personas.values());
     }
 
     /**
@@ -248,11 +224,11 @@ class PersonaModule {
         if (!persona) return 0;
 
         const oldResonance = persona.resonance;
-        persona.resonance = Math.max(0, Math.min(100, persona.resonance + amount));
+        persona.resonance = Math.max(0, persona.resonance + amount); // No upper cap: unlimited XP track
 
-        // Milestone Check: Every 25% unlocks progress
-        const oldMilestone = Math.floor(oldResonance / 25);
-        const newMilestone = Math.floor(persona.resonance / 25);
+        // Milestone Check: Every 500 Resonance
+        const oldMilestone = Math.floor(oldResonance / 500);
+        const newMilestone = Math.floor(persona.resonance / 500);
 
         if (newMilestone > oldMilestone) {
             this.narrativeState.currentChapter += 1;

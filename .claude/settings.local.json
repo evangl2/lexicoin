@@ -32,7 +32,8 @@
       "Bash(supabase --version)",
       "Bash(python -c \":*)",
       "Bash(find /a/lexicoin/lexicoin -type f \\\\\\( -name \"*.sql\" -o -name \"*.ts\" \\\\\\) -exec grep -l \"synthesis_cache\" {} \\\\;)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(grep -r \"GrimoireBackend\" /a/lexicoin/lexicoin --include=\"*.ts\" --include=\"*.tsx\" ! -path \"*/node_modules/*\")"
     ]
   }
 }

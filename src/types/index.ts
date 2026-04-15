@@ -22,8 +22,8 @@ export type Language = 'en' | 'zh' | 'ja' | 'de' | 'fr' | 'es' | 'ko';
 // AI Model IDs
 export type ModelId = 'gemini-2.0-flash' | 'gemini-1.5-pro' | 'gemini-1.5-flash';
 
-// Persona Types
-export type PersonaType = 'LOGICIAN' | 'POET' | 'ALCHEMIST' | 'MYSTIC';
+// Persona Types (GDD §4.6: CHILD / GARDENER / ALCHEMIST)
+export type PersonaType = 'CHILD' | 'GARDENER' | 'ALCHEMIST';
 
 // ============================================================================
 // LOCALIZATION
@@ -190,6 +190,7 @@ export interface PlayerState {
     // Vitals (Stamina System)
     stamina: number;
     maxStamina: number;
+    staminaLastUpdatedAt: Timestamp; // For offline recovery calculation
 
     // Progression
     phase: GamePhase;
@@ -300,8 +301,8 @@ export type GrimoireStatus =
 /**
  * Grimoire semantic templates
  */
-export type GrimoireType = 
-    | 'taxonomy' | 'anatomy' | 'locus' | 'script' 
+export type GrimoireType =
+    | 'taxonomy' | 'anatomy' | 'locus' | 'time'
     | 'spectrum' | 'qualia' | 'ritual' | 'metaphor';
 
 /**
@@ -309,7 +310,6 @@ export type GrimoireType =
  */
 export interface GrimoireSlot {
     id: UUID;
-    label: string;                   // AI-generated guideline (learning language)
     senseId: UUID | null;            // Placed Sense ID
     grade: Grade | null;             // Result of judgment
     locked: boolean;                 // Non-F results lock the slot
