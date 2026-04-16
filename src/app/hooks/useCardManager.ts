@@ -172,11 +172,14 @@ export const useCardManager = () => {
 
     // ==== Store Card (Canvas → Repository) ====
     const storeCard = useCallback((uid: string) => {
-        setItems(prev => prev.map(item =>
-            item.cardData.rawSense.uid === uid
-                ? { ...item, location: 'repository' as CardLocation }
-                : item
-        ));
+        setItems(prev => {
+            const index = prev.findIndex(item => item.cardData.rawSense.uid === uid);
+            if (index === -1) return prev;
+
+            const newItems = [...prev];
+            newItems[index] = { ...newItems[index], location: 'repository' as CardLocation };
+            return newItems;
+        });
 
         // Persist immediately
         db.canvasPositions.update(uid, { location: 'repository' }).catch(err => {
@@ -186,58 +189,65 @@ export const useCardManager = () => {
 
     // ==== Retrieve Card (Repository → Canvas) ====
     const retrieveCard = useCallback((uid: string, x: number, y: number) => {
-        setItems(prev => prev.map(item => {
-            if (item.cardData.rawSense.uid === uid) {
-                // IMPORTANT: Create NEW MotionValues to reset velocity history.
-                // Reusing the old ones causes a massive position jump (old_pos -> new_pos)
-                // which triggers extreme velocity-based deformation (glare/tilt).
-                const newMx = motionValue(x);
-                const newMy = motionValue(y);
+        setItems(prev => {
+            const index = prev.findIndex(item => item.cardData.rawSense.uid === uid);
+            if (index === -1) return prev;
 
-                const newItem: CardItem = {
-                    ...item,
-                    mx: newMx,
-                    my: newMy,
-                    scale: motionValue(1),
-                    location: 'canvas',
-                    isVisible: true
-                };
+            const item = prev[index];
+            // IMPORTANT: Create NEW MotionValues to reset velocity history.
+            // Reusing the old ones causes a massive position jump (old_pos -> new_pos)
+            // which triggers extreme velocity-based deformation (glare/tilt).
+            const newMx = motionValue(x);
+            const newMy = motionValue(y);
 
-                // Sync to DB immediately
-                db.canvasPositions.put({ uid, x, y, location: 'canvas' }).catch(err => {
-                    logger.error('Failed to retrieve card from repository', err, 'useCardManager');
-                });
+            const newItem: CardItem = {
+                ...item,
+                mx: newMx,
+                my: newMy,
+                scale: motionValue(1),
+                location: 'canvas',
+                isVisible: true
+            };
 
-                return newItem;
-            }
-            return item;
-        }));
+            const newItems = [...prev];
+            newItems[index] = newItem;
+
+            // Sync to DB immediately
+            db.canvasPositions.put({ uid, x, y, location: 'canvas' }).catch(err => {
+                logger.error('Failed to retrieve card from repository', err, 'useCardManager');
+            });
+
+            return newItems;
+        });
     }, []);
 
     // ==== Set Card Location (Generic) ====
     const setCardLocation = useCallback((uid: string, location: CardLocation, position?: { x: number, y: number }) => {
-        setItems(prev => prev.map(item => {
-            if (item.cardData.rawSense.uid === uid) {
-                // If position is provided, update it (e.g. for ejection)
-                // IMPORTANT: Create NEW MotionValues to reset velocity history (fixing "warp" effect)
-                let newMx = item.mx;
-                let newMy = item.my;
+        setItems(prev => {
+            const index = prev.findIndex(item => item.cardData.rawSense.uid === uid);
+            if (index === -1) return prev;
 
-                if (position) {
-                    newMx = motionValue(position.x);
-                    newMy = motionValue(position.y);
-                }
+            const item = prev[index];
+            // If position is provided, update it (e.g. for ejection)
+            // IMPORTANT: Create NEW MotionValues to reset velocity history (fixing "warp" effect)
+            let newMx = item.mx;
+            let newMy = item.my;
 
-                return {
-                    ...item,
-                    mx: newMx,
-                    my: newMy,
-                    location,
-                    isVisible: location === 'canvas'
-                };
+            if (position) {
+                newMx = motionValue(position.x);
+                newMy = motionValue(position.y);
             }
-            return item;
-        }));
+
+            const newItems = [...prev];
+            newItems[index] = {
+                ...item,
+                mx: newMx,
+                my: newMy,
+                location,
+                isVisible: location === 'canvas'
+            };
+            return newItems;
+        });
 
         // DB Update
         const updatePayload: any = { location };
@@ -297,37 +307,42 @@ export const useCardManager = () => {
             }
 
             setItems(prev => {
-                const match = prev.find(item => item.cardData.rawSense.uid === entry.uid);
-                if (!match) {
+                const index = prev.findIndex(item => item.cardData.rawSense.uid === entry.uid);
+                if (index === -1) {
                     logger.warn(`[handleAssetLoaded] No card found in items for uid=${entry.uid} (items=${prev.length})`, undefined, 'useCardManager');
+                    return prev;
                 }
-                return prev.map((item) => {
-                    if (item.cardData.rawSense.uid !== entry.uid) return item;
-                    logger.info(`[handleAssetLoaded] Updating visual for uid=${entry.uid} (payloadLen=${entry.payload.length})`, undefined, 'useCardManager');
-                    return {
-                        ...item,
-                        cardData: {
-                            ...item.cardData,
-                            visual: { status: 'loaded' as const, payload: entry.payload }
-                        }
-                    };
-                });
+
+                logger.info(`[handleAssetLoaded] Updating visual for uid=${entry.uid} (payloadLen=${entry.payload.length})`, undefined, 'useCardManager');
+                const newItems = [...prev];
+                newItems[index] = {
+                    ...newItems[index],
+                    cardData: {
+                        ...newItems[index].cardData,
+                        visual: { status: 'loaded' as const, payload: entry.payload }
+                    }
+                };
+                return newItems;
             });
         };
 
         const handleAssetError = (msg: any) => {
             const { assetId } = msg.payload as any;
             if (!assetId) return;
-            setItems(prev => prev.map((item) => {
-                if (item.cardData.rawSense.uid !== assetId) return item;
-                return {
-                    ...item,
+            setItems(prev => {
+                const index = prev.findIndex(item => item.cardData.rawSense.uid === assetId);
+                if (index === -1) return prev;
+
+                const newItems = [...prev];
+                newItems[index] = {
+                    ...newItems[index],
                     cardData: {
-                        ...item.cardData,
+                        ...newItems[index].cardData,
                         visual: { status: 'error' as const, payload: '' }
                     }
                 };
-            }));
+                return newItems;
+            });
         };
 
         const sub = messageBus.subscribe('SENSE_CREATED', handleNewSense);
@@ -336,19 +351,23 @@ export const useCardManager = () => {
 
         const handleDurabilityChanged = (msg: any) => {
             const { uid, current } = msg.payload;
-            setItems(prev => prev.map((item) => {
-                if (item.cardData.rawSense.uid !== uid) return item;
-                return {
-                    ...item,
+            setItems(prev => {
+                const index = prev.findIndex(item => item.cardData.rawSense.uid === uid);
+                if (index === -1) return prev;
+
+                const newItems = [...prev];
+                newItems[index] = {
+                    ...newItems[index],
                     cardData: {
-                        ...item.cardData,
+                        ...newItems[index].cardData,
                         senseInfo: {
-                            ...item.cardData.senseInfo,
+                            ...newItems[index].cardData.senseInfo,
                             durability: current
                         }
                     }
                 };
-            }));
+                return newItems;
+            });
         };
         const subDurability = messageBus.subscribe('CARD_DURABILITY_CHANGED', handleDurabilityChanged);
 
