@@ -30,6 +30,7 @@ export function useGrimoireSummoning() {
     const player            = useGameStore(s => s.player);
     const learningLang      = useGameStore(s => s.player?.settings?.learningLang ?? 'en');
     const systemLang        = useGameStore(s => s.player?.settings?.interfaceLang ?? 'zh');
+    const personaStages     = useGameStore(s => s.personaStages);
     const consumeStamina    = useGameStore(s => s.consumeStamina);
     const regenerateStamina = useGameStore(s => s.regenerateStamina);
     const spawnGrimoire     = useGameStore(s => s.spawnGrimoire);
@@ -84,10 +85,15 @@ export function useGrimoireSummoning() {
                 levelInLang >= 10 ? 'B1' :
                 levelInLang >= 5  ? 'A2' : 'A1';
 
-            // 6. 发起 AI 调用（传 personaId 字符串；后端查字典）
+            // 6. 发起 AI 调用（传 personaId + personaStory；后端查字典并 resolve context）
+            const personaStory = {
+                stage: personaStages[resolvedPersonaId as keyof typeof personaStages] ?? 'startingpoint',
+                // mood: null — RESERVED，目前不传递
+            };
             const { data, error: invokeErr } = await supabase.functions.invoke('generate-grimoire', {
                 body: {
                     personaId: resolvedPersonaId,       // 后端查 personaDictionary
+                    personaStory,                       // 后端 resolvePersonaContext 选取对应 stage
                     archetypeId: selectedType,          // e.g. 'anatomy', 'locus', 'time'
                     seedWord: seed.word[learningLang] || seed.word.en,
                     learningLanguage: learningLang,

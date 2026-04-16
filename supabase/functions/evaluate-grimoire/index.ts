@@ -2,11 +2,12 @@
  * evaluate-grimoire/index.ts
  *
  * Receives filled Grimoire slots and calls Gemini to grade each one.
- * Persona identity (bias, affinityTags, evalPrompt) is resolved from the BACKEND dictionary.
+ * Persona identity (bias, triggerConditions, evaluatorProfile) is resolved from the BACKEND dictionary.
  * Based on GDD §9.3.
  */
 
-import { getPersona } from '../lib/personaDictionary.ts';
+import { resolvePersonaContext } from '../_shared/personaStory.ts';
+import type { PersonaStory } from '../_shared/personaStory.ts';
 
 // ── CORS headers ──────────────────────────────────────────────────────────────
 const corsHeaders = {
@@ -69,6 +70,12 @@ Deno.serve(async (req: Request) => {
         const body = await req.json();
         const {
             personaId = 'CHILD',
+            /**
+             * personaStory: 前端传入的当前叙事状态，与 generate-grimoire 保持一致。
+             * 评判时使用与生成时相同的 persona 上下文（evalBias / triggerConditions 等）。
+             * mood 字段当前不参与解析（RESERVED）。
+             */
+            personaStory = null as PersonaStory | null,
             grimoire,
             slotsToEvaluate,
             learningLanguage = 'en',
@@ -83,10 +90,11 @@ Deno.serve(async (req: Request) => {
             }, 400);
         }
 
-        // ── Resolve persona from backend dictionary ───────────────────────────
-        const persona = getPersona(personaId);
+        // ── Resolve persona context (base + stage override) ───────────────────
+        const persona = resolvePersonaContext(personaId, personaStory);
         const evalBias: number = persona.evalBias;
-        const affinityTags: string[] = persona.affinityTags;
+        const triggerConditions: string[] = persona.triggerConditions;
+        const conditionMatchComm: string = persona.conditionMatchComm;
 
         const biasLabel =
             evalBias > 0.1  ? 'LENIENT' :
@@ -103,19 +111,18 @@ Deno.serve(async (req: Request) => {
 [ROLE DEFINITION]
 You are ${persona.name.en}.
 ${persona.description}
-Your evaluation voice: ${persona.evalPrompt}
+Your evaluation voice: ${persona.evaluatorProfile}
 
 [YOUR BIAS]
 Disposition: ${biasLabel} (${evalBias > 0 ? '+' : ''}${evalBias})
 ${biasDescription}
-Affinity: You especially value words that are [${affinityTags.join(', ')}].
-When two grades are equally justified, let your affinity decide.
+Trigger conditions: [${triggerConditions.join(', ')}].
+When two grades are equally justified, let your trigger conditions decide.
+${conditionMatchComm}
 
 [CONTEXT]
-Seed Concept: "${grimoire.seedWord ?? ''}"
-Archetype: ${grimoire.grimoireType ?? ''}
+Quest Context: "${grimoire.personaQuest?.learning ?? ''}"
 Explicit Instruction: "${grimoire.explicitInstruction?.learning ?? ''}"
-Design Rationale: "${grimoire.designRationale ?? ''}"
 Standard Answer Reference (hidden from player): ${(grimoire.validationTags ?? []).join(', ')}
 
 [GRADING CRITERIA — apply in order]

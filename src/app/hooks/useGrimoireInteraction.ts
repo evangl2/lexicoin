@@ -19,11 +19,12 @@ export function useGrimoireInteraction() {
     const [error, setError] = useState<string | null>(null);
 
     const activeGrimoireId = useGameStore(s => s.activeGrimoireId);
-    const setOpenGrimoire = useGameStore(s => s.setActiveGrimoireId);
-    const activeGrimoires = useGameStore(s => s.activeGrimoires);
-    const updateGrimoire = useGameStore(s => s.updateGrimoire);
-    const updateSlotSense = useGameStore(s => s.updateSlotSense);
-    const senses = useGameStore(s => s.senses);
+    const setOpenGrimoire  = useGameStore(s => s.setActiveGrimoireId);
+    const activeGrimoires  = useGameStore(s => s.activeGrimoires);
+    const updateGrimoire   = useGameStore(s => s.updateGrimoire);
+    const updateSlotSense  = useGameStore(s => s.updateSlotSense);
+    const senses           = useGameStore(s => s.senses);
+    const personaStages    = useGameStore(s => s.personaStages);
     
     // 获取当前正在编辑的魔典
     const grimoire = activeGrimoires.find(g => g.id === activeGrimoireId);
@@ -69,15 +70,20 @@ export function useGrimoireInteraction() {
                 };
             });
 
+            // 评判时传入与生成时相同的 personaStory（保证 evalBias/triggerConditions 一致）
+            const personaStory = {
+                stage: personaStages[grimoire.personaId as keyof typeof personaStages] ?? 'startingpoint',
+                // mood: null — RESERVED，目前不传递
+            };
+
             const { data, error: invokeErr } = await supabase.functions.invoke('evaluate-grimoire', {
                 body: {
                     personaId: grimoire.personaId,   // 后端查 personaDictionary
+                    personaStory,                    // 后端 resolvePersonaContext 选取对应 stage
                     grimoire: {
                         id: grimoire.id,
-                        seedWord: grimoire.seedWord,
-                        grimoireType: grimoire.grimoireType,
+                        personaQuest: grimoire.theme.description,
                         explicitInstruction: grimoire.explicitInstruction,
-                        designRationale: grimoire.designRationale,
                         validationTags: grimoire.validationTags,
                     },
                     slotsToEvaluate,

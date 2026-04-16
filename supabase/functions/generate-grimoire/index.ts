@@ -14,8 +14,9 @@
  *    (JSON response mode blocks external CoT; reasoning must be explicit in output.)
  */
 
-import { getPersona, pickNarrativeForm } from '../lib/personaDictionary.ts';
-import { ARCHETYPE_TABLE, buildArchetypeReferenceTable } from '../lib/archetypeTable.ts';
+import { resolvePersonaContext, pickNarrativeForm } from '../_shared/personaStory.ts';
+import type { PersonaStory } from '../_shared/personaStory.ts';
+import { ARCHETYPE_TABLE, buildArchetypeReferenceTable } from '../_shared/grimoireArchetype.ts';
 
 // ── CORS headers ──────────────────────────────────────────────────────────────
 const corsHeaders = {
@@ -83,11 +84,13 @@ Deno.serve(async (req: Request) => {
             learningLanguage = 'en',
             systemLanguage = 'zh',
             modelId = 'gemini-2.0-flash',
-            // personaStory: reserved for future use.
-            // Will carry persona narrative state (chapter, mood, recent events).
-            // When populated, it should inform the Motivation and color the quest.
-            // e.g. { chapter: 2, mood: 'grieving', recentEvent: 'lost a student' }
-            personaStory = null,
+            /**
+             * personaStory: 前端传入的当前叙事状态。
+             * 前端持久化 personaStages[personaId]（如 'startingpoint'），每次调用传入。
+             * resolvePersonaContext 会据此选取对应 stage override（目前均无 override）。
+             * mood 字段当前不参与解析（RESERVED）。
+             */
+            personaStory = null as PersonaStory | null,
         } = body;
 
         if (!seedWord || !archetypeId) {
@@ -97,8 +100,8 @@ Deno.serve(async (req: Request) => {
             }, 400);
         }
 
-        // ── Resolve persona from backend dictionary ──────────────────────────
-        const persona = getPersona(personaId);
+        // ── Resolve persona context (base + stage override) ──────────────────
+        const persona = resolvePersonaContext(personaId, personaStory);
 
         // ── Resolve archetype from backend table ─────────────────────────────
         const archetype = ARCHETYPE_TABLE[archetypeId];
@@ -109,16 +112,16 @@ Deno.serve(async (req: Request) => {
             }, 400);
         }
 
-        // ── Random narrative form (per-persona, this generation only) ────────
+        // ── Random narrative form from resolved context ───────────────────────
         const narrativeForm = pickNarrativeForm(persona);
 
         // ── Slot count (server-side random, 3–6) ─────────────────────────────
         const slotCount = Math.floor(Math.random() * 4) + 3;
 
-        // ── personaStory injection (placeholder) ─────────────────────────────
-        const personaStoryLine = personaStory
-            ? `Current Story State: ${JSON.stringify(personaStory)}`
-            : `Current Story State: [not yet available — treat as a timeless encounter]`;
+        // ── Story state line (for prompt context, non-functional at startingpoint)
+        const personaStoryLine = (personaStory?.stage && personaStory.stage !== 'startingpoint')
+            ? `Current Story Stage: "${personaStory.stage}"`
+            : `Current Story Stage: startingpoint — treat as a timeless encounter`;
 
         // ── Build archetype reference table ──────────────────────────────────
         const archetypeRefTable = buildArchetypeReferenceTable();

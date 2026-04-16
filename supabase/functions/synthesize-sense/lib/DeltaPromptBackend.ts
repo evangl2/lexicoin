@@ -30,7 +30,7 @@
  * 失败策略：失败/超时直接返回 GENERATION_FAILED，拒绝降级。
  */
 
-import { PERSONA_DICTIONARY } from './PersonaDictionary.ts';
+import { SENSE_PERSONA_DICTIONARY as PERSONA_DICTIONARY } from '../../_shared/sensePersona.ts';
 import {
     VERB_KEY_FORMS,
     NOUN_KEY_FORMS,

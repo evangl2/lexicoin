@@ -27,11 +27,6 @@ export interface Persona {
     spineColor: string;
     glowColor: string;
 
-    // AI Evaluation logic
-    evalPrompt: string;          // Character-specific evaluation instruction
-    evalBias?: number;           // Optional scoring bias (-1.0 to 1.0)
-    genPrompt?: string;          // Character-specific generation prompt
-    affinityTags: string[];      // Semantic preferences that tip close calls
     excludedTypes?: GrimoireType[]; // Grimoire types this persona refuses to generate
 }
 
@@ -109,10 +104,6 @@ class PersonaModule {
                 resonance: 0,
                 spineColor: '#166534',
                 glowColor: '#4ade80',
-                evalPrompt: 'Evaluate with the pure, honest instinct of a child. Does this word feel right? Is it alive? Does it paint a picture? Be direct and instinctive.',
-                evalBias: 0.15,
-                genPrompt: 'You see the world through a child\'s eyes — everything is vivid, tactile, and full of wonder. Use simple but image-rich language. Ask "what does it feel like?"',
-                affinityTags: ['sensory', 'vivid', 'concrete', 'playful'],
                 excludedTypes: ['taxonomy', 'spectrum'],
             },
             {
@@ -131,10 +122,6 @@ class PersonaModule {
                 resonance: 0,
                 spineColor: '#164e63',
                 glowColor: '#22d3ee',
-                evalPrompt: 'Evaluate like a gardener: does this word belong in the ecosystem? Does it grow naturally from the seed concept? Favor organic connections over forced ones.',
-                evalBias: 0,
-                genPrompt: 'You nurture language like a garden — tending to growth, relationship, and life cycles. Focus on how things connect, depend on each other, and change over time.',
-                affinityTags: ['relational', 'growth', 'life cycle', 'organic'],
                 excludedTypes: ['time', 'taxonomy'],
             },
             {
@@ -153,10 +140,6 @@ class PersonaModule {
                 resonance: 0,
                 spineColor: '#78350f',
                 glowColor: '#f59e0b',
-                evalPrompt: 'Evaluate based on essence, functional transformation, and underlying properties. Valorize technical accuracy and utility. Does this word capture the process or the material?',
-                evalBias: -0.1,
-                genPrompt: 'You see the world as components waiting to be transformed. Focus on utility, material property, and function. Ask "what does it DO? what is it MADE of?"',
-                affinityTags: ['transformative', 'compound', 'process verb', 'material'],
                 excludedTypes: ['time', 'taxonomy'],
             },
         ];

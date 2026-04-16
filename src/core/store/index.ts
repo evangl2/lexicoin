@@ -5,6 +5,7 @@ import { createConfigSlice } from './slices/createConfigSlice';
 import { createCardStateSlice } from './slices/createCardStateSlice';
 import { createProgressionSlice } from './slices/createProgressionSlice';
 import { createGrimoireSlice } from './slices/createGrimoireSlice';
+import { createPersonaStorySlice } from './slices/createPersonaStorySlice';
 
 import type {
     PlayerState,
@@ -97,6 +98,7 @@ export const useGameStore = create<GameStore>()(
             ...createCardStateSlice(set, get, api),
             ...createProgressionSlice(set, get, api),
             ...createGrimoireSlice(set, get, api),
+            ...createPersonaStorySlice(set, get, api),
 
             // Player State
             player: initialPlayer,
@@ -324,6 +326,7 @@ export const useGameStore = create<GameStore>()(
                 // Other persisted state
                 activePersona: state.activePersona,
                 personaResonance: state.personaResonance,
+                personaStages: state.personaStages,
                 libraryFilter: state.libraryFilter,
                 reviewDueSenses: state.reviewDueSenses,
                 activeReviewSession: state.activeReviewSession,
