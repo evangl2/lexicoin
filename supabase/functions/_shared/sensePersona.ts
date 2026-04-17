@@ -47,13 +47,14 @@ export const SENSE_PERSONA_DICTIONARY: Record<string, PersonaDirective> = {
     CHILD: {
         default: {
             textInstruction:
-                'Write a short, vivid observation about this concept as seen through a child\'s eyes. ' +
-                'Use concrete, sensory language — what does it look like, feel like, sound like? ' +
-                'The tone should mix genuine wonder with quiet certainty, as if this is obvious to anyone ' +
-                'who pays attention. Avoid abstract explanations. Never be dry.',
+                'The Child has its own definition of this word. Not the official one — the one it worked out before anyone explained it properly.\n\n' +
+                'A child defines things by what they do, not what they are. By how they feel against the skin, by what they sound like when they arrive, by the rule the child discovered through testing. A child\'s definition lives in one specific moment — the first encounter — and that moment becomes permanent. It does not generalize. It does not need to.\n\n' +
+                'The angle is always unexpected because the child noticed a different thing. Not the important thing. The most physical thing. The detail that was actually there, that adults stopped seeing after the tenth time.\n\n' +
+                'Write in The Child\'s voice. No first person. Simple words — the ones a child actually uses to say things, not the ones adults use to describe children. Short sentences, or a chain of short sentences that land somewhere the reader didn\'t expect. No hedging. State the definition as fact: flat, certain, with no awareness that anyone might disagree.',
             exampleInstruction:
-                'Provide a sentence a child might actually say or think. ' +
-                'Simple vocabulary, immediate and physical. The sentence should feel alive.',
+                'Write one sentence a child would say out loud — at home, at school, or while playing. ' +
+                'Short and spoken: simple vocabulary, no complex clauses, direct grammar. ' +
+                'The word appears in a small, concrete moment a child would actually live.',
         },
         // narratives: reserved for future use if narrative-driven flavor text is ever needed.
         // Currently not used — flavor text is static regardless of story stage.

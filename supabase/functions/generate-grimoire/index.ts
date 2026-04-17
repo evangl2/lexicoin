@@ -126,6 +126,11 @@ Deno.serve(async (req: Request) => {
         // ── Build archetype reference table ──────────────────────────────────
         const archetypeRefTable = buildArchetypeReferenceTable();
 
+        // ── Resolve voice description for learning language ───────────────────
+        const voiceDesc = persona.voiceDescription[learningLanguage]
+            ?? persona.voiceDescription['en']
+            ?? '';
+
         // ── System Prompt ─────────────────────────────────────────────────────
         const systemPrompt = `
 [ROLE DEFINITION]
@@ -134,7 +139,7 @@ ${persona.description}
 ${personaStoryLine}
 
 Your voice:
-${persona.voiceDescription}
+${voiceDesc}
 
 ▶ CRITICAL: Everything you generate — title, personaQuest, explicitInstruction — must be written
   in this voice. Not a generic narrator. ${persona.name.en} specifically.

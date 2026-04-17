@@ -93,12 +93,46 @@ Deno.serve(async (req: Request) => {
         // ── Resolve persona context (base + stage override) ───────────────────
         const persona = resolvePersonaContext(personaId, personaStory);
         const evalBias: number = persona.evalBias;
-        const triggerConditions: string[] = persona.triggerConditions;
-        const conditionMatchComm: string = persona.conditionMatchComm;
 
-        const biasLabel =
-            evalBias > 0.1  ? 'LENIENT' :
-            evalBias < -0.1 ? 'STRICT'  : 'NEUTRAL';
+        // ── Resolve voice descriptions (one per output language) ─────────────
+        const voiceDescLearning = persona.voiceDescription[learningLanguage]
+            ?? persona.voiceDescription['en']
+            ?? '';
+        const voiceDescSystem = persona.voiceDescription[systemLanguage]
+            ?? persona.voiceDescription['en']
+            ?? '';
+
+        // ── Build story trigger block ─────────────────────────────────────────
+        // 将 persona.triggers 注入 [STORY TRIGGERS] 块，AI 逐词检查并在命中时替代 [COMMENTARY]。
+        // 命中结果通过 output schema 的 triggeredCondition 字段返回给前端。
+        //
+        // 前端职责（待实现）：
+        //   - 读取每个 slot 的 triggeredCondition
+        //   - 按 trigger id 递增对应的故事 counter（权重在前端配置）
+        //   - counter 达到阈值（±100）时写入结局 tag
+        //
+        // generate-grimoire 集成（待实现）：
+        //   - seedWord 命中 trigger 时注入叙事约束，参考此处 triggerBlock 构建逻辑
+        //
+        // sensePersona 集成（待实现）：
+        //   - sense 词命中 trigger 时将 comm 作为 filter 注入 senseprompt
+        const triggerBlock = persona.triggers.length > 0
+            ? `\n[STORY TRIGGERS]
+Before writing commentary for each word, check whether the word semantically matches
+any condition below. Matching is based on meaning and associations, not surface form.
+
+If a word matches:
+  - Write that word's commentary using the corresponding instruction INSTEAD of [COMMENTARY] rules above.
+  - Voice (voiceDescription), language, and transcreation requirements still apply.
+  - Grade is still determined by [SCORING SCALE] — triggers only affect commentary.
+  - Report the matched condition id in triggeredCondition.
+
+If no condition matches: follow [COMMENTARY] normally. Set triggeredCondition to null.
+
+${persona.triggers.map(t =>
+    `id: "${t.id}"\nCondition: ${t.condition}\nIf matched: ${t.comm}`
+).join('\n\n')}`
+            : '';
 
         const biasDescription =
             evalBias > 0.1
@@ -108,54 +142,60 @@ Deno.serve(async (req: Request) => {
                 : 'You are fair. Grade purely on merit.';
 
         const systemPrompt = `
-[ROLE DEFINITION]
-You are ${persona.name.en}.
-${persona.description}
-Your evaluation voice: ${persona.evaluatorProfile}
-
-[YOUR BIAS]
-Disposition: ${biasLabel} (${evalBias > 0 ? '+' : ''}${evalBias})
+You are ${persona.name.en}. ${persona.description}
+${persona.evaluatorProfile}
 ${biasDescription}
-Trigger conditions: [${triggerConditions.join(', ')}].
-When two grades are equally justified, let your trigger conditions decide.
-${conditionMatchComm}
 
-[CONTEXT]
+[YOUR VOICE — writing in ${learningLanguage}]
+${voiceDescLearning}
+
+[YOUR VOICE — writing in ${systemLanguage}]
+${voiceDescSystem}
+
+[TASK CONTEXT]
 Quest Context: "${grimoire.personaQuest?.learning ?? ''}"
 Explicit Instruction: "${grimoire.explicitInstruction?.learning ?? ''}"
 Standard Answer Reference (hidden from player): ${(grimoire.validationTags ?? []).join(', ')}
 
-[GRADING CRITERIA — apply in order]
-1. Relevance: Does the word strictly follow the Explicit Instruction?
-2. Creativity: Is the connection surprising, precise, or poetic?
-3. Persona Bias: Apply your disposition and affinity as the tiebreaker.
-
 [SCORING SCALE]
-S++  Inspired. Fulfills the task AND reveals unexpected depth. You are genuinely moved.
-S+   Fits perfectly and shows clear creative thinking.
-S    Clearly and correctly fulfills the task.
-A    Fits but is predictable or lacks depth.
-B    Loosely fits. A native speaker might use it, but it misses the core logic.
-C    Tangentially related. Misses the explicit rule but not entirely off-topic.
-D    Very weak semantic link. Almost wrong.
-F    Irrelevant, grammatically wrong, or nonsense. Must be replaced.
+F    Does not belong here. Wrong, grammatically broken, or nonsense.
+D    Almost irrelevant. The semantic link is too weak to be useful.
+C    Tangentially related. Does not satisfy the Explicit Instruction.
+B    In the right territory, but misses the core of the Explicit Instruction.
+A    Correctly satisfies the Explicit Instruction. The word does the job — nothing more.
+S    Correct AND the word belongs in your world — it resonates with who you are.
+S+   Correct AND you would have sought this word yourself — it speaks your language.
+S++  Correct AND this word reveals an instant truth you recognized the moment you saw it.
+     Only you would have noticed.
 
-[COMMENTARY RULES]
-- Length: 1–2 sentences maximum. No more.
-- Voice: First person. Write as ${persona.name.en} — use their vocabulary and emotional register.
-- Content: State what impressed you OR what is lacking. Do not restate the grade.
-- Language note: Briefly indicate WHY this word fits or doesn't in this semantic context.
-- Do NOT mention the Standard Answer Reference in your commentary.
+[COMMENTARY]
+Purpose: You are not writing a semantic analysis. You are ${persona.name.en},
+telling the player how this word lands — from inside the scene of this quest.
+The player should feel they are receiving feedback from a character, not a rubric.
+
+- The word is not evaluated in the abstract. Ask: does it work for what we are
+  trying to do here, in this specific situation? Speak from that place.
+- Write the "learning" field in ${learningLanguage}. Write the "system" field in
+  ${systemLanguage} as a TRANSCREATION — same persona, same judgment, native
+  register. Not a translation.
+- Speak as ${persona.name.en}. Your vocabulary, rhythm, and register must match
+  your voiceDescription. The player must know immediately who is speaking.
+- Make the judgment clear. State what works or what fails, and why it matters
+  in this quest.
+- Up to 5 sentences. Serve the purpose above first — use only as many as needed.
+- Do NOT restate the grade. Do NOT mention the Standard Answer Reference.
+${triggerBlock}
 
 [OUTPUT SCHEMA — strict JSON, no markdown]
 {
   "results": [
     {
-      "slotId": "uuid",
+      "slotId": "<echo the slotId from input — do not modify>",
       "grade": "S++ | S+ | S | A | B | C | D | F",
+      "triggeredCondition": "<matched trigger id, or null if no condition matched>",
       "commentary": {
-        "learning": "First-person critique in ${learningLanguage}. 1-2 sentences. Language note included.",
-        "system": "TRANSCREATE in ${systemLanguage}: same voice, same judgment, native register. Not a translation."
+        "learning": "1–5 sentences in ${learningLanguage}. First person, in ${persona.name.en}'s voice.",
+        "system": "TRANSCREATE in ${systemLanguage}: same persona, same judgment, native register."
       }
     }
   ]

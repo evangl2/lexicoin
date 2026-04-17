@@ -17,6 +17,34 @@
  * └─────────────────────────────────────────────────────────────────┘
  *
  * 使用方：generate-grimoire、evaluate-grimoire
+ *
+ * ── 故事层当前状态与未来规划 ─────────────────────────────────────────────────
+ *
+ * 【已实现】
+ *   - triggers 字段：每个 persona 的故事触发器，注入 evaluate-grimoire [STORY TRIGGERS] 块
+ *   - evaluate-grimoire 逐词检查 trigger，命中时用 comm 替代 [COMMENTARY]，并返回 triggeredCondition
+ *
+ * 【前端待实现】
+ *   - 读取每次评估返回的 triggeredCondition（per slot）
+ *   - 根据 trigger id 递增对应 counter（权重由前端配置，如 growth_adult_heavy +3）
+ *   - counter 持久化至 store（建议 createPersonaStorySlice 扩展）
+ *   - counter 达到阈值（±100）时：写入结局 tag，触发 UI 叙事事件
+ *
+ * 【generate-grimoire 待实现】
+ *   - 当 seedWord 语义命中某 trigger.condition 时，将对应 comm 注入叙事约束块
+ *   - comm 可遮蔽（替换）已选 narrativeForm，或叠加约束（由 comm 内容决定）
+ *   - 实现位置：generate-grimoire/index.ts，参考 evaluate-grimoire 的 triggerBlock 构建
+ *
+ * 【sensePersona 待实现】
+ *   - 当 sense 词命中 trigger.condition 时，将 comm 作为最高优先级 filter
+ *   - filter 在 textInstruction / exampleInstruction 之前注入 senseprompt
+ *   - 实现位置：synthesize-sense（或对应 edge function）调用侧
+ *
+ * 【stages 结局 override 待实现】
+ *   - counter 达到结局阈值后，可将结局 tag 作为 stage 名传入 personaStory.stage
+ *   - resolvePersonaContext 自动应用对应 stage override（description / voiceDescription 等）
+ *   - 让玩家在 persona 的语言和行为中真实感受到故事的变化
+ *   - 各 persona 的结局 stage 内容待设计
  */
 
 import { PERSONA_DICTIONARY } from './personas/index.ts';
@@ -88,14 +116,13 @@ export function resolvePersonaContext(
         description:   persona.description,
         resolvedStage: stage,
         // 标量字段：override 覆盖 base
-        voiceDescription:   override.voiceDescription   ?? persona.base.voiceDescription,
-        evaluatorProfile:   override.evaluatorProfile   ?? persona.base.evaluatorProfile,
-        evalBias:           override.evalBias            ?? persona.base.evalBias,
-        conditionMatchComm: override.conditionMatchComm ?? persona.base.conditionMatchComm,
+        voiceDescription: override.voiceDescription ?? persona.base.voiceDescription,
+        evaluatorProfile: override.evaluatorProfile  ?? persona.base.evaluatorProfile,
+        evalBias:         override.evalBias           ?? persona.base.evalBias,
         // 数组字段：override 完全替换（不合并）
-        triggerConditions: override.triggerConditions ?? persona.base.triggerConditions,
-        excludedTypes:     override.excludedTypes     ?? persona.base.excludedTypes,
-        narrativeForms:    override.narrativeForms    ?? persona.base.narrativeForms,
+        triggers:      override.triggers      ?? persona.base.triggers,
+        excludedTypes: override.excludedTypes ?? persona.base.excludedTypes,
+        narrativeForms: override.narrativeForms ?? persona.base.narrativeForms,
     };
 }
 
