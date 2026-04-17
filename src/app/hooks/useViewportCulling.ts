@@ -83,7 +83,18 @@ export function useViewportCulling(
 
     // Only setState if the visible set actually changed (avoids cascading re-renders)
     setVisibleIds(prev => {
-      if (prev.size === next.size && [...next].every(id => prev.has(id))) return prev;
+      if (prev.size === next.size) {
+        // PERFORMANCE: [...next].every() allocated a new O(N) array every frame.
+        // Using a single-pass zero-allocation loop improves throughput and avoids GC spikes.
+        let isSame = true;
+        for (const id of next) {
+          if (!prev.has(id)) {
+            isSame = false;
+            break;
+          }
+        }
+        if (isSame) return prev;
+      }
       return next;
     });
   };

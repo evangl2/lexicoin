@@ -5,3 +5,6 @@
 ## 2024-03-30 - [Avoid O(N) Array Allocation in Loops]
 **Learning:** Using `Array.from(map.values()).filter(...)` creates an intermediate array containing all elements before applying the filter. In high-frequency or large-scale data structures like `LibraryModule`'s catalog, this causes significant GC pressure and performance bottlenecks.
 **Action:** Replace `Array.from().filter()` patterns with single-pass `for...of` loops that push directly to a result array. This reduces O(N) array allocation overhead and improves throughput.
+## 2024-04-17 - [Avoid Array allocation for Set equality checks]
+**Learning:** Checking for equality between two `Set`s using `[...next].every(id => prev.has(id))` allocates an entire new array containing all elements of the Set before running the iteration. In high-frequency operations like requestAnimationFrame loops (e.g., in a culling engine), this causes massive GC pressure.
+**Action:** Replace the spread operator array allocation with a simple `for...of` loop and a boolean flag. This performs the check with zero memory allocations.
