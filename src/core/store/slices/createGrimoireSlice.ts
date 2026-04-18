@@ -20,6 +20,7 @@ export interface GrimoireState {
     activeGrimoires: GrimoireEntity[];
     libraryGrimoires: GrimoireEntity[];
     summonerStatus: 'IDLE' | 'GENERATING' | 'READY';
+    activeGrimoireId: UUID | null; // Currently opened in the evaluation overlay
 }
 
 export interface GrimoireActions {
@@ -27,6 +28,8 @@ export interface GrimoireActions {
     spawnGrimoire: (grimoire: GrimoireEntity) => void;
     /** Update a specific Grimoire's data or state */
     updateGrimoire: (id: UUID, updates: Partial<GrimoireEntity>) => void;
+    /** Update only the status of a Grimoire (convenience wrapper) */
+    updateGrimoireStatus: (id: UUID, status: GrimoireStatus) => void;
     /** Remove a Grimoire from the canvas (e.g. on expiration) */
     expireGrimoire: (id: UUID) => void;
     /** Resolve a Grimoire, calculating the final grade */
@@ -35,6 +38,10 @@ export interface GrimoireActions {
     archiveGrimoire: (id: UUID) => void;
     /** Set the summoning device status */
     setSummonerStatus: (status: GrimoireState['summonerStatus']) => void;
+    /** Open/Close the detailed evaluation overlay */
+    setActiveGrimoireId: (id: UUID | null) => void;
+    /** Place a Sense card into a specific slot of a grimoire */
+    updateSlotSense: (grimoireId: UUID, slotId: UUID, senseId: UUID | null) => void;
 }
 
 export const createGrimoireSlice: StateCreator<
@@ -47,6 +54,7 @@ export const createGrimoireSlice: StateCreator<
     activeGrimoires: [],
     libraryGrimoires: [],
     summonerStatus: 'IDLE',
+    activeGrimoireId: null,
 
     // Actions
     spawnGrimoire: (grimoire) => set((state) => ({
@@ -54,23 +62,29 @@ export const createGrimoireSlice: StateCreator<
     })),
 
     updateGrimoire: (id, updates) => set((state) => ({
-        activeGrimoires: state.activeGrimoires.map((g) => 
+        activeGrimoires: state.activeGrimoires.map((g) =>
             g.id === id ? { ...g, ...updates } : g
         )
     })),
 
+    updateGrimoireStatus: (id, status) => set((state) => ({
+        activeGrimoires: state.activeGrimoires.map((g) =>
+            g.id === id ? { ...g, status } : g
+        )
+    })),
+
     expireGrimoire: (id) => set((state) => ({
-        activeGrimoires: state.activeGrimoires.filter((g) => g.id !== id)
+        // First mark as EXPIRED (for animation), then remove
+        activeGrimoires: state.activeGrimoires
+            .map((g) => g.id === id ? { ...g, status: 'EXPIRED' as GrimoireStatus } : g)
+            .filter((g) => g.id !== id)
     })),
 
     resolveGrimoire: (id) => {
-        const grimoire = get().activeGrimoires.find(g => g.id === id);
-        if (!grimoire) return;
-
-        // Note: Final grade calculation logic will be refined in Phase 4/5 integration
-        // with the evaluation service. For now, we provide the skeletal action.
+        // Final grade calculation and slot locking are handled in useGrimoireInteraction
+        // via updateGrimoire. This action exists for external/direct use only.
         set((state) => ({
-            activeGrimoires: state.activeGrimoires.map((g) => 
+            activeGrimoires: state.activeGrimoires.map((g) =>
                 g.id === id ? { ...g, status: 'RESOLVED' as GrimoireStatus } : g
             )
         }));
@@ -93,4 +107,13 @@ export const createGrimoireSlice: StateCreator<
     }),
 
     setSummonerStatus: (status) => set({ summonerStatus: status }),
+    setActiveGrimoireId: (id) => set({ activeGrimoireId: id }),
+    updateSlotSense: (grimoireId, slotId, senseId) => set((state) => ({
+        activeGrimoires: state.activeGrimoires.map((g) => 
+            g.id === grimoireId ? {
+                ...g,
+                slots: g.slots.map((s) => s.id === slotId ? { ...s, senseId } : s)
+            } : g
+        )
+    })),
 });

@@ -8,6 +8,20 @@
 import type { Grade, GrimoireType, PersonaType } from '../types/index';
 
 // ============================================================================
+// GRIMOIRE LIFECYCLE
+// ============================================================================
+
+/** How long a summoned grimoire stays active before expiring (ms). */
+export const GRIMOIRE_DURATION_MS = 60 * 60 * 1000; // 1 hour
+
+/** Slot count constraints. Backend picks a number; frontend clamps to this range. */
+export const GRIMOIRE_SLOT_COUNT = {
+    MIN: 3,
+    MAX: 6,
+    DEFAULT: 4,
+} as const;
+
+// ============================================================================
 // STAMINA CONFIGURATION
 // ============================================================================
 
@@ -107,11 +121,11 @@ export const GRIMOIRE_TYPES_REGISTRY: Record<GrimoireType, GrimoireTypeInfo> = {
         description: 'Scenes and spatial relationships.',
         targetLogic: 'Focus on spatial or environmental co-occurrence.',
     },
-    script: {
-        id: 'script',
-        label: 'Script',
-        description: 'Events and chronological sequences.',
-        targetLogic: 'Focus on causal or temporal sequences.',
+    time: {
+        id: 'time',
+        label: 'Time',
+        description: 'Events, states, and their causes or effects across the time dimension.',
+        targetLogic: 'Bidirectional: seed can be Cause or Effect. Collect the opposite end.',
     },
     spectrum: {
         id: 'spectrum',

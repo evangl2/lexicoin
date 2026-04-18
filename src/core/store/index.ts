@@ -5,6 +5,7 @@ import { createConfigSlice } from './slices/createConfigSlice';
 import { createCardStateSlice } from './slices/createCardStateSlice';
 import { createProgressionSlice } from './slices/createProgressionSlice';
 import { createGrimoireSlice } from './slices/createGrimoireSlice';
+import { createPersonaStorySlice } from './slices/createPersonaStorySlice';
 
 import type {
     PlayerState,
@@ -21,6 +22,7 @@ import type {
 } from '../../types/index';
 // Fix import path to use alias if possible, or relative
 import { generateId } from '@utils/helpers';
+import { STAMINA_CONFIG } from '@/config/grimoireConfig';
 import type { GameStore, LibraryFilter } from './interfaces';
 
 // ============================================================================
@@ -31,6 +33,7 @@ const initialPlayer: PlayerState = {
     id: generateId(),
     stamina: 300,
     maxStamina: 300,
+    staminaLastUpdatedAt: Date.now(),
     phase: 'GENESIS',
     settings: {
         interfaceLang: 'zh',
@@ -55,6 +58,8 @@ const initialPlayer: PlayerState = {
         dCount: 0,
         sScore: 0,
     },
+    echoCharges: 3,
+    lastEchoReset: new Date().toISOString().split('T')[0] ?? '',
     createdAt: Date.now(),
     lastLoginAt: Date.now(),
 };
@@ -93,12 +98,36 @@ export const useGameStore = create<GameStore>()(
             ...createCardStateSlice(set, get, api),
             ...createProgressionSlice(set, get, api),
             ...createGrimoireSlice(set, get, api),
+            ...createPersonaStorySlice(set, get, api),
 
             // Player State
             player: initialPlayer,
             updatePlayer: (updates) => set((state) => ({
                 player: { ...state.player, ...updates }
             })),
+            consumeEchoCharge: () => set((state) => ({
+                player: { ...state.player, echoCharges: Math.max(0, state.player.echoCharges - 1) }
+            })),
+            resetEchoCharges: () => set((state) => ({
+                player: {
+                    ...state.player,
+                    echoCharges: 3,
+                    lastEchoReset: new Date().toISOString().split('T')[0] ?? ''
+                }
+            })),
+            recoverStamina: () => set((state) => {
+                const now = Date.now();
+                const elapsedHours = (now - state.player.staminaLastUpdatedAt) / 3600000;
+                const recovered = elapsedHours * STAMINA_CONFIG.RECOVERY_PER_HOUR;
+                if (recovered < 0.01) return state; // Skip if negligible
+                return {
+                    player: {
+                        ...state.player,
+                        stamina: Math.min(state.player.maxStamina, state.player.stamina + recovered),
+                        staminaLastUpdatedAt: now,
+                    }
+                };
+            }),
 
             // UI State
             viewMode: 'WORLD',
@@ -193,17 +222,20 @@ export const useGameStore = create<GameStore>()(
             activePersona: undefined,
             setActivePersona: (personaId) => set({ activePersona: personaId }),
             personaResonance: {
-                LOGICIAN: 0,
-                POET: 0,
+                CHILD: 0,
+                GARDENER: 0,
                 ALCHEMIST: 0,
-                MYSTIC: 0,
             },
-            updateResonance: (personaId, amount) => set((state) => ({
-                personaResonance: {
-                    ...state.personaResonance,
-                    [personaId]: Math.max(0, Math.min(100, state.personaResonance[personaId] + amount)),
-                }
-            })),
+            updateResonance: (personaId, amount) => set((state) => {
+                const prevVal = state.personaResonance[personaId] ?? 0;
+                const newVal = Math.max(0, prevVal + amount);
+                return {
+                    personaResonance: {
+                        ...state.personaResonance,
+                        [personaId]: newVal,
+                    }
+                };
+            }),
 
             // Construction State
             constructions: [],
@@ -274,7 +306,7 @@ export const useGameStore = create<GameStore>()(
                 // Config
                 learningLang: state.learningLang,
                 systemLang: state.systemLang,
-                activeSkin: state.activeSkin,
+                uiTheme: state.uiTheme,
                 audio: state.audio,
                 activeModelId: state.activeModelId,
 
@@ -294,13 +326,14 @@ export const useGameStore = create<GameStore>()(
                 // Other persisted state
                 activePersona: state.activePersona,
                 personaResonance: state.personaResonance,
+                personaStages: state.personaStages,
                 libraryFilter: state.libraryFilter,
                 reviewDueSenses: state.reviewDueSenses,
                 activeReviewSession: state.activeReviewSession,
 
                 // Grimoire State
+                activeGrimoires: state.activeGrimoires,
                 libraryGrimoires: state.libraryGrimoires,
-                grimoireMastery: state.player.grimoireMastery, // Note: This is now inside player but we can persist it explicitly if needed
             }),
             // Exclude everything else (dragState, notifications, modulesReady, isConfigOpen, etc.)
         }

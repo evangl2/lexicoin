@@ -10,8 +10,8 @@ export interface ConfigState {
     setSystemLang: (lang: string) => void;
 
     // Visuals
-    activeSkin: string;
-    setActiveSkin: (skin: string) => void;
+    uiTheme: string;
+    setUiTheme: (theme: string) => void;
 
     // Audio
     audio: {
@@ -33,8 +33,8 @@ export const createConfigSlice: StateCreator<GameStore, [], [], ConfigState> = (
     setLearningLang: (lang) => set({ learningLang: lang }),
     setSystemLang: (lang) => set({ systemLang: lang }),
 
-    activeSkin: 'default',
-    setActiveSkin: (skin) => set({ activeSkin: skin }),
+    uiTheme: 'default',
+    setUiTheme: (theme) => set({ uiTheme: theme }),
 
     audio: {
         muted: false,
