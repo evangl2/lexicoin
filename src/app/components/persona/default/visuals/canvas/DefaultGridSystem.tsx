@@ -44,14 +44,13 @@ export const DefaultGridSystem: React.FC<DefaultGridSystemProps> = ({ scale, wid
             {/* GRID SYSTEM */}
             <svg className="absolute inset-0 w-full h-full pointer-events-none" xmlns="http://www.w3.org/2000/svg">
                 <defs>
-                    <pattern id="smallGrid" width="100" height="100" patternUnits="userSpaceOnUse">
-                        <path d="M 100 0 L 0 0 0 100" fill="none" stroke={gridBase} strokeWidth="1" opacity="0.4" />
+                    <pattern id="smallGrid" width="100" height="100" patternUnits="userSpaceOnUse" x={HALF_W - 50} y={HALF_H - 50}>
+                        <path d="M 50 0 L 50 100 M 0 50 L 100 50" fill="none" stroke={gridBase} strokeWidth="1.5" opacity="0.3" />
                     </pattern>
-                    <pattern id="largeGrid" width="1000" height="1000" patternUnits="userSpaceOnUse">
-                        <rect width="1000" height="1000" fill="none" />
-                        <path d="M 1000 0 L 0 0 0 1000" fill="none" stroke={gridHighlight} strokeWidth="2" opacity="0.6" />
-                        {/* Intersection Diamonds */}
-                        <path d="M -15 0 L 0 15 L 15 0 L 0 -15 Z" fill={bg} stroke={gridHighlight} strokeWidth="2" />
+                    <pattern id="largeGrid" width="1000" height="1000" patternUnits="userSpaceOnUse" x={HALF_W - 500} y={HALF_H - 500}>
+                        <path d="M 500 0 L 500 1000 M 0 500 L 1000 500" fill="none" stroke={gridHighlight} strokeWidth="3" opacity="0.6" />
+                        {/* Intersection Diamonds (Drawn centrally to avoid tile boundary clipping) */}
+                        <path d="M 480 500 L 500 520 L 520 500 L 500 480 Z" fill={bg} stroke={gridHighlight} strokeWidth="2" />
                     </pattern>
                 </defs>
 

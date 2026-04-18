@@ -42,8 +42,8 @@ interface PersonaContextValue {
     /** Current Interface Persona (Merged full version) */
     interface: InterfacePersona;
 
-    /** Currently active skin name */
-    activeSkin: string;
+    /** Currently active UI theme name */
+    activeSkin: string; // Kept as activeSkin in context API for backward compat; maps to store.uiTheme
 
     /** Switch skin */
     setSkin: (name: string) => void;
@@ -72,8 +72,8 @@ export const PersonaProvider: React.FC<PersonaProviderProps> = ({
     initialSkin = DEFAULT_PERSONA_NAME
 }) => {
     // Migrate to Global Store
-    const activeSkin = useGameStore(s => s.activeSkin);
-    const setActiveSkinStore = useGameStore(s => s.setActiveSkin);
+    const activeSkin = useGameStore(s => s.uiTheme);
+    const setActiveSkinStore = useGameStore(s => s.setUiTheme);
 
     // Get available skin list
     const availableSkins = useMemo(() => getAvailablePersonas(), []);

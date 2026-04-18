@@ -31,7 +31,13 @@
       "Bash(git log:*)",
       "Bash(supabase --version)",
       "Bash(python -c \":*)",
-      "Bash(find /a/lexicoin/lexicoin -type f \\\\\\( -name \"*.sql\" -o -name \"*.ts\" \\\\\\) -exec grep -l \"synthesis_cache\" {} \\\\;)"
+      "Bash(find /a/lexicoin/lexicoin -type f \\\\\\( -name \"*.sql\" -o -name \"*.ts\" \\\\\\) -exec grep -l \"synthesis_cache\" {} \\\\;)",
+      "WebSearch",
+      "Bash(grep -r \"GrimoireBackend\" /a/lexicoin/lexicoin --include=\"*.ts\" --include=\"*.tsx\" ! -path \"*/node_modules/*\")",
+      "Bash(del \"A:\\\\lexicoin\\\\lexicoin\\\\supabase\\\\functions\\\\generate-grimoire\\\\lib\\\\personaDictionary.ts\")",
+      "Bash(del \"A:\\\\lexicoin\\\\lexicoin\\\\supabase\\\\functions\\\\generate-grimoire\\\\lib\\\\archetypeTable.ts\")",
+      "Bash(del \"A:\\\\lexicoin\\\\lexicoin\\\\supabase\\\\functions\\\\evaluate-grimoire\\\\lib\\\\personaDictionary.ts\")",
+      "Bash(del \"A:\\\\lexicoin\\\\lexicoin\\\\supabase\\\\functions\\\\synthesize-sense\\\\lib\\\\PersonaDictionary.ts\")"
     ]
   }
 }

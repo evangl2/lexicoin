@@ -16,6 +16,8 @@ export const ProgressionHUD: React.FC = () => {
     const level      = useGameStore(s => s.player?.languageProgress?.[learningLang]?.level ?? 1);
     const xp         = useGameStore(s => s.player?.languageProgress?.[learningLang]?.xp ?? 0);
     const xpToNext   = useGameStore(s => s.player?.languageProgress?.[learningLang]?.xpToNextLevel ?? 100);
+    const stamina    = useGameStore(s => s.player?.stamina ?? 300);
+    const maxStamina = useGameStore(s => s.player?.maxStamina ?? 300);
 
     const progressInfo = React.useMemo(() => {
         const threshold = xpToNext || LEVEL_XP_THRESHOLDS[level - 1] || 100;
@@ -48,7 +50,6 @@ export const ProgressionHUD: React.FC = () => {
                     A1 {/* TODO: 从配置中获取动态 CEFR */}
                 </div>
             </motion.div>
-
             {/* 经验条容器 */}
             <div className="flex flex-col gap-1 w-48">
                 <div className="flex justify-between items-end px-1">
@@ -64,6 +65,25 @@ export const ProgressionHUD: React.FC = () => {
                         animate={{ width: `${progressInfo.progress * 100}%` }}
                         transition={{ type: 'spring', stiffness: 50, damping: 20 }}
                         className="h-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 shadow-[0_0_10px_rgba(99,102,241,0.5)]"
+                    />
+                </div>
+            </div>
+
+            {/* 体力条容器 */}
+            <div className="flex flex-col gap-1 w-32 border-l border-white/10 pl-4">
+                <div className="flex justify-between items-end px-1">
+                    <span className="text-[10px] font-medium text-amber-500/60 tracking-widest uppercase">Stamina</span>
+                    <span className="text-[10px] font-mono text-amber-500/40">{Math.floor(stamina)}</span>
+                </div>
+                
+                {/* 进度条背景 */}
+                <div className="h-1 w-full bg-white/5 rounded-full overflow-hidden backdrop-blur-sm border border-white/5">
+                    {/* 进度条填充 */}
+                    <motion.div 
+                        initial={{ width: 0 }}
+                        animate={{ width: `${(stamina / maxStamina) * 100}%` }}
+                        transition={{ type: 'spring', stiffness: 50, damping: 20 }}
+                        className="h-full bg-gradient-to-r from-amber-600 to-yellow-400 shadow-[0_0_8px_rgba(217,119,6,0.5)]"
                     />
                 </div>
             </div>

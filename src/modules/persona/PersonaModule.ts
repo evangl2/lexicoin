@@ -8,9 +8,8 @@
 import { logger } from '@utils/logger';
 import { messageBus } from '@core/protocol/MessageBus';
 import { generateId } from '@utils/helpers';
-import type { UUID, LocalizedText, CEFRLevel } from '../../types/index';
+import type { UUID, LocalizedText, CEFRLevel, PersonaType, GrimoireType } from '../../types/index';
 
-export type PersonaType = 'LOGICIAN' | 'POET' | 'ALCHEMIST' | 'MYSTIC';
 
 export interface Persona {
     id: PersonaType;
@@ -23,6 +22,12 @@ export interface Persona {
     };
     unlockedAt: number;  // Player level required
     resonance: number;  // 0-100
+
+    // Grimoire specific visuals
+    spineColor: string;
+    glowColor: string;
+
+    excludedTypes?: GrimoireType[]; // Grimoire types this persona refuses to generate
 }
 
 export interface PersonaTask {
@@ -84,34 +89,40 @@ class PersonaModule {
     private initializePersonas(): Map<PersonaType, Persona> {
         const personas: Persona[] = [
             {
-                id: 'LOGICIAN',
-                name: { en: 'The Logician', zh: '逻辑学家' },
+                id: 'CHILD',
+                name: { en: 'The Child', zh: '孩童' },
                 description: {
-                    en: 'Master of reason and structure',
-                    zh: '理性与结构的大师'
+                    en: 'Sees the world with pure, unfiltered wonder',
+                    zh: '以纯粹而未被过滤的惊奇感看待世界'
                 },
                 themeColors: {
-                    primary: '#3b82f6',  // Blue
-                    secondary: '#1e40af',
-                    accent: '#60a5fa',
+                    primary: '#4ade80',  // Green
+                    secondary: '#16a34a',
+                    accent: '#86efac',
                 },
-                unlockedAt: 3,
+                unlockedAt: 0, // GDD §4.2: all personas unlocked by default
                 resonance: 0,
+                spineColor: '#166534',
+                glowColor: '#4ade80',
+                excludedTypes: ['taxonomy', 'spectrum'],
             },
             {
-                id: 'POET',
-                name: { en: 'The Poet', zh: '诗人' },
+                id: 'GARDENER',
+                name: { en: 'The Gardener', zh: '园丁' },
                 description: {
-                    en: 'Weaver of beauty and emotion',
-                    zh: '美与情感的编织者'
+                    en: 'Tends to the living network of meaning',
+                    zh: '照料意义的有机网络'
                 },
                 themeColors: {
-                    primary: '#ec4899',  // Pink
-                    secondary: '#be185d',
-                    accent: '#f9a8d4',
+                    primary: '#22d3ee',  // Cyan
+                    secondary: '#0891b2',
+                    accent: '#67e8f9',
                 },
-                unlockedAt: 7,
+                unlockedAt: 0,
                 resonance: 0,
+                spineColor: '#164e63',
+                glowColor: '#22d3ee',
+                excludedTypes: ['time', 'taxonomy'],
             },
             {
                 id: 'ALCHEMIST',
@@ -125,23 +136,11 @@ class PersonaModule {
                     secondary: '#b45309',
                     accent: '#fbbf24',
                 },
-                unlockedAt: 12,
+                unlockedAt: 0,
                 resonance: 0,
-            },
-            {
-                id: 'MYSTIC',
-                name: { en: 'The Mystic', zh: '神秘学家' },
-                description: {
-                    en: 'Seeker of hidden truths',
-                    zh: '隐秘真理的探寻者'
-                },
-                themeColors: {
-                    primary: '#8b5cf6',  // Purple
-                    secondary: '#6d28d9',
-                    accent: '#a78bfa',
-                },
-                unlockedAt: 20,
-                resonance: 0,
+                spineColor: '#78350f',
+                glowColor: '#f59e0b',
+                excludedTypes: ['time', 'taxonomy'],
             },
         ];
 
@@ -168,17 +167,10 @@ class PersonaModule {
     }
 
     /**
-     * Get unlocked personas for a player level
+     * Get unlocked personas — GDD §4.2: all personas are unlocked by default for now.
      */
-    getUnlockedPersonas(playerLevel: number): Persona[] {
-        // Bolt: Optimize memory usage and speed by avoiding intermediate Array allocation
-        const result: Persona[] = [];
-        for (const p of this.personas.values()) {
-            if (p.unlockedAt <= playerLevel) {
-                result.push(p);
-            }
-        }
-        return result;
+    getUnlockedPersonas(_playerLevel?: number): Persona[] {
+        return Array.from(this.personas.values());
     }
 
     /**
@@ -214,7 +206,23 @@ class PersonaModule {
         const persona = this.personas.get(personaId);
         if (!persona) return 0;
 
-        persona.resonance = Math.max(0, Math.min(100, persona.resonance + amount));
+        const oldResonance = persona.resonance;
+        persona.resonance = Math.max(0, persona.resonance + amount); // No upper cap: unlimited XP track
+
+        // Milestone Check: Every 500 Resonance
+        const oldMilestone = Math.floor(oldResonance / 500);
+        const newMilestone = Math.floor(persona.resonance / 500);
+
+        if (newMilestone > oldMilestone) {
+            this.narrativeState.currentChapter += 1;
+            logger.info(`Narrative Milestone! Chapter advanced to ${this.narrativeState.currentChapter}`, undefined, 'PersonaModule');
+            
+            await messageBus.send('PERSONA_MILESTONE_REACHED', {
+                personaId,
+                milestone: newMilestone,
+                chapter: this.narrativeState.currentChapter
+            }, 'PersonaModule');
+        }
 
         await messageBus.send('RESONANCE_UPDATED', {
             personaId,

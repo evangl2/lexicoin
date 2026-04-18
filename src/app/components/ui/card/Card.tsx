@@ -10,6 +10,7 @@ import { CompactCardVisual } from '@/app/components/ui/card/CompactCardVisual';
 import { cardFocusRegistry } from '@/app/utils/cardFocusRegistry';
 import { tts } from '@/app/utils/audio/tts';
 import { useGameStore } from '@store/index';
+import { WORLD_W, WORLD_H } from '@/config/canvas';
 import type { CardEntity } from '@/types/CardEntity';
 import type { Language } from '@schemas/schemas/SenseEntity.schema';
 
@@ -64,6 +65,7 @@ interface CardProps {
   onDropIntoRepository?: (cardId: string) => void;
   isZoomingRef?: React.MutableRefObject<boolean>;
   expandedIdsRef?: React.MutableRefObject<Set<string>>;
+  isPanningRef?: React.MutableRefObject<boolean>;
 }
 
 export const Card = React.memo<CardProps>(({
@@ -89,6 +91,7 @@ export const Card = React.memo<CardProps>(({
   onDropIntoRepository,
   isZoomingRef,
   expandedIdsRef,
+  isPanningRef,
 }) => {
   // ========== Variant Logic (Extracted) ==========
   const {
@@ -212,12 +215,16 @@ export const Card = React.memo<CardProps>(({
   useEffect(() => {
     if (!isExpanded || isFlipped) return;
     const handleMouseMove = (e: MouseEvent) => {
+      // Skip during canvas pan: mouse position drives parallax + tilt on the expanded card,
+      // causing bgRef/fgRef DOM writes + glare gradient updates every frame — expensive inside
+      // a blurred world. Freeze at last position; resumes naturally when pan ends.
+      if (isPanningRef?.current) return;
       mouseX.set(e.clientX);
       mouseY.set(e.clientY);
     };
     window.addEventListener('mousemove', handleMouseMove);
     return () => window.removeEventListener('mousemove', handleMouseMove);
-  }, [isExpanded, isFlipped, mouseX, mouseY]);
+  }, [isExpanded, isFlipped, mouseX, mouseY, isPanningRef]);
 
   useEffect(() => {
     if (!isExpanded && !isFlipped) {
@@ -419,7 +426,13 @@ export const Card = React.memo<CardProps>(({
     const scheduleApply = () => {
       if (pending) return;
       pending = true;
-      Promise.resolve().then(() => { pending = false; apply(); });
+      Promise.resolve().then(() => {
+        pending = false;
+        // During canvas pan, skip DOM writes for idle non-expanded cards.
+        // If the card is collapsing (zoomSpring > 0.001), we MUST apply to prevent it from freezing mid-animation.
+        if (isPanningRef?.current && !isExpanded && zoomSpring.get() < 0.001) return;
+        apply();
+      });
     };
     apply();
     const unsubs = [
@@ -444,63 +457,104 @@ export const Card = React.memo<CardProps>(({
     if (!wrapper || !card) return;
     const scaleSource = externalScale ?? scaleSpring;
 
-    let hasSettled = false;
-    let settleRafId: number | null = null;
-
-    const apply = (v: number) => {
-      wrapper.style.transform = `scale(${v})`;
+    // When expanded, create an independent compositor sublayer so Chrome rasterizes THIS
+    // card at device pixel ratio × its actual rendered size, instead of inheriting the
+    // world container's low-res GPU texture (rasterized at the small canvas zoom level).
+    //
+    // Key insight: transformStyle:'preserve-3d' on an element BLOCKS Chrome from creating
+    // an independent compositor layer for it — the element is forced into the parent's layer.
+    // Fix: when expanded, move preserve-3d DOWN to the wrapper (inner), so the outer card
+    // element becomes layer-promotable, while inner 3D effects (tilt/flip) still work.
+    const sync = (v: number) => {
       if (v > 1.01) {
-        const velocity = Math.abs(scaleSource.getVelocity());
-        if (velocity >= 0.5) {
-          // Actively animating — GPU layer for smooth compositor-driven scaling.
-          // Texture rasterizes at the current (lower) scale, but frames are zero-cost on CPU.
-          if (settleRafId !== null) { cancelAnimationFrame(settleRafId); settleRafId = null; }
-          hasSettled = false;
-          card.style.willChange = 'transform';
-        } else if (!hasSettled) {
-          // Spring just settled — cycle will-change to re-rasterize at the correct final scale.
-          hasSettled = true;
-          card.style.willChange = 'auto';
-          settleRafId = requestAnimationFrame(() => {
-            settleRafId = null;
-            card.style.willChange = 'transform';
-          });
-        }
-        // Already settled: no-op (avoid redundant style writes)
+        // Expanded: outer card loses preserve-3d → can form its own GPU layer.
+        // Inner wrapper gets preserve-3d → 3D tilt + flip effects still work.
+        card.style.transformStyle = 'flat';
+        card.style.willChange = 'transform';
+        wrapper.style.transformStyle = 'preserve-3d';
+        wrapper.style.transform = `scale(${v}) translateZ(0)`;
       } else {
-        // Card not expanded: no GPU layer needed
+        // Collapsed: restore standard hierarchy.
+        card.style.transformStyle = 'preserve-3d';
         card.style.willChange = 'auto';
-        hasSettled = false;
-        if (settleRafId !== null) { cancelAnimationFrame(settleRafId); settleRafId = null; }
+        wrapper.style.transformStyle = '';
+        wrapper.style.transform = `scale(${v})`;
       }
     };
-    apply(scaleSource.get());
-    const unsub = scaleSource.on('change', apply);
+    sync(scaleSource.get());
+    const unsub = scaleSource.on('change', sync);
 
-    // After flip animation settles, force re-rasterization at the correct expanded scale.
-    // During flip, flipScaleX passes through 0 — Chrome may rasterize the GPU layer at
-    // lower resolution mid-animation. Cycling will-change after flip settles forces a fresh
-    // rasterization at the actual 3.5× display scale, eliminating post-flip blur.
+    // Force Chrome to re-rasterize BOTH GPU layers (card + wrapper sublayer) at the
+    // correct terminal scale. GPU layers are rasterized when first created (scale ≈ 1.01),
+    // then stretched as the spring animates to the final expandedScale → blurry.
+    // Fix: two-frame cycle —
+    //   Frame 1: destroy both layers (willChange='auto', drop translateZ(0))
+    //   Frame 2: recreate at the current (terminal) visual size → correct resolution
+    const forceRerasterize = (v: number) => {
+      if (!card.isConnected || !wrapper.isConnected) return;
+
+      // Stage 1: Break the layers and slightly change a paint-triggering property
+      card.style.willChange = 'auto';
+      card.style.opacity = '0.999';
+      wrapper.style.transform = `scale(${v})`; // Drop translateZ(0) to destroy sub-compositor layer
+
+      // Stage 2: Wait for next frame to restore
+      requestAnimationFrame(() => {
+        if (!card.isConnected || !wrapper.isConnected) return;
+        requestAnimationFrame(() => {
+          if (!card.isConnected || !wrapper.isConnected) return;
+
+          // Stage 3: Recreate layers at terminal scale
+          card.style.willChange = 'transform';
+          card.style.opacity = '1';
+          wrapper.style.transform = `scale(${v}) translateZ(0)`; // Recreate at new pixel ratio
+        });
+      });
+    };
+
+    // Scene 1: re-rasterize after scale spring settles at expanded position.
+    // Use rAF-based debounce: schedule on first sub-threshold velocity event,
+    // cancel if velocity rises again (spring still animating), confirm with a
+    // second velocity check inside the rAF before firing.
+    let scaleSettleRaf: number | null = null;
+    const onScaleChange = (v: number) => {
+      if (v <= 1.01) {
+        if (scaleSettleRaf !== null) { cancelAnimationFrame(scaleSettleRaf); scaleSettleRaf = null; }
+        return;
+      }
+      if (Math.abs(scaleSource.getVelocity()) < 0.5) {
+        if (scaleSettleRaf === null) {
+          scaleSettleRaf = requestAnimationFrame(() => {
+            scaleSettleRaf = null;
+            if (Math.abs(scaleSource.getVelocity()) < 0.5 && scaleSource.get() > 1.01) {
+              forceRerasterize(scaleSource.get());
+            }
+          });
+        }
+      } else {
+        if (scaleSettleRaf !== null) { cancelAnimationFrame(scaleSettleRaf); scaleSettleRaf = null; }
+      }
+    };
+    const unsubScale = scaleSource.on('change', onScaleChange);
+
+    // Scene 2: re-rasterize after flip animation settles.
+    // Also refreshes the wrapper sublayer (previously only card.willChange was cycled).
     const onFlipChange = (v: number) => {
       const atRest = v < 0.01 || v > 0.99;
-      if (atRest && Math.abs(flipSpring.getVelocity()) < 0.5 && card.style.willChange === 'transform') {
-        hasSettled = false; // allow apply() settle path to re-trigger
-        card.style.willChange = 'auto';
-        settleRafId = requestAnimationFrame(() => {
-          settleRafId = null;
-          card.style.willChange = 'transform';
-          hasSettled = true;
-        });
+      if (atRest && Math.abs(flipSpring.getVelocity()) < 0.5 && scaleSource.get() > 1.01) {
+        forceRerasterize(scaleSource.get());
       }
     };
     const unsubFlip = flipSpring.on('change', onFlipChange);
 
     return () => {
       unsub();
+      unsubScale();
       unsubFlip();
-      if (settleRafId !== null) cancelAnimationFrame(settleRafId);
+      if (scaleSettleRaf !== null) cancelAnimationFrame(scaleSettleRaf);
     };
   }, [externalScale, scaleSpring, flipSpring]);
+
 
   const bgParallaxX = useTransform(displayRotateY, [-20, 20], [15, -15]);
   const bgParallaxY = useTransform(displayRotateX, [-20, 20], [15, -15]);
@@ -547,25 +601,13 @@ export const Card = React.memo<CardProps>(({
       const nextX = x.get() + dx / scale;
       const nextY = y.get() + dy / scale;
 
-      const WORLD_W = 16000;
-      const WORLD_H = 10000;
       const minX = -(WORLD_W / 2) + width / 2;
       const maxX = (WORLD_W / 2) - width / 2;
       const minY = -(WORLD_H / 2) + height / 2;
       const maxY = (WORLD_H / 2) - height / 2;
 
-      const snapThreshold = 10;
-      let finalX = nextX;
-      let finalY = nextY;
-
-      if (Math.abs(finalX - minX) < snapThreshold) finalX = minX;
-      else if (Math.abs(finalX - maxX) < snapThreshold) finalX = maxX;
-
-      if (Math.abs(finalY - minY) < snapThreshold) finalY = minY;
-      else if (Math.abs(finalY - maxY) < snapThreshold) finalY = maxY;
-
-      finalX = Math.min(Math.max(finalX, minX), maxX);
-      finalY = Math.min(Math.max(finalY, minY), maxY);
+      const finalX = Math.min(Math.max(nextX, minX), maxX);
+      const finalY = Math.min(Math.max(nextY, minY), maxY);
 
       x.set(finalX);
       y.set(finalY);

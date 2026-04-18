@@ -22,6 +22,9 @@ export type Language = 'en' | 'zh' | 'ja' | 'de' | 'fr' | 'es' | 'ko';
 // AI Model IDs
 export type ModelId = 'gemini-2.0-flash' | 'gemini-1.5-pro' | 'gemini-1.5-flash';
 
+// Persona Types (GDD §4.6: CHILD / GARDENER / ALCHEMIST)
+export type PersonaType = 'CHILD' | 'GARDENER' | 'ALCHEMIST';
+
 // ============================================================================
 // LOCALIZATION
 // ============================================================================
@@ -184,11 +187,10 @@ export interface DifficultyMetrics {
 export interface PlayerState {
     id: UUID;
 
-    // Vitals
-    hp: number;
-    maxHp: number;
-    mp: number;
-    maxMp: number;
+    // Vitals (Stamina System)
+    stamina: number;
+    maxStamina: number;
+    staminaLastUpdatedAt: Timestamp; // For offline recovery calculation
 
     // Progression
     phase: GamePhase;
@@ -216,6 +218,11 @@ export interface PlayerState {
         sensesCollected: number;
         tokensSpent: number;
     };
+
+    // Grimoire Mechanics
+    grimoireMastery: GrimoireMastery;
+    echoCharges: number;             // Daily charges for Echo extraction
+    lastEchoReset: string;           // 'YYYY-MM-DD' for daily reset
 
     // Timestamps
     createdAt: Timestamp;
@@ -260,6 +267,98 @@ export interface Notification {
     message: LocalizedText;
     duration?: number;              // Auto-dismiss after ms (0 = manual)
     createdAt: Timestamp;
+}
+
+// ============================================================================
+// GRIMOIRE MODULE TYPES
+// ============================================================================
+
+/**
+ * Bilingual text for cross-language content
+ */
+export interface BilingualText {
+    learning: string; // Target language
+    system: string;   // Native/System language
+}
+
+/**
+ * Grading system for evaluation (including F as penalty)
+ */
+export type Grade = 'S++' | 'S+' | 'S' | 'A' | 'B' | 'C' | 'D' | 'F';
+
+/**
+ * Lifecycle states of a Grimoire entity
+ */
+export type GrimoireStatus = 
+    | 'SUMMONING'      // Initial state while calling Edge Function
+    | 'ACTIVE'          // On canvas, interactive
+    | 'EVALUATING'      // Waiting for judgment result
+    | 'NEEDS_REVISION'  // Contains F grade, requires revision
+    | 'RESOLVED'        // All slots graded >= D
+    | 'ARCHIVED'        // Moved to Library
+    | 'EXPIRED';        // Time out
+
+/**
+ * Grimoire semantic templates
+ */
+export type GrimoireType =
+    | 'taxonomy' | 'anatomy' | 'locus' | 'time'
+    | 'spectrum' | 'qualia' | 'ritual' | 'metaphor';
+
+/**
+ * Individual slot for Sense cards within a Grimoire
+ */
+export interface GrimoireSlot {
+    id: UUID;
+    senseId: UUID | null;            // Placed Sense ID
+    grade: Grade | null;             // Result of judgment
+    locked: boolean;                 // Non-F results lock the slot
+    commentary: BilingualText | null; // Feedback from Persona
+}
+
+/**
+ * Main Grimoire Entity (The Book)
+ */
+export interface GrimoireEntity {
+    id: UUID;
+    x: number;
+    y: number;
+    
+    personaId: PersonaType;
+    grimoireType: GrimoireType;
+    targetLevel: CEFRLevel;
+    seedWord: string;
+    
+    theme: {
+        title: BilingualText;
+        description: BilingualText;
+    };
+    explicitInstruction: BilingualText;
+    
+    // Hidden anchors for AI validation & Echo extraction
+    validationTags: string[];
+    designRationale: string;
+    
+    slots: GrimoireSlot[];           // Usually 3-6 slots
+    
+    createdAt: Timestamp;
+    expiresAt: Timestamp;            // Current life duration (e.g., 1h)
+    
+    status: GrimoireStatus;
+    fCount: number;                  // Cumulative F grades (affects final score)
+    finalGrade: Grade | null;
+    rewardClaimed: boolean;
+}
+
+/**
+ * Player's mastery metrics for Grimoire achievements
+ */
+export interface GrimoireMastery {
+    aCount: number;
+    bCount: number;
+    cCount: number;
+    dCount: number;
+    sScore: number;                  // Cumulative S-grade points
 }
 
 // ============================================================================
@@ -314,7 +413,7 @@ export interface ModuleState {
 // ============================================================================
 
 // Persona Module
-export type { PersonaType, Persona, PersonaTask, NarrativeState } from '../modules/persona/PersonaModule';
+export type { Persona, PersonaTask, NarrativeState } from '../modules/persona/PersonaModule';
 
 // Item Module
 export type { ItemType, ItemRarity, Item, InventoryItem, ItemUsageResult } from '../modules/item/ItemModule';

@@ -6,7 +6,7 @@ import {
 } from "react";
 import { DndProvider, useDrop } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
-import { useMotionValue } from "motion/react";
+import { useMotionValue, motion, AnimatePresence } from "motion/react";
 
 import { Canvas } from "@/app/components/ui/canvas/Canvas";
 import { Card } from "@/app/components/ui/card/Card";
@@ -20,15 +20,20 @@ import { useCanvasCamera } from "@/app/hooks/useCanvasCamera";
 import { useCardManager } from "@/app/hooks/useCardManager";
 import { useDeviceManager } from "@/app/hooks/useDeviceManager"; // Added
 import { useCardGrouping } from "@/app/hooks/useCardGrouping";
-import { usePhysics } from "@/app/hooks/usePhysics";
 import { useViewportCulling } from "@/app/hooks/useViewportCulling";
+import { snapPosition, applySnap } from "@/app/hooks/useGridSnap";
+import { useGrimoireExpiry } from "@/app/hooks/useGrimoireExpiry";
 
 // UI Components
 import { DragLayer } from "@/app/components/ui/canvas/DragLayer";
 import { CanvasControl } from "@/app/components/ui/canvas/CanvasControl";
 import { SynthesisCircle } from "@/app/components/ui/visual/SynthesisCircle";
+import { GrimoireSummoner } from "@/app/components/ui/visual/GrimoireSummoner";
+import { Grimoire } from "@/app/components/ui/visual/Grimoire";
 import { ProgressionHUD } from "@/app/components/ui/shell/ProgressionHUD";
 import { LevelUpOverlay } from "@/app/components/ui/system/LevelUpOverlay";
+import { GrimoireOverlay } from "@/app/components/ui/visual/GrimoireOverlay";
+import { LibraryInterface } from "@/app/components/ui/visual/LibraryInterface";
 import { levelModule } from "@/modules/level/LevelModule";
 
 // Store & Utils
@@ -53,6 +58,7 @@ function InnerApp() {
   const openDeck = useGameStore(s => s.openDeck);
   const closeDeck = useGameStore(s => s.closeDeck);
   const setConfigOpen = useGameStore(s => s.setConfigOpen);
+  const viewMode = useGameStore(s => s.viewMode);
 
   // useRef instead of useState: drag state doesn't need to trigger a re-render.
   // Previously, setDraggingId() caused App.tsx to re-render → all N cards reconciled → 5 sync
@@ -82,6 +88,7 @@ function InnerApp() {
   // useShallow: prevents re-render when unrelated store fields change (only re-renders when
   // array content actually differs, not just on new array reference from any store update).
   const zoomedCardIds = useGameStore(useShallow(s => s.zoomedCardIds));
+  const activeGrimoires = useGameStore(useShallow(s => s.activeGrimoires));
 
   // Separate boolean for isZoomed (passed to Dock) — avoids array comparison overhead there
   const isZoomed = zoomedCardIds.length > 0;
@@ -135,26 +142,15 @@ function InnerApp() {
     return ids;
   }, [deviceManager.canvasDevices]);
 
-  // All non-slotted canvas items (used for physics — not affected by viewport culling)
+  // All non-slotted canvas items (not affected by viewport culling)
   const allCanvasItems = useMemo(() =>
     data.canvasItems.filter((item: any) => !slottedCardIds.has(item.cardData.rawSense.uid)),
     [data.canvasItems, slottedCardIds]
   );
 
-  // 5. Physics Engine (runs on all cards, independent of culling)
-  const physicsItems = useMemo(
-    () =>
-      allCanvasItems.map((item: any) => ({
-        id: item.cardData.rawSense.uid,
-        x: item.mx,
-        y: item.my,
-        width: item.width,
-        height: item.height,
-      })),
-    [allCanvasItems],
-  );
-
-  usePhysics(physicsItems, draggingIdRef);
+  // Stable ref so useDrop (factory) can always read the latest canvas items
+  const allCanvasItemsRef = useRef(allCanvasItems);
+  allCanvasItemsRef.current = allCanvasItems;
 
   // Viewport culling — only render cards visible on screen (+ 350px margin)
   const cullItems = useMemo(
@@ -175,6 +171,7 @@ function InnerApp() {
     camera.scale,
     expandedIdsRef,
     draggingIdRef,
+    isZoomingRef,
   );
 
   const visibleCanvasItems = useMemo(
@@ -214,8 +211,15 @@ function InnerApp() {
       const dropX = (clientOffset.x - cx) / s;
       const dropY = (clientOffset.y - cy) / s;
 
-      const x = dropX - (item.width / 2);
-      const y = dropY - (item.height / 2);
+      const rawX = dropX - (item.width / 2);
+      const rawY = dropY - (item.height / 2);
+
+      const occupied = allCanvasItemsRef.current.map((ci: any) => ({
+        id: ci.cardData.rawSense.uid,
+        x: ci.mx.get(),
+        y: ci.my.get(),
+      }));
+      const { x, y } = snapPosition(rawX, rawY, occupied);
 
       if (item.type === 'DEVICE') {
         deviceManager.retrieveDevice(item.uid, x, y);
@@ -231,9 +235,20 @@ function InnerApp() {
 
   const handleDragEnd = useCallback((id: string) => {
     draggingIdRef.current = null;
-    // Pass mergedVariants to ensure "Sense Position" is updated
+
+    const draggedItem = allCanvasItems.find((item: any) => item.cardData.rawSense.uid === id);
+    if (draggedItem) {
+      const occupied = allCanvasItems.map((item: any) => ({
+        id: item.cardData.rawSense.uid,
+        x: item.mx.get(),
+        y: item.my.get(),
+      }));
+      const snapped = snapPosition(draggedItem.mx.get(), draggedItem.my.get(), occupied, id);
+      applySnap(draggedItem.mx, draggedItem.my, snapped.x, snapped.y);
+    }
+
     data.saveItems(grouping.mergedVariants);
-  }, [data, grouping.mergedVariants]);
+  }, [data, grouping.mergedVariants, allCanvasItems]);
 
   const handleDeviceDragEnd = useCallback((uid: string) => {
     // checkDeckCollision(uid, true); // Removed
@@ -278,108 +293,159 @@ function InnerApp() {
     levelModule.initialize();
   }, []);
 
+  // 8. Grimoire expiry polling
+  useGrimoireExpiry();
+
   return (
     <div
       ref={drop}
       className="w-full h-screen bg-black overflow-hidden relative font-sans text-zinc-200"
       onContextMenu={(e) => e.preventDefault()}
     >
-      <div
-        className="absolute inset-0 w-full h-full"
-        style={{
-          position: 'relative',
-          zIndex: 0
-        }}
-        onPointerDown={(e) => {
-          if (isDeckOpen) closeDeck();
-        }}
-      >
-        <Canvas scale={camera.scale} x={camera.x} y={camera.y} isZoomingRef={isZoomingRef} isPanningRef={isPanningRef}>
-          {/* Render Active Canvas Items */}
-          {visibleCanvasItems.map((item: any) => (
-            <Card
-              key={item.cardData.rawSense.uid}
-              cardData={item.cardData}
-              variants={grouping.mergedVariants[item.cardData.uid] || EMPTY_VARIANTS}
-              learningLanguage={mappedLearningLang}
-              systemLanguage={mappedSystemLang}
-              x={item.mx}
-              y={item.my}
-              width={item.width}
-              height={item.height}
-              canvasScale={camera.scale} // Pass MotionValue
-              canvasX={camera.x}
-              canvasY={camera.y}
-              onDragStart={handleDragStart}
-              onDragEnd={handleDragEnd}
-              updatePosition={handleUpdatePosition}
-              groupFeedback={grouping.groupFeedback}
+      <AnimatePresence mode="wait">
+        {viewMode === 'WORLD' ? (
+          <motion.div
+            key="world"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 w-full h-full"
+            style={{ zIndex: 0 }}
+            onPointerDown={(e) => {
+              if (isDeckOpen) closeDeck();
+            }}
+          >
+            <Canvas scale={camera.scale} x={camera.x} y={camera.y} isZoomingRef={isZoomingRef} isPanningRef={isPanningRef} expandedIdsRef={expandedIdsRef}>
+              {/* Render Active Canvas Items */}
+              {visibleCanvasItems.map((item: any) => (
+                <Card
+                  key={item.cardData.rawSense.uid}
+                  cardData={item.cardData}
+                  variants={grouping.mergedVariants[item.cardData.uid] || EMPTY_VARIANTS}
+                  learningLanguage={mappedLearningLang}
+                  systemLanguage={mappedSystemLang}
+                  x={item.mx}
+                  y={item.my}
+                  width={item.width}
+                  height={item.height}
+                  canvasScale={camera.scale} // Pass MotionValue
+                  canvasX={camera.x}
+                  canvasY={camera.y}
+                  onDragStart={handleDragStart}
+                  onDragEnd={handleDragEnd}
+                  updatePosition={handleUpdatePosition}
+                  groupFeedback={grouping.groupFeedback}
 
-              onDropIntoSlot={handleDropIntoSlot}
-              onDropIntoRepository={handleCardDropIntoRepository}
-              isZoomingRef={isZoomingRef}
-              expandedIdsRef={expandedIdsRef}
+                  onDropIntoSlot={handleDropIntoSlot}
+                  onDropIntoRepository={handleCardDropIntoRepository}
+                  isZoomingRef={isZoomingRef}
+                  expandedIdsRef={expandedIdsRef}
+                  isPanningRef={isPanningRef}
+                />
+              ))}
+
+              {/* Render Active Devices */}
+              {deviceManager.canvasDevices.map(device => {
+                if (device.type === 'grimoire-summoner') {
+                  return (
+                    <GrimoireSummoner
+                      key={device.uid}
+                      uid={device.uid}
+                      x={device.mx}
+                      y={device.my}
+                      state={device.state}
+                      updateState={deviceManager.updateDeviceState}
+                      inputCards={data.items}
+                      canvasScale={camera.scale}
+                      onDragEnd={handleDeviceDragEnd}
+                      onCardEnter={(cid) => data.setCardLocation(cid, 'device')}
+                      onCardEject={(cid) => data.setCardLocation(cid, 'canvas', { x: device.mx.get() + 80, y: device.my.get() + 50 })}
+                      mergedVariants={grouping.mergedVariants}
+                      onDropIntoRepository={handleDeviceDropIntoRepository}
+                    />
+                  );
+                }
+                return (
+                  <SynthesisCircle
+                    key={device.uid}
+                    uid={device.uid}
+                    x={device.mx}
+                    y={device.my}
+                    state={device.state}
+                    updateState={deviceManager.updateDeviceState}
+                    inputCards={data.items}
+                    canvasScale={camera.scale}
+                    onDragEnd={handleDeviceDragEnd}
+                    onCardEnter={(cid) => data.setCardLocation(cid, 'device')}
+                    onCardEject={(cid) => data.setCardLocation(cid, 'canvas', { x: device.mx.get() + 80, y: device.my.get() + 50 })}
+                    mergedVariants={grouping.mergedVariants}
+                    onDropIntoRepository={handleDeviceDropIntoRepository}
+                    systemlang={mappedSystemLang}
+                    learninglang={mappedLearningLang}
+                    onSynthesisComplete={(newCard) => {
+                      const spread = 50 + Math.random() * 50;
+                      const angle = Math.random() * Math.PI * 2;
+                      setTimeout(() => {
+                        data.setCardLocation(newCard.uid, 'canvas', {
+                          x: device.mx.get() + Math.cos(angle) * spread,
+                          y: device.my.get() + Math.sin(angle) * spread,
+                        });
+                      }, 50);
+                    }}
+                  />
+                );
+              })}
+
+              {/* Render Active Grimoires */}
+              {activeGrimoires.map((grimoire) => (
+                <Grimoire
+                  key={grimoire.id}
+                  grimoire={grimoire}
+                  x={grimoire.x}
+                  y={grimoire.y}
+                  canvasScale={camera.scale}
+                />
+              ))}
+
+              {/* Render Exiting Items (Ghost Animations) */}
+              {grouping.exitingItems.map((item) => (
+                <Card
+                  key={'exiting-' + item.cardData.rawSense.uid}
+                  cardData={item.cardData}
+                  variants={[]}
+                  learningLanguage={mappedLearningLang}
+                  systemLanguage={mappedSystemLang}
+                  x={item.mx}
+                  y={item.my}
+                  width={item.width}
+                  height={item.height}
+                  canvasScale={camera.scale} // Pass MotionValue
+                  canvasX={camera.x}
+                  canvasY={camera.y}
+                  updatePosition={handleUpdatePosition} // Use stable handler here too
+                  isHidden={false}
+                  externalScale={item.scale}
+                  isZoomingRef={isZoomingRef}
+                  expandedIdsRef={expandedIdsRef}
+                  isPanningRef={isPanningRef}
+                />
+              ))}
+
+            </Canvas>
+
+            {/* UI Controls specific to world */}
+            <CanvasControl
+              onCenter={camera.centerCamera}
+              systemLang={systemLang}
+              getLoc={getLoc}
             />
-          ))}
+          </motion.div>
+        ) : viewMode === 'LIBRARY' ? (
+          <LibraryInterface key="library" />
+        ) : null}
+      </AnimatePresence>
 
-          {/* Render Active Devices */}
-          {deviceManager.canvasDevices.map(device => (
-            <SynthesisCircle
-              key={device.uid}
-              uid={device.uid}
-              x={device.mx}
-              y={device.my}
-              state={device.state}
-              updateState={deviceManager.updateDeviceState}
-              inputCards={data.items}
-              canvasScale={camera.scale}
-              onDragEnd={handleDeviceDragEnd}
-              onCardEnter={(cid) => data.setCardLocation(cid, 'device')}
-              onCardEject={(cid) => data.setCardLocation(cid, 'canvas', { x: device.mx.get() + 80, y: device.my.get() + 50 })}
-              mergedVariants={grouping.mergedVariants}
-              onDropIntoRepository={handleDeviceDropIntoRepository}
-              systemlang={mappedSystemLang}
-              learninglang={mappedLearningLang}
-              onSynthesisComplete={(newCard) => {
-                const spread = 50 + Math.random() * 50;
-                const angle = Math.random() * Math.PI * 2;
-                setTimeout(() => {
-                  data.setCardLocation(newCard.uid, 'canvas', {
-                    x: device.mx.get() + Math.cos(angle) * spread,
-                    y: device.my.get() + Math.sin(angle) * spread,
-                  });
-                }, 50);
-              }}
-            />
-          ))}
-
-          {/* Render Exiting Items (Ghost Animations) */}
-          {grouping.exitingItems.map((item) => (
-            <Card
-              key={'exiting-' + item.cardData.rawSense.uid}
-              cardData={item.cardData}
-              variants={[]}
-              learningLanguage={mappedLearningLang}
-              systemLanguage={mappedSystemLang}
-              x={item.mx}
-              y={item.my}
-              width={item.width}
-              height={item.height}
-              canvasScale={camera.scale} // Pass MotionValue
-              canvasX={camera.x}
-              canvasY={camera.y}
-              updatePosition={handleUpdatePosition} // Use stable handler here too
-              isHidden={false}
-              externalScale={item.scale}
-              isZoomingRef={isZoomingRef}
-              expandedIdsRef={expandedIdsRef}
-            />
-          ))}
-
-        </Canvas>
-      </div>
-
-      {/* Drag Preview Layer */}
+      {/* Drag Preview Layer (Always top) */}
       <DragLayer
         systemLang={systemLang}
         learningLang={learningLang}
@@ -394,18 +460,12 @@ function InnerApp() {
         />
       )}
 
-      {/* UI Controls */}
-      <CanvasControl
-        onCenter={camera.centerCamera}
-        systemLang={systemLang}
-        getLoc={getLoc}
-      />
-
       {/* Progression Shell */}
       <ProgressionHUD />
       <LevelUpOverlay />
+      <GrimoireOverlay />
 
-      {/* Bottom Dock */}
+      {/* Bottom Dock (Always visible for navigation) */}
       <Dock
         isDeckOpen={isDeckOpen}
         toggleDeck={toggleDeck}

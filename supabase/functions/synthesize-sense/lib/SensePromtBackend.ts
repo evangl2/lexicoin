@@ -1,4 +1,4 @@
-import { PERSONA_DICTIONARY } from './PersonaDictionary.ts';
+import { SENSE_PERSONA_DICTIONARY as PERSONA_DICTIONARY } from '../../_shared/sensePersona.ts';
 import {
   VERB_KEY_FORMS,
   NOUN_KEY_FORMS,
