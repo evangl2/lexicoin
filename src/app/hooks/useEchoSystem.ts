@@ -1,70 +1,73 @@
 import { useState, useCallback } from 'react';
 import { useGameStore } from '@/core/store';
 import { GrimoireEntity, Sense } from '@/types/index';
-import { senseRepository } from '@/core/storage/SenseRepository';
 import { messageBus } from '@/core/protocol/MessageBus';
+import { generateId } from '@/utils/helpers';
 import { logger } from '@/utils/logger';
 
 export const useEchoSystem = () => {
     const [isExtracting, setIsExtracting] = useState(false);
     const consumeEchoCharge = useGameStore(s => s.consumeEchoCharge);
     const addNotification = useGameStore(s => s.addNotification);
+    const player = useGameStore(s => s.player);
 
     const extractEcho = useCallback(async (grimoire: GrimoireEntity) => {
         if (isExtracting) return;
-        
+
         setIsExtracting(true);
-        
+
         try {
-            // 1. Pick a random word from validation tags
             const tags = grimoire.validationTags || [];
             if (tags.length === 0) {
-                throw new Error("No echoes found in this volume");
-            }
-            
-            const randomTag = tags[Math.floor(Math.random() * tags.length)];
-            
-            // 2. Find the corresponding Sense in repository
-            // Note: In a real scenario, we might need a searchByWord helper
-            const allSenses = await senseRepository.getAll();
-            const match = allSenses.find(s => 
-                s.word.en.toLowerCase() === randomTag.toLowerCase() || 
-                s.word.zh === randomTag
-            );
-            
-            if (!match) {
-                throw new Error(`The echo of '${randomTag}' has faded into the void`);
+                throw new Error('No echoes found in this volume');
             }
 
-            // 3. Consume charge
+            // Pick a random word from the hidden validation tags
+            const echoWord = tags[Math.floor(Math.random() * tags.length)]!;
+
+            const learningLang = player.settings.learningLang;
+            const systemLang = player.settings.interfaceLang;
+
+            // Always create a fresh Echo Sense — the point is to surface words
+            // the player may not yet own, not to retrieve existing cards
+            const echoSense: Sense = {
+                id: generateId(),
+                word: {
+                    [learningLang]: echoWord,
+                    [systemLang]: echoWord,
+                } as any,
+                meaning: {
+                    [learningLang]: `An echo from the ritual: "${grimoire.theme.title.learning}"`,
+                    [systemLang]: `仪式"${grimoire.theme.title.system}"的回响。`,
+                } as any,
+                partOfSpeech: 'noun',
+                level: grimoire.targetLevel,
+                visual: '✨',
+                flavorText: { en: '', zh: '' } as any,
+                tags: ['echo', grimoire.grimoireType],
+                durability: 100,
+                maxDurability: 100,
+                createdAt: Date.now(),
+            };
+
+            // Consume charge first, then emit
             consumeEchoCharge();
+            await messageBus.send('SENSE_CREATED', echoSense, 'EchoSystem');
 
-            // 4. "Spawn" it (By emitting SENSE_CREATED)
-            // Note: useCardManager will handle duplicate prevention.
-            // If it already exists, we might want to "Retrieve" it to canvas instead.
-            messageBus.publish('SENSE_CREATED', match);
-            
-            // 5. Special Notification
             addNotification({
-                en: `The echo of '${randomTag}' resonates on the canvas!`,
-                zh: `“${randomTag}”的回响正在画布上共鸣！`
+                en: `The echo of "${echoWord}" resonates on the canvas!`,
+                zh: `"${echoWord}"的回响已出现在画布上！`,
             }, 'SUCCESS');
 
-            logger.info(`Extracted echo: ${randomTag} from grimoire ${grimoire.id}`, undefined, 'EchoSystem');
+            logger.info(`Extracted echo: ${echoWord} from grimoire ${grimoire.id}`, undefined, 'EchoSystem');
 
         } catch (error: any) {
-            addNotification(error.message || "Extraction failed", 'ERROR');
+            addNotification(error.message || 'Extraction failed', 'ERROR');
             logger.error('Echo extraction failed', error, 'EchoSystem');
         } finally {
-            // Artificial delay for cinematic feel
-            setTimeout(() => {
-                setIsExtracting(false);
-            }, 1500);
+            setTimeout(() => setIsExtracting(false), 1500);
         }
-    }, [isExtracting, consumeEchoCharge, addNotification]);
+    }, [isExtracting, consumeEchoCharge, addNotification, player.settings]);
 
-    return {
-        extractEcho,
-        isExtracting
-    };
+    return { extractEcho, isExtracting };
 };

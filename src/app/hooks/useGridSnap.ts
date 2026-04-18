@@ -1,11 +1,9 @@
 import { animate } from 'motion/react'
 import type { MotionValue } from 'motion/react'
+import { WORLD_W, WORLD_H } from '@/config/canvas'
 
 export const GRID_CELL_W = 280
 export const GRID_CELL_H = 380
-
-const WORLD_W = 16000
-const WORLD_H = 10000
 const MIN_COL = Math.ceil((-WORLD_W / 2) / GRID_CELL_W)
 const MAX_COL = Math.floor((WORLD_W / 2) / GRID_CELL_W)
 const MIN_ROW = Math.ceil((-WORLD_H / 2) / GRID_CELL_H)

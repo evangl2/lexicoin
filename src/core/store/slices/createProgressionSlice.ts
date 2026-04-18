@@ -103,10 +103,11 @@ export const createProgressionSlice: StateCreator<
             const m = { ...state.player.grimoireMastery };
             const inc = rewards.increments;
             
-            // Increment counters based on grade tier
+            // Increment counters based on grade tier (GDD §7.6 downward propagation)
+            // S-tier: all counters use inc (7 / 3 / 1); lower tiers always +1
             if (finalGrade === 'S++' || finalGrade === 'S+' || finalGrade === 'S') {
                 m.sScore += inc;
-                m.aCount += 1; m.bCount += 1; m.cCount += 1; m.dCount += 1;
+                m.aCount += inc; m.bCount += inc; m.cCount += inc; m.dCount += inc;
             } else if (finalGrade === 'A') {
                 m.aCount += 1; m.bCount += 1; m.cCount += 1; m.dCount += 1;
             } else if (finalGrade === 'B') {

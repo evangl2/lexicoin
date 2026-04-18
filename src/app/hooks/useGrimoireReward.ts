@@ -17,11 +17,14 @@ export function useGrimoireReward() {
     const [rewardResult, setRewardResult] = useState<RewardResult | null>(null);
     
     const activeGrimoires = useGameStore(s => s.activeGrimoires);
+    const libraryGrimoires = useGameStore(s => s.libraryGrimoires);
     const claimGrimoireReward = useGameStore(s => s.claimGrimoireReward);
     const player = useGameStore(s => s.player);
 
     const claim = useCallback(async (grimoireId: UUID) => {
-        const grimoire = activeGrimoires.find(g => g.id === grimoireId);
+        const grimoire =
+            activeGrimoires.find(g => g.id === grimoireId) ||
+            libraryGrimoires.find(g => g.id === grimoireId);
         if (!grimoire || !grimoire.finalGrade || grimoire.rewardClaimed) return;
 
         setIsClaiming(true);
@@ -81,7 +84,7 @@ export function useGrimoireReward() {
             logger.error('Failed to claim grimoire rewards', err, 'GrimoireReward');
             setIsClaiming(false);
         }
-    }, [activeGrimoires, claimGrimoireReward, player.settings]);
+    }, [activeGrimoires, libraryGrimoires, claimGrimoireReward, player.settings]);
 
     const resetReward = useCallback(() => {
         setRewardResult(null);

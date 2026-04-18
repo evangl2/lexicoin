@@ -8,9 +8,9 @@
  * 4. 提交动作与评语展示。
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, BookOpen, Send, Loader2, Scroll, Archive } from 'lucide-react';
+import { X, BookOpen, Send, Loader2, Scroll, Archive, Languages } from 'lucide-react';
 import { useGrimoireInteraction } from '@/app/hooks/useGrimoireInteraction';
 import { useGameStore } from '@/core/store';
 import { GrimoireSlotVisual } from './GrimoireSlotVisual';
@@ -27,11 +27,16 @@ export const GrimoireOverlay: React.FC = () => {
     } = useGrimoireInteraction();
     const archiveGrimoire = useGameStore(s => s.archiveGrimoire);
 
+    // §6.4: Language toggle — 'learning' = immersive, 'system' = native comprehension check
+    const [displayLang, setDisplayLang] = useState<'learning' | 'system'>('learning');
+
     if (!grimoire) return null;
 
     const grimoireStatus = grimoire.status;
     const isFailing = grimoireStatus === 'NEEDS_REVISION';
     const isEvaluating = grimoireStatus === 'EVALUATING';
+
+    const t = (bilingual: { learning: string; system: string }) => bilingual[displayLang];
 
     return (
         <AnimatePresence>
@@ -58,19 +63,32 @@ export const GrimoireOverlay: React.FC = () => {
                         <div className="absolute inset-0 shadow-[inset_0_0_100px_rgba(139,69,19,0.1)] pointer-events-none" />
 
                         <div className="relative z-10 flex flex-col h-full">
-                            <div className="flex items-center gap-2 mb-6">
-                                <BookOpen className="text-[#5d4037]" size={20} />
-                                <span className="text-[10px] font-bold tracking-[0.3em] uppercase text-[#8d6e63]">Grimoire Objective</span>
+                            <div className="flex items-center justify-between mb-6">
+                                <div className="flex items-center gap-2">
+                                    <BookOpen className="text-[#5d4037]" size={20} />
+                                    <span className="text-[10px] font-bold tracking-[0.3em] uppercase text-[#8d6e63]">Grimoire Objective</span>
+                                </div>
+                                {/* §6.4 Language Toggle */}
+                                <button
+                                    onClick={() => setDisplayLang(l => l === 'learning' ? 'system' : 'learning')}
+                                    className="flex items-center gap-1.5 px-3 py-1 rounded-full border border-[#5d4037]/20 bg-[#5d4037]/5 hover:bg-[#5d4037]/10 transition-all group"
+                                    title="Toggle display language"
+                                >
+                                    <Languages size={12} className="text-[#8d6e63]" />
+                                    <span className="text-[9px] font-bold tracking-widest uppercase text-[#8d6e63]">
+                                        {displayLang === 'learning' ? 'Learning' : 'Native'}
+                                    </span>
+                                </button>
                             </div>
 
                             <h1 className="text-3xl font-serif font-black text-[#2d1b0d] mb-4 leading-tight">
-                                {grimoire.theme.title.system}
+                                {t(grimoire.theme.title)}
                             </h1>
 
                             <div className="flex-1 overflow-y-auto pr-4 scrollbar-thin scrollbar-thumb-[#8d6e63]/20">
                                 {/* personaQuest: unified scene + voice from the Persona */}
                                 <p className="text-[#5d4037] font-serif italic text-lg leading-relaxed mb-8 indent-8 first-letter:text-5xl first-letter:font-black first-letter:mr-1 first-letter:float-left first-letter:leading-[0.8]">
-                                    {grimoire.theme.description.system}
+                                    {t(grimoire.theme.description)}
                                 </p>
 
                                 <div className="p-4 rounded-lg bg-[#5d4037]/5 border border-[#5d4037]/10 flex gap-3">
@@ -78,7 +96,7 @@ export const GrimoireOverlay: React.FC = () => {
                                     <div>
                                         <div className="text-[9px] uppercase tracking-widest text-[#8d6e63] font-bold mb-1">Ritual Requirement</div>
                                         <div className="text-sm text-[#3e2723] font-bold leading-snug">
-                                            {grimoire.explicitInstruction.system}
+                                            {t(grimoire.explicitInstruction)}
                                         </div>
                                     </div>
                                 </div>
@@ -114,12 +132,14 @@ export const GrimoireOverlay: React.FC = () => {
 
                             <div className="flex-1 space-y-3 overflow-y-auto pr-2 scrollbar-hide">
                                 {grimoire.slots.map((slot, i) => (
-                                    <GrimoireSlotVisual 
-                                        key={slot.id} 
-                                        slot={slot} 
+                                    <GrimoireSlotVisual
+                                        key={slot.id}
+                                        slot={slot}
                                         onDrop={handleUpdateSlot}
                                         isEvaluating={isEvaluating}
                                         showGrade={slot.grade !== null}
+                                        displayLang={displayLang}
+                                        personaId={grimoire.personaId}
                                     />
                                 ))}
                             </div>

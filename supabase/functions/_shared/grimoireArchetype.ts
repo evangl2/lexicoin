@@ -7,21 +7,22 @@
  * KEY PRINCIPLE — BIDIRECTIONAL LOGIC:
  * seedWord 可以处于关系的任意一端。
  * AI 需同时思考两端，选择对当前 Persona 最有趣的方向。
- *
- * "Script" 已替换为 "Time"（时间与因果维度）。
+ * 每个 archetype 提供两个 example，分别展示 A→B 与 B→A 两种方向。
  */
+
+export interface ArchetypeExample {
+    direction: 'A→B' | 'B→A';
+    seed: string;
+    words: string[];
+    note: string;
+}
 
 export interface ArchetypeEntry {
     id: string;
     label: string;
     description: string;
     bidirectionalLogic: string;
-    example: {
-        seed: string;
-        direction: 'A→B' | 'B→A';
-        words: string[];
-        note: string;
-    };
+    examples: [ArchetypeExample, ArchetypeExample];   // [A→B, B→A]
 }
 
 export const ARCHETYPE_TABLE: Record<string, ArchetypeEntry> = {
@@ -31,13 +32,20 @@ export const ARCHETYPE_TABLE: Record<string, ArchetypeEntry> = {
         description: 'Parts and structures of a whole entity.',
         bidirectionalLogic:
             'A (Part) ↔ B (Whole): ' +
-            'If seedWord is a WHOLE → collect its component PARTS. ' +
-            'If seedWord is a PART → collect other PARTS of the same WHOLE.',
-        example: {
-            seed: 'Clock', direction: 'B→A',
-            words: ['Gears', 'Hands', 'Spring', 'Dial', 'Crown'],
-            note: '"Clock" is the Whole. Collect its Parts.',
-        },
+            'If seedWord is a PART → collect other PARTS of the same WHOLE. ' +
+            'If seedWord is a WHOLE → collect its component PARTS.',
+        examples: [
+            {
+                direction: 'A→B', seed: 'Gear',
+                words: ['spring', 'hands', 'dial', 'crown', 'bezel'],
+                note: '"Gear" is a Part of a watch. Collect its sibling Parts.',
+            },
+            {
+                direction: 'B→A', seed: 'Clock',
+                words: ['gears', 'hands', 'spring', 'dial', 'crown'],
+                note: '"Clock" is the Whole. Collect its Parts.',
+            },
+        ],
     },
     locus: {
         id: 'locus',
@@ -47,11 +55,18 @@ export const ARCHETYPE_TABLE: Record<string, ArchetypeEntry> = {
             'A (Object/Entity) ↔ B (Place/Context): ' +
             'If seedWord is an OBJECT → collect PLACES or CONTEXTS where it naturally exists. ' +
             'If seedWord is a PLACE/CONTEXT → collect OBJECTS or ENTITIES that belong there.',
-        example: {
-            seed: 'Clock', direction: 'A→B',
-            words: ['Tower', 'Mantelpiece', 'Station', 'Wrist', 'Bedside'],
-            note: '"Clock" is the Object. Collect the Places it inhabits.',
-        },
+        examples: [
+            {
+                direction: 'A→B', seed: 'Clock',
+                words: ['tower', 'mantelpiece', 'station', 'wrist', 'bedside'],
+                note: '"Clock" is the Object. Collect the Places it inhabits.',
+            },
+            {
+                direction: 'B→A', seed: 'Kitchen',
+                words: ['stove', 'knife', 'pot', 'apron', 'salt'],
+                note: '"Kitchen" is the Place. Collect the Objects that belong there.',
+            },
+        ],
     },
     ritual: {
         id: 'ritual',
@@ -59,13 +74,20 @@ export const ARCHETYPE_TABLE: Record<string, ArchetypeEntry> = {
         description: 'Sequential steps and the goal they achieve.',
         bidirectionalLogic:
             'A (Step/Action) ↔ B (Goal/Process): ' +
-            'If seedWord is a GOAL or PROCESS → collect the sequential STEPS required to achieve it. ' +
-            'If seedWord is a STEP → collect other STEPS belonging to the same ritual or process.',
-        example: {
-            seed: 'Clock', direction: 'B→A',
-            words: ['Wind', 'Set', 'Synchronize', 'Oil', 'Calibrate'],
-            note: '"Clock" implies maintenance ritual. Collect its procedural Steps.',
-        },
+            'If seedWord is a STEP → collect other STEPS belonging to the same ritual or process. ' +
+            'If seedWord is a GOAL or PROCESS → collect the sequential STEPS required to achieve it.',
+        examples: [
+            {
+                direction: 'A→B', seed: 'Knead',
+                words: ['measure', 'mix', 'rise', 'shape', 'bake'],
+                note: '"Knead" is one Step. Collect the sibling Steps of breadmaking.',
+            },
+            {
+                direction: 'B→A', seed: 'Bread',
+                words: ['measure', 'mix', 'knead', 'rise', 'bake'],
+                note: '"Bread" is the Goal. Collect the Steps that produce it.',
+            },
+        ],
     },
     qualia: {
         id: 'qualia',
@@ -75,11 +97,18 @@ export const ARCHETYPE_TABLE: Record<string, ArchetypeEntry> = {
             'A (Object/Source) ↔ B (Sensation/Quality): ' +
             'If seedWord is an OBJECT or SOURCE → collect the SENSATIONS or QUALITIES it evokes. ' +
             'If seedWord is a SENSATION or QUALITY → collect OBJECTS or SOURCES that produce it.',
-        example: {
-            seed: 'Clock', direction: 'A→B',
-            words: ['Rhythmic', 'Metallic', 'Cold', 'Precise', 'Relentless'],
-            note: '"Clock" is the Source. Collect the Qualities it evokes.',
-        },
+        examples: [
+            {
+                direction: 'A→B', seed: 'Clock',
+                words: ['rhythmic', 'metallic', 'cold', 'precise', 'relentless'],
+                note: '"Clock" is the Source. Collect the Qualities it evokes.',
+            },
+            {
+                direction: 'B→A', seed: 'Warmth',
+                words: ['hearth', 'blanket', 'tea', 'sunlight', 'breath'],
+                note: '"Warmth" is the Sensation. Collect the Sources that produce it.',
+            },
+        ],
     },
     spectrum: {
         id: 'spectrum',
@@ -87,13 +116,20 @@ export const ARCHETYPE_TABLE: Record<string, ArchetypeEntry> = {
         description: 'A concept and its opposing pole or gradient.',
         bidirectionalLogic:
             'A (Concept) ↔ B (Opposing Pole / Gradient Point): ' +
-            'If seedWord is a CONCEPT → collect words along its opposing gradient or antonymous spectrum. ' +
-            'The relationship is inherently bidirectional: any word in the spectrum relates back to the seed.',
-        example: {
-            seed: 'Clock', direction: 'A→B',
-            words: ['Timeless', 'Eternal', 'Frozen', 'Still', 'Boundless'],
-            note: '"Clock" = structured time. Collect words from the opposing spectrum.',
-        },
+            'The relationship is inherently bidirectional — any word on the spectrum relates back to the seed. ' +
+            'The seed can be either pole; collect words along the opposing gradient.',
+        examples: [
+            {
+                direction: 'A→B', seed: 'Clock',
+                words: ['timeless', 'eternal', 'frozen', 'still', 'boundless'],
+                note: '"Clock" = structured time. Collect words from the opposing spectrum.',
+            },
+            {
+                direction: 'B→A', seed: 'Silence',
+                words: ['shout', 'thunder', 'laughter', 'bell', 'alarm'],
+                note: '"Silence" = absence of sound. Collect words from the opposing pole.',
+            },
+        ],
     },
     time: {
         id: 'time',
@@ -101,14 +137,20 @@ export const ARCHETYPE_TABLE: Record<string, ArchetypeEntry> = {
         description: 'Events, states, and their causes or effects across the time dimension.',
         bidirectionalLogic:
             'A (Cause / Prior State) ↔ B (Effect / Subsequent State): ' +
-            'If seedWord is an EVENT or STATE → collect its CAUSES or EFFECTS. ' +
-            'If seedWord is a CAUSE → collect the EVENTS or STATES it produces. ' +
-            'If seedWord is an EFFECT → collect the CAUSES that produced it.',
-        example: {
-            seed: 'Clock', direction: 'B→A',
-            words: ['Industry', 'Standardization', 'Colonialism', 'Anxiety', 'Deadline'],
-            note: '"Clock" as Effect: collect the historical forces (Causes) that created clock culture.',
-        },
+            'If seedWord is a CAUSE → collect the EFFECTS or subsequent states it produces. ' +
+            'If seedWord is an EFFECT → collect the CAUSES or prior states that produced it.',
+        examples: [
+            {
+                direction: 'A→B', seed: 'Drought',
+                words: ['famine', 'migration', 'cracked earth', 'prayer', 'exodus'],
+                note: '"Drought" as Cause. Collect the Effects it unfolds into.',
+            },
+            {
+                direction: 'B→A', seed: 'Anxiety',
+                words: ['deadline', 'crowd', 'uncertainty', 'debt', 'expectation'],
+                note: '"Anxiety" as Effect. Collect the Causes that produce it.',
+            },
+        ],
     },
     metaphor: {
         id: 'metaphor',
@@ -118,11 +160,18 @@ export const ARCHETYPE_TABLE: Record<string, ArchetypeEntry> = {
             'A (Abstract Concept) ↔ B (Symbol / Concrete Image): ' +
             'If seedWord is an ABSTRACT CONCEPT → collect SYMBOLS, IMAGES, or CONCRETE things that represent it. ' +
             'If seedWord is a CONCRETE SYMBOL → collect the ABSTRACT CONCEPTS it embodies or evokes.',
-        example: {
-            seed: 'Clock', direction: 'A→B',
-            words: ['Heartbeat', 'Prison', 'Spiral', 'Tide', 'Flame'],
-            note: '"Clock" as Concept (mortality, order). Collect its Symbols.',
-        },
+        examples: [
+            {
+                direction: 'A→B', seed: 'Mortality',
+                words: ['hourglass', 'shadow', 'ash', 'crow', 'leaf'],
+                note: '"Mortality" is the Concept. Collect its Symbols.',
+            },
+            {
+                direction: 'B→A', seed: 'Mirror',
+                words: ['truth', 'vanity', 'duality', 'self', 'judgment'],
+                note: '"Mirror" is the Symbol. Collect the Abstracts it embodies.',
+            },
+        ],
     },
     taxonomy: {
         id: 'taxonomy',
@@ -130,24 +179,19 @@ export const ARCHETYPE_TABLE: Record<string, ArchetypeEntry> = {
         description: 'Categories and their instances, or instances and their shared category.',
         bidirectionalLogic:
             'A (Category) ↔ B (Instance/Member): ' +
-            'If seedWord is a CATEGORY → collect specific INSTANCES or MEMBERS that belong to it. ' +
-            'If seedWord is an INSTANCE → collect other MEMBERS of the same category, or the PARENT CATEGORIES it belongs to.',
-        example: {
-            seed: 'Clock', direction: 'A→B',
-            words: ['Sundial', 'Hourglass', 'Stopwatch', 'Chronometer', 'Pendulum clock'],
-            note: '"Clock" as Category (timekeeping devices). Collect specific Instances.',
-        },
+            'If seedWord is a CATEGORY → collect specific INSTANCES or MEMBERS. ' +
+            'If seedWord is an INSTANCE → collect other MEMBERS of the same category.',
+        examples: [
+            {
+                direction: 'A→B', seed: 'Clock',
+                words: ['sundial', 'hourglass', 'stopwatch', 'chronometer', 'pendulum clock'],
+                note: '"Clock" as Category. Collect specific Instances.',
+            },
+            {
+                direction: 'B→A', seed: 'Sparrow',
+                words: ['wren', 'finch', 'robin', 'starling', 'crow'],
+                note: '"Sparrow" as Instance. Collect sibling Members of the same category (songbirds).',
+            },
+        ],
     },
 };
-
-export function buildArchetypeReferenceTable(): string {
-    const rows = Object.values(ARCHETYPE_TABLE).map((a) => {
-        const exWords = a.example.words.slice(0, 3).join(', ');
-        return `${a.label.padEnd(10)} | ${a.bidirectionalLogic.split(':')[0]!.trim().padEnd(25)} | ${exWords} (seed: "${a.example.seed}", ${a.example.direction})`;
-    });
-    return [
-        'Type       | Bidirectional Logic               | Example (3 words)',
-        '-'.repeat(80),
-        ...rows,
-    ].join('\n');
-}

@@ -851,43 +851,132 @@ Grimoire 系统依赖两个独立的 Supabase Edge Function：
 
 ## 9.2 generate-grimoire
 
-### 输入结构（三段驱动）
+### 前端传入参数
 
-1. **LOGIC CORE（客观任务）**：基于 [Quest Logic] 定义语义集合。
-2. **NARRATIVE ENGINE（叙事层）**：
-    - 作为 {persona.name}，你为什么需要此词？
-    - 描述场景，转向玩家下达指令。
-3. **VALIDATION（隐藏验证集）**：列出 10 个难度接近 {targetLevel} 的标准词语。
+| 字段 | 说明 |
+|------|------|
+| `personaId` | Persona 标识符（'CHILD'/'GARDENER'/'ALCHEMIST'）；后端查字典，不信任客户端数据 |
+| `archetypeId` | 8 种语义类型之一；由前端随机选取（过滤 Persona 的 `excludedTypes`） |
+| `seedWord` | 种子词（learningLang 下的字符串），用于驱动 archetype 语义方向 |
+| `targetLevel` | CEFR 等级（A1-C2），由玩家语言进度计算；目前仅供后端记录，不注入 prompt |
+| `learningLanguage` | 学习语言代码（如 `'en'`） |
+| `systemLanguage` | 系统语言代码（如 `'zh'`） |
+| `personaStory` | `{ stage: string }` — 叙事阶段；后端 `resolvePersonaContext` 据此选取 stage override |
 
-### 输出 Schema
+### 服务端生成（不由 AI 决定）
+
+- **slotCount**：服务端随机 3–6，AI 仅在输出 JSON 中原样回填
+- **narrativeForm**：从 persona 的 `narrativeForms[]` 中随机选取，注入 prompt
+
+### Prompt 架构（五段）
+
+1. **`# ROLE`** — Persona 完整人物描述 + 当前故事阶段（startingpoint 不注入）
+2. **`# GLOBAL RULES`** — TRANSCREATE 原则（以目标语言本地读者视角重新找到同等表达，禁止逐词翻译）；validationTags 语言约束；JSON 格式要求
+3. **`# TASK`** — 种子词、Archetype 双向逻辑（A→B / B→A 两方向均展示）、双向 example 各一条（仅供定向参考，非模板）
+4. **`# PERSONA QUEST — TWO SHAPING FORCES`** — 明确区分两种力量的作用范围：
+   - **(A) Persona 声音**：仅管辖 Persona 自身的台词与内心独白
+   - **(B) Narrative Form**：管辖场景、其他角色、氛围、结构与节奏，Persona 自身话语以外的一切
+5. **`# OUTPUT SCHEMA`** — _reasoning 作为 scratchpad（4 步：双向分析 → 收词逻辑 → 场景构建 → voice/form 分工），字段顺序：`_reasoning → title → explicitInstruction → validationTags → personaQuest`
+
+### AI 输出 Schema（由 Gemini `response_schema` 强制）
 
 ```json
 {
-  "_designRationale": "...",
-  "title": { "learning": "...", "system": "..." },
-  "description": { "learning": "...", "system": "..." },
+  "_reasoning": "...",
+  "title":               { "learning": "...", "system": "..." },
   "explicitInstruction": { "learning": "...", "system": "..." },
-  "slots": [ { "label": "..." } ],
-  "validationTags": ["word1", ..., "word10"]
+  "validationTags":      ["word1", ..., "word10"],
+  "personaQuest":        { "learning": "...", "system": "..." },
+  "slotCount":           4
 }
 ```
+
+> 字段顺序设计原则：AI 先确定收词规则（`explicitInstruction`）与 10 个样例（`validationTags`），再写以这些词为隐含前提的叙事场景（`personaQuest`），防止场景先行导致规则被倒推凑合。
+
+### 前端映射
+
+| AI 字段 | GrimoireEntity 字段 |
+|---------|---------------------|
+| `title` | `theme.title` |
+| `personaQuest` | `theme.description` |
+| `explicitInstruction` | `explicitInstruction` |
+| `validationTags` | `validationTags` |
+| `_reasoning` | `designRationale` |
+| `slotCount` | 决定 `slots[]` 数组长度（前端生成空 slot，无 label） |
+
+### TRANSCREATE 原则
+
+双语字段的 `system` 版本不是翻译，是**以目标语言母语者视角重新找到同等感受或意涵的表达**。允许使用不同意象、不同句式结构；`personaQuest.system` 中 Persona 的台词应贴近目标语言文化语境下该角色会使用的措辞，而非英文台词的逐字映射。
 
 ---
 
 ## 9.3 evaluate-grimoire
 
-### Grading Criteria
+### 前端传入参数
 
-1. **Relevance（相关性）**：词语是否符合规则？
-2. **Creativity（创意性）**：连接是否有深度？
-3. **Persona Bias（角色偏好）**：是否符合角色口味？
+| 字段 | 说明 |
+|------|------|
+| `personaId` | Persona 标识符；后端查字典，与 generate-grimoire 保持一致 |
+| `personaStory` | `{ stage }` — 与生成时相同的叙事状态，确保 evalBias 和 triggers 来自同一上下文 |
+| `grimoire` | `{ id, personaQuest, explicitInstruction, validationTags }` — 评判所需的魔典信息 |
+| `slotsToEvaluate` | `[{ slotId, word, meaning, level }]` — 仅未锁定的槽位（已锁定槽位不重复评判） |
+| `learningLanguage` | 学习语言代码 |
+| `systemLanguage` | 系统语言代码 |
 
-### Scoring Tiers
+### Prompt 架构
 
-- **S++ / S+**: 完美。深刻连接且符合偏好。
-- **S / A**: 强连接，逻辑正确。
-- **B / C**: 弱连接，泛化或轻微偏题。
-- **D / F**: 不相关或无意义。
+1. **ROLE + evaluatorProfile** — Persona 描述 + 评判者视角（`evaluatorProfile`，独立于生成时的叙事描述）
+2. **evalBias 描述** — `evalBias > 0.1` → "generous，tip close calls upward"；`< -0.1` → "hold high standards"；否则 "fair"
+3. **YOUR VOICE（双语）** — learning 和 system 两套 voiceDescription，分别指导 commentary 两个字段的写作
+4. **TASK CONTEXT** — personaQuest、explicitInstruction、validationTags（作为隐藏参考答案，不出现在玩家界面）
+5. **SCORING SCALE** — F / D / C / B / A / S / S+ / S++ 完整定义
+6. **COMMENTARY** — 以 Persona 身份从场景内部给出反馈；不是语义分析；最多 5 句；commentary.system 为 TRANSCREATE
+7. **STORY TRIGGERS（条件注入）** — 若 persona.triggers 非空，AI 逐词检查是否语义命中，命中时用 trigger 的 `comm` 替代 COMMENTARY 指令；grade 逻辑不变
+
+### Scoring Scale（完整定义）
+
+| 评级 | 含义 |
+|------|------|
+| F | 完全不属于此处。错误、语法损坏或无意义 |
+| D | 几乎不相关，语义连接太弱 |
+| C | 略有关联，但未满足 explicitInstruction |
+| B | 方向正确，但错过核心要求 |
+| A | 正确满足 explicitInstruction —— 完成任务 |
+| S | 正确 + 词语属于 Persona 的世界，有共鸣 |
+| S+ | 正确 + Persona 会主动寻找此词 |
+| S++ | 正确 + 揭示了一个 Persona 才会发现的瞬间真相 |
+
+### AI 输出 Schema
+
+```json
+{
+  "results": [
+    {
+      "slotId": "<原样 echo 输入的 slotId>",
+      "grade": "S++ | S+ | S | A | B | C | D | F",
+      "triggeredCondition": "<命中的 trigger id，或 null>",
+      "commentary": {
+        "learning": "1–5 句，learningLanguage，Persona 第一人称",
+        "system": "TRANSCREATE：同一 Persona，同一判断，systemLanguage 本地语感"
+      }
+    }
+  ]
+}
+```
+
+> temperature = 0.6（低于生成的 0.95）——评判需要一致性，不需要创造性随机。
+
+### 前端处理流程
+
+1. 发送前：仅发送 `!locked` 的槽位，已锁定槽位保留原评级
+2. 结果处理：非 F → 锁定槽位；F → 不锁定，允许玩家修改重提
+3. 全通过（无 F）→ 状态改为 `RESOLVED`，计算 finalGrade（§7.3 算法）
+4. 含 F → 状态改为 `NEEDS_REVISION`，玩家修改后可重新提交
+
+### Story Trigger 状态（前端待实现）
+
+- 后端每个 slot 结果包含 `triggeredCondition`（trigger id 或 null）
+- **前端待实现**：读取 triggeredCondition → 递增对应故事 counter（权重在前端配置）→ counter 达阈值时写入结局 tag 并触发叙事事件
 
 ---
 [Back to Top](#📑-table-of-contents)
@@ -904,35 +993,65 @@ Grimoire 系统依赖两个独立的 Supabase Edge Function：
 ### GrimoireEntity
 ```typescript
 export interface GrimoireEntity {
-  id: string;
-  personaId: string;
-  grimoireType: GrimoireType;
-  targetLevel: string;
-  seedWord: string;
-  theme: { title: BilingualText; description: BilingualText; };
-  explicitInstruction: BilingualText;
-  validationTags: string[];
-  designRationale: string;
-  slots: GrimoireSlot[];
-  createdAt: number;
-  expiresAt: number;
-  status: GrimoireStatus;
-  fCount: number;
-  finalGrade: Grade | null;
-  rewardClaimed: boolean;
+    id: UUID;
+    x: number;          // Canvas position
+    y: number;          // Canvas position
+
+    personaId: PersonaType;
+    grimoireType: GrimoireType;
+    targetLevel: CEFRLevel;   // A1–C2，由玩家语言进度计算
+    seedWord: string;
+
+    theme: {
+        title: BilingualText;
+        description: BilingualText;  // = AI 输出的 personaQuest
+    };
+    explicitInstruction: BilingualText;
+
+    validationTags: string[];   // 10 个隐藏验证词（learningLang）
+    designRationale: string;    // = AI 输出的 _reasoning
+
+    slots: GrimoireSlot[];      // 3–6 个空槽，无 label
+
+    createdAt: Timestamp;
+    expiresAt: Timestamp;       // createdAt + 1h
+
+    status: GrimoireStatus;
+    fCount: number;             // 累计 F 次数（影响最终评分）
+    finalGrade: Grade | null;
+    rewardClaimed: boolean;
 }
 ```
 
 ### GrimoireSlot
 ```typescript
 export interface GrimoireSlot {
-  id: string;
-  label: string;
-  senseId: string | null;
-  grade: Grade | null;
-  locked: boolean;
-  commentary: BilingualText | null;
+    id: UUID;
+    senseId: UUID | null;            // 已放置的 Sense ID
+    grade: Grade | null;             // 评判结果
+    locked: boolean;                 // 非 F 结果锁定槽位
+    commentary: BilingualText | null; // Persona 评语
+    // ⚠️ 无 label 字段 — 槽位不展示标签，避免直接给出答案（§6 设计原则）
 }
+```
+
+### GrimoireStatus
+```typescript
+export type GrimoireStatus =
+    | 'SUMMONING'       // Edge Function 调用中
+    | 'ACTIVE'          // 画布上，可交互
+    | 'EVALUATING'      // 等待评判结果
+    | 'NEEDS_REVISION'  // 含 F 评级，需修改
+    | 'RESOLVED'        // 全部槽位评级 ≥ D
+    | 'ARCHIVED'        // 已归档至 Library
+    | 'EXPIRED';        // 超时
+```
+
+### GrimoireType
+```typescript
+export type GrimoireType =
+    | 'taxonomy' | 'anatomy' | 'locus' | 'time'
+    | 'spectrum' | 'qualia' | 'ritual' | 'metaphor';
 ```
 
 ---
@@ -945,41 +1064,50 @@ export interface GrimoireSlot {
 
 ---
 
-## 11.1 视觉组件总览与“点位”哲学
+## 11.1 视觉组件总览与”点位”哲学
 
-Grimoire 系统采用 **“装饰点位（Mount Points）”** 系统。不再是硬编码的单体，而是一个基础骨架（Base Frame）加上标准化位置的网络插槽，允许后续通过配置文件热插拔不同的材质与挂件。
+Grimoire 系统设计目标为 **”装饰点位（Mount Points）”** 系统：基础骨架（Base Frame）+ 标准化位置的网络插槽，允许通过配置热插拔不同材质与挂件。当前实现为功能性占位，点位系统为后续视觉完成度工作。
 
 ---
 
 ## 11.2 Grimoire Summoner 视觉
 
-- **IDLE**：静默待机，光晕脉动。
-- **GENERATING**：阵纹旋转，粒子上升，锁定状态。
-- **READY**：闪光爆发，生成完成。
+| 状态 | 设计描述 | 实现状态 |
+|------|---------|---------|
+| **IDLE** | 静默待机，光晕脉动 | ✅ 蓝色虚线圆边框 |
+| **GENERATING** | 阵纹旋转，粒子上升，锁定状态 | ⚠️ 有旋转环 + amber 阴影；粒子上升待实现 |
+| **READY** | 闪光爆发，生成完成 | ✅ 双层扩散环动画 + “Grimoire Manifested” |
 
 ---
 
-## 11.3 闭合态：点位装配系统
+## 11.3 闭合态：点位装配系统（设计目标，待实现）
 
 - **物理构型层**：书脊护甲、装订缝线、材质底纹、边角包边。
 - **标识与字样层**：主印章（Persona 图标）、封印锁扣（ACTIVE 扣拢 / RESOLVED 碎裂）。
 - **动态附属物层**：吊坠/书签（形态反映 GrimoireType）。
 
+> **当前实现**：`Grimoire.tsx` 为 120×160px 彩色卡片，按 status 变色，显示 Persona 名 + 槽位填充进度 + 倒计时。完整点位系统待后续视觉迭代。
+
 ---
 
 ## 11.4 展开态：双页模态框
 
-- **左页**：Persona 信息、主题标题、叙事标题、任务指令框、语言切换。
-- **右页**：槽位列表垂直排列。
-- **槽位基座**：空槽视觉根据 Persona 动态映射（如花盆、炼金阵）。
+| 区域 | 设计描述 | 实现状态 |
+|------|---------|---------|
+| 左页 | Persona 信息、标题、personaQuest、指令框、语言切换 | ✅ 已实现 |
+| 右页 | 槽位列表垂直排列，填充进度指示器 | ✅ 已实现 |
+| 槽位基座 | 空槽视觉按 Persona 动态映射 | ✅ CHILD=Star / GARDENER=Leaf / ALCHEMIST=FlaskConical；默认 Sparkles |
+| 最终评级印章 | RESOLVED 后在右页叠加大型 finalGrade 水印 | ✅ 已实现 |
 
 ---
 
 ## 11.5 评级视觉语言
 
-- **S 级**：金色发光，Serif 大字。
-- **A-D 级**：石灰/深灰，普通字体。
-- **F 级**：红色脉动，语义断裂感。
+| 等级 | 设计描述 | 实现状态 |
+|------|---------|---------|
+| S++ / S+ / S | 金色发光，Serif 大字，光晕强度递减 | ✅ amber + drop-shadow glow + serif italic |
+| A / B / C / D | 普通字体，低饱和度 | ✅ 实现为多色分级（A=emerald, B=blue, C=purple, D=zinc），表达力优于原设计 |
+| F | 红色脉动，语义断裂感 | ✅ red + animate-pulse + AlertCircle 弹跳 |
 
 ---
 [Back to Top](#📑-table-of-contents)

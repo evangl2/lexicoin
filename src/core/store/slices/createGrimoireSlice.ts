@@ -81,13 +81,10 @@ export const createGrimoireSlice: StateCreator<
     })),
 
     resolveGrimoire: (id) => {
-        const grimoire = get().activeGrimoires.find(g => g.id === id);
-        if (!grimoire) return;
-
-        // Note: Final grade calculation logic will be refined in Phase 4/5 integration
-        // with the evaluation service. For now, we provide the skeletal action.
+        // Final grade calculation and slot locking are handled in useGrimoireInteraction
+        // via updateGrimoire. This action exists for external/direct use only.
         set((state) => ({
-            activeGrimoires: state.activeGrimoires.map((g) => 
+            activeGrimoires: state.activeGrimoires.map((g) =>
                 g.id === id ? { ...g, status: 'RESOLVED' as GrimoireStatus } : g
             )
         }));

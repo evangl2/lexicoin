@@ -10,6 +10,7 @@ import { CompactCardVisual } from '@/app/components/ui/card/CompactCardVisual';
 import { cardFocusRegistry } from '@/app/utils/cardFocusRegistry';
 import { tts } from '@/app/utils/audio/tts';
 import { useGameStore } from '@store/index';
+import { WORLD_W, WORLD_H } from '@/config/canvas';
 import type { CardEntity } from '@/types/CardEntity';
 import type { Language } from '@schemas/schemas/SenseEntity.schema';
 
@@ -600,8 +601,6 @@ export const Card = React.memo<CardProps>(({
       const nextX = x.get() + dx / scale;
       const nextY = y.get() + dy / scale;
 
-      const WORLD_W = 16000;
-      const WORLD_H = 10000;
       const minX = -(WORLD_W / 2) + width / 2;
       const maxX = (WORLD_W / 2) - width / 2;
       const minY = -(WORLD_H / 2) + height / 2;
