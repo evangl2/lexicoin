@@ -123,7 +123,7 @@ export const Grimoire: React.FC<GrimoireProps> = ({ grimoire, x, y, canvasScale,
                 <div className="flex flex-col items-center">
                     <span className="text-[10px] font-bold text-white/80 line-clamp-1">Grimoire</span>
                     <span className="text-[8px] text-white/40 uppercase tracking-tighter">
-                        {grimoire.slots.length} Slots
+                        {grimoire.slots.filter(s => s.senseId !== null).length} / {grimoire.slots.length}
                     </span>
                 </div>
             </div>

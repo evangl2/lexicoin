@@ -8,6 +8,20 @@
 import type { Grade, GrimoireType, PersonaType } from '../types/index';
 
 // ============================================================================
+// GRIMOIRE LIFECYCLE
+// ============================================================================
+
+/** How long a summoned grimoire stays active before expiring (ms). */
+export const GRIMOIRE_DURATION_MS = 60 * 60 * 1000; // 1 hour
+
+/** Slot count constraints. Backend picks a number; frontend clamps to this range. */
+export const GRIMOIRE_SLOT_COUNT = {
+    MIN: 3,
+    MAX: 6,
+    DEFAULT: 4,
+} as const;
+
+// ============================================================================
 // STAMINA CONFIGURATION
 // ============================================================================
 

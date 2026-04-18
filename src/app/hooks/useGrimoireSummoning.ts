@@ -14,13 +14,12 @@
 import { useState } from 'react';
 import { useGameStore } from '@/core/store';
 import { supabase } from '@/core/infra/supabaseClient';
-import { GRIMOIRE_TYPES_REGISTRY, STAMINA_CONFIG } from '@/config/grimoireConfig';
+import { GRIMOIRE_TYPES_REGISTRY, STAMINA_CONFIG, GRIMOIRE_DURATION_MS, GRIMOIRE_SLOT_COUNT } from '@/config/grimoireConfig';
 import { personaModule } from '@/modules/persona/PersonaModule';
 import type { Sense, GrimoireType, GrimoireEntity, PersonaType } from '@/types/index';
 import { generateId } from '@/utils/helpers';
 
 const SUMMON_COST = STAMINA_CONFIG.COSTS.GENERATE_GRIMOIRE;
-const GRIMOIRE_DURATION_MS = 60 * 60 * 1000; // 1 hour
 
 export function useGrimoireSummoning() {
     const [isSummoning, setIsSummoning] = useState(false);
@@ -96,6 +95,7 @@ export function useGrimoireSummoning() {
                     personaStory,                       // 后端 resolvePersonaContext 选取对应 stage
                     archetypeId: selectedType,          // e.g. 'anatomy', 'locus', 'time'
                     seedWord: seed.word[learningLang] || seed.word.en,
+                    targetLevel,                        // CEFR level for vocabulary difficulty
                     learningLanguage: learningLang,
                     systemLanguage: systemLang,
                 }
@@ -111,8 +111,8 @@ export function useGrimoireSummoning() {
 
             // Slot 由后端随机数决定数量，前端创建空 slot 对象（无 label）
             const slotCount: number = typeof grimoireData.slotCount === 'number'
-                ? Math.max(3, Math.min(6, grimoireData.slotCount))
-                : 4;
+                ? Math.max(GRIMOIRE_SLOT_COUNT.MIN, Math.min(GRIMOIRE_SLOT_COUNT.MAX, grimoireData.slotCount))
+                : GRIMOIRE_SLOT_COUNT.DEFAULT;
 
             const entity: GrimoireEntity = {
                 id: generateId(),

@@ -13,7 +13,7 @@
 import React from 'react';
 import { useDrop } from 'react-dnd';
 import { motion, AnimatePresence } from 'motion/react';
-import { Sparkles, Check, AlertCircle, MessageSquare } from 'lucide-react';
+import { Sparkles, Check, AlertCircle, MessageSquare, Leaf, FlaskConical, Star } from 'lucide-react';
 import { GrimoireSlot, Grade, UUID } from '@/types/index';
 import { useGameStore } from '@/core/store';
 import { CompactCardVisual } from '../card/CompactCardVisual';
@@ -24,9 +24,17 @@ interface GrimoireSlotVisualProps {
     onDrop: (slotId: UUID, senseId: UUID) => void;
     isEvaluating: boolean;
     showGrade?: boolean;
+    displayLang?: 'learning' | 'system';
+    personaId?: string;
 }
 
-export const GrimoireSlotVisual: React.FC<GrimoireSlotVisualProps> = ({ slot, onDrop, isEvaluating, showGrade = false }) => {
+const PERSONA_EMPTY_SLOT: Record<string, React.ReactNode> = {
+    CHILD:     <Star size={20} />,
+    GARDENER:  <Leaf size={20} />,
+    ALCHEMIST: <FlaskConical size={20} />,
+};
+
+export const GrimoireSlotVisual: React.FC<GrimoireSlotVisualProps> = ({ slot, onDrop, isEvaluating, showGrade = false, displayLang = 'learning', personaId }) => {
     const senses = useGameStore(s => s.senses);
     const filledSense = senses.find(s => s.id === slot.senseId);
     const learningLang = useGameStore(s => s.player.settings.learningLang);
@@ -82,7 +90,9 @@ export const GrimoireSlotVisual: React.FC<GrimoireSlotVisualProps> = ({ slot, on
                         />
                     </div>
                 ) : (
-                    <Sparkles className="text-[#3e2723]/20 group-hover:text-amber-500/40 transition-colors" size={20} />
+                    <span className="text-[#3e2723]/20 group-hover:text-amber-500/40 transition-colors">
+                        {(personaId && PERSONA_EMPTY_SLOT[personaId]) ?? <Sparkles size={20} />}
+                    </span>
                 )}
             </div>
 
@@ -141,8 +151,14 @@ export const GrimoireSlotVisual: React.FC<GrimoireSlotVisualProps> = ({ slot, on
                         {/* Tooltip on Hover */}
                         <div className="absolute bottom-full right-0 mb-2 w-64 p-3 bg-[#3e2723] text-[#fdf2d5] text-[11px] rounded-lg shadow-2xl opacity-0 group-hover/comment:opacity-100 transition-opacity pointer-events-none z-50 border border-amber-500/20 font-serif leading-relaxed">
                             <div className="flex flex-col gap-2">
-                                <div className="text-amber-400/60 font-mono italic">"{slot.commentary.learning}"</div>
-                                <div className="pt-2 border-t border-white/5 opacity-80">{slot.commentary.system}</div>
+                                <div className="text-amber-400/80 italic">
+                                    "{slot.commentary[displayLang]}"
+                                </div>
+                                {slot.commentary.learning !== slot.commentary.system && (
+                                    <div className="pt-2 border-t border-white/5 opacity-50 text-[10px]">
+                                        {slot.commentary[displayLang === 'learning' ? 'system' : 'learning']}
+                                    </div>
+                                )}
                             </div>
                             {/* Arrow */}
                             <div className="absolute top-full right-4 border-8 border-transparent border-top-[#3e2723]" />

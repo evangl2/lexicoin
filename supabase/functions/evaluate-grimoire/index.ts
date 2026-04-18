@@ -210,7 +210,7 @@ ${JSON.stringify(slotsToEvaluate, null, 2)}
         `.trim();
 
         console.log(
-            `[evaluate-grimoire] ${slotsToEvaluate.length} slots | persona=${personaId} | seed="${grimoire.seedWord}"`
+            `[evaluate-grimoire] ${slotsToEvaluate.length} slots | persona=${personaId} | grimoire=${grimoire.id}`
         );
 
         const rawResponse = await callAI({
