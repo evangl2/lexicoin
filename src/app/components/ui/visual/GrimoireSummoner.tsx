@@ -10,6 +10,7 @@ import { DEFAULT_LANGUAGE } from '@/types/CardEntity';
 import { useGameStore } from '@store/index';
 import { Language, GrimoireEntity, GrimoireStatus } from '@/types/index';
 import { useGrimoireSummoning } from '@/app/hooks/useGrimoireSummoning';
+import { STAMINA_CONFIG } from '@/config/grimoireConfig';
 import { nanoid } from 'nanoid';
 
 interface GrimoireSummonerProps {
@@ -80,19 +81,31 @@ export const GrimoireSummoner: React.FC<GrimoireSummonerProps> = ({
 
     // Logic
     const seedCard = inputCards.find(c => c.cardData.rawSense.uid === state.seed_uid);
-    const canSummon = !!seedCard && state.status === 'IDLE' && stamina >= 60 && !isSummoning;
+    const canSummon = !!seedCard && state.status === 'IDLE' && stamina >= STAMINA_CONFIG.COSTS.GENERATE_GRIMOIRE && !isSummoning;
 
     const handleSummon = async () => {
         if (!canSummon || !seedCard) return;
-        
+
+        // Capture seed uid before clearing
+        const seedUid = state.seed_uid;
         updateState(uid, { status: 'GENERATING' });
-        
+
         await summon(seedCard.cardData.rawSense, {
             x: x.get(),
             y: y.get() + 200
         });
 
-        updateState(uid, { status: 'IDLE' });
+        // §5.2: Eject seed card back to canvas after generation
+        if (seedUid) {
+            updateState(uid, { seed_uid: null });
+            onCardEject?.(seedUid);
+        }
+
+        // §5.3: Brief READY flash before returning to IDLE
+        updateState(uid, { status: 'READY' });
+        setTimeout(() => {
+            updateState(uid, { status: 'IDLE' });
+        }, 1200);
     };
 
     const handleEject = () => {
@@ -104,11 +117,12 @@ export const GrimoireSummoner: React.FC<GrimoireSummonerProps> = ({
 
     const currentStatus = (state.status as 'IDLE' | 'GENERATING' | 'READY') || 'IDLE';
     const isActuallySummoning = isSummoning || currentStatus === 'GENERATING';
+    const isReady = currentStatus === 'READY';
 
     const statusColors = {
         IDLE: 'border-blue-500/50 bg-blue-500/5',
         GENERATING: 'border-amber-500/50 bg-amber-500/5 shadow-[0_0_50px_rgba(245,158,11,0.2)]',
-        READY: 'border-emerald-500/50 bg-emerald-500/5'
+        READY: 'border-emerald-400 bg-emerald-500/15 shadow-[0_0_80px_rgba(52,211,153,0.5)] animate-pulse',
     };
 
     return (
@@ -162,11 +176,20 @@ export const GrimoireSummoner: React.FC<GrimoireSummonerProps> = ({
                 {/* Status HUD */}
                 <div className="mt-6 flex flex-col items-center gap-4">
                     <div className="flex flex-col items-center">
-                         <span className={`text-[10px] font-bold tracking-[0.2em] uppercase ${isActuallySummoning ? 'text-amber-400 animate-pulse' : 'text-white/40'}`}>
+                        <span className={`text-[10px] font-bold tracking-[0.2em] uppercase ${
+                            isActuallySummoning ? 'text-amber-400 animate-pulse' :
+                            isReady ? 'text-emerald-400 animate-pulse' :
+                            'text-white/40'
+                        }`}>
                             {isActuallySummoning ? (
                                 <span className="flex items-center gap-2">
                                     <Loader2 size={10} className="animate-spin" />
                                     Resonating...
+                                </span>
+                            ) : isReady ? (
+                                <span className="flex items-center gap-2">
+                                    <Sparkles size={10} />
+                                    Grimoire Manifested
                                 </span>
                             ) : apiError ? (
                                 <span className="text-red-400">{apiError}</span>
@@ -195,11 +218,27 @@ export const GrimoireSummoner: React.FC<GrimoireSummonerProps> = ({
 
                 {/* Background Decorations */}
                 {isActuallySummoning && (
-                    <motion.div 
+                    <motion.div
                         initial={{ opacity: 0, scale: 0.8 }}
                         animate={{ opacity: 1, scale: 1.2 }}
-                        className="absolute inset-0 rounded-full border-2 border-amber-500/20 animate-[spin_4s_linear_infinite] pointer-events-none" 
+                        className="absolute inset-0 rounded-full border-2 border-amber-500/20 animate-[spin_4s_linear_infinite] pointer-events-none"
                     />
+                )}
+                {isReady && (
+                    <>
+                        <motion.div
+                            initial={{ opacity: 0.8, scale: 1 }}
+                            animate={{ opacity: 0, scale: 2 }}
+                            transition={{ duration: 1.2, ease: 'easeOut' }}
+                            className="absolute inset-0 rounded-full border-2 border-emerald-400 pointer-events-none"
+                        />
+                        <motion.div
+                            initial={{ opacity: 0.5, scale: 1 }}
+                            animate={{ opacity: 0, scale: 1.6 }}
+                            transition={{ duration: 1.0, ease: 'easeOut', delay: 0.15 }}
+                            className="absolute inset-0 rounded-full border border-emerald-300/60 pointer-events-none"
+                        />
+                    </>
                 )}
                 <div className={`absolute inset-0 rounded-full border border-white/5 pointer-events-none -z-10 ${isActuallySummoning ? 'animate-[spin_10s_linear_infinite]' : ''}`} />
             </div>

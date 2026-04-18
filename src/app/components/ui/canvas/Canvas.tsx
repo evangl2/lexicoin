@@ -4,6 +4,7 @@ import { motion, useMotionValue, useSpring, useTransform } from 'motion/react';
 import { useGameStore } from '@store/index';
 import { useCanvasPersona } from '@/app/context/PersonaContext';
 import { Slot } from '@/app/components/persona/slots';
+import { WORLD_W, WORLD_H } from '@/config/canvas';
 
 interface CanvasProps {
   children: React.ReactNode;
@@ -37,8 +38,6 @@ export const Canvas: React.FC<CanvasProps> = ({ children, scale, x, y, onDoubleC
   // ============================================================
   // WORLD DIMENSIONS
   // ============================================================
-  const WORLD_W = 9600;
-  const WORLD_H = 6000;
   const HALF_W = WORLD_W / 2;
   const HALF_H = WORLD_H / 2;
 

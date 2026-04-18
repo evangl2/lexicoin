@@ -1,6 +1,8 @@
 // --- DARK ALCHEMY THEME DEFINITION: Canvas Persona ---
 // This file defines the "world" background and interactions.
 
+import { WORLD_W, WORLD_H } from '@/config/canvas';
+
 // --- 1. DEFINITIONS: The Raw Materials ---
 
 const definitions = {
@@ -176,8 +178,8 @@ export const DefaultCanvasPersona = {
     layout: {
       overscrollX: 300,
       overscrollY: 150,
-      worldW: 16000,
-      worldH: 10000,
+      worldW: WORLD_W,
+      worldH: WORLD_H,
     },
     // Decorative Component Definitions (e.g. Corner Rune structure)
     decorations: {

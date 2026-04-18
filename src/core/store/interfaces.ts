@@ -2,6 +2,7 @@ import type { ConfigState } from './slices/createConfigSlice';
 import type { CardState } from './slices/createCardStateSlice';
 import type { ProgressionState } from './slices/createProgressionSlice';
 import type { GrimoireState, GrimoireActions } from './slices/createGrimoireSlice';
+import type { PersonaStoryState } from './slices/createPersonaStorySlice';
 import type {
     PlayerState,
     ViewMode,
@@ -22,10 +23,13 @@ export interface LibraryFilter {
     discovered?: boolean;
 }
 
-export interface GameStore extends ConfigState, CardState, ProgressionState, GrimoireState, GrimoireActions {
+export interface GameStore extends ConfigState, CardState, ProgressionState, GrimoireState, GrimoireActions, PersonaStoryState {
     // Player State
     player: PlayerState;
     updatePlayer: (updates: Partial<PlayerState>) => void;
+    consumeEchoCharge: () => void;
+    resetEchoCharges: () => void;
+    recoverStamina: () => void;
 
     // UI State
     viewMode: ViewMode;
@@ -73,7 +77,6 @@ export interface GameStore extends ConfigState, CardState, ProgressionState, Gri
     setActivePersona: (personaId: PersonaType) => void;
     personaResonance: Record<PersonaType, number>;
     updateResonance: (personaId: PersonaType, amount: number) => void;
-
     // Construction State (cached from ConstructionModule)
     constructions: Construction[];
     setConstructions: (constructions: Construction[]) => void;
