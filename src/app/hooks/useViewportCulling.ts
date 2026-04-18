@@ -83,7 +83,19 @@ export function useViewportCulling(
 
     // Only setState if the visible set actually changed (avoids cascading re-renders)
     setVisibleIds(prev => {
-      if (prev.size === next.size && [...next].every(id => prev.has(id))) return prev;
+      if (prev.size === next.size) {
+        // ⚡ Performance Optimization: Zero-allocation Set equality check
+        // Replaced [...next].every() to avoid O(N) memory allocation and GC spikes
+        // during high-frequency requestAnimationFrame camera updates.
+        let isEqual = true;
+        for (const id of next) {
+          if (!prev.has(id)) {
+            isEqual = false;
+            break;
+          }
+        }
+        if (isEqual) return prev;
+      }
       return next;
     });
   };
