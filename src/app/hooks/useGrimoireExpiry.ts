@@ -10,9 +10,7 @@
 import { useEffect } from 'react';
 import { useGameStore } from '@/core/store';
 import { messageBus } from '@/core/protocol/MessageBus';
-
-const POLL_INTERVAL_MS = 30 * 1000;
-const EXPIRE_ANIMATION_DELAY_MS = 500;
+import { GRIMOIRE_EXPIRY_POLL_INTERVAL_MS, GRIMOIRE_EXPIRE_ANIMATION_DELAY_MS } from '@/config/grimoireConfig';
 
 export function useGrimoireExpiry() {
     const activeGrimoires   = useGameStore(s => s.activeGrimoires);
@@ -47,7 +45,7 @@ export function useGrimoireExpiry() {
                     // 5. Remove after animation window
                     setTimeout(() => {
                         expireGrimoire(g.id);
-                    }, EXPIRE_ANIMATION_DELAY_MS);
+                    }, GRIMOIRE_EXPIRE_ANIMATION_DELAY_MS);
                 }
             });
         };
@@ -55,7 +53,7 @@ export function useGrimoireExpiry() {
         // Run immediately on mount (handles grimoires that expired while app was closed)
         check();
 
-        const timer = setInterval(check, POLL_INTERVAL_MS);
+        const timer = setInterval(check, GRIMOIRE_EXPIRY_POLL_INTERVAL_MS);
         return () => clearInterval(timer);
     }, []); // eslint-disable-line react-hooks/exhaustive-deps — intentionally stable, reads store directly
 }

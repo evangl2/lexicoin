@@ -1,6 +1,7 @@
 import { animate } from 'motion/react'
 import type { MotionValue } from 'motion/react'
 import { WORLD_W, WORLD_H } from '@/config/canvas'
+import { SNAP_SPRING, GRID_SNAP_SEARCH_RADIUS } from '@/config/physics'
 
 export const GRID_CELL_W = 280
 export const GRID_CELL_H = 380
@@ -33,7 +34,7 @@ export function snapPosition(
     taken.add(`${col},${row}`)
   }
 
-  for (let r = 0; r <= 10; r++) {
+  for (let r = 0; r <= GRID_SNAP_SEARCH_RADIUS; r++) {
     const candidates: [number, number][] = []
     if (r === 0) {
       candidates.push([targetCol, targetRow])
@@ -70,6 +71,6 @@ export function snapPosition(
 
 /** 对 MotionValue 做弹簧吸附动画 */
 export function applySnap(mx: MotionValue<number>, my: MotionValue<number>, x: number, y: number) {
-  animate(mx, x, { type: 'spring', stiffness: 400, damping: 35, mass: 0.8 })
-  animate(my, y, { type: 'spring', stiffness: 400, damping: 35, mass: 0.8 })
+  animate(mx, x, { type: 'spring', ...SNAP_SPRING })
+  animate(my, y, { type: 'spring', ...SNAP_SPRING })
 }

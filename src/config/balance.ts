@@ -75,3 +75,18 @@ export const XP_SENSE_BASE = 10; // 待 balance 调整
 export const DURABILITY_INITIAL = 100;
 export const DURABILITY_SYNTHESIS_COST = 10;    // 每次合成扣除（待调整）
 export const DURABILITY_DUPLICATE_RESTORE = 30; // 重复合成恢复（待调整）
+
+// ── Grimoire CEFR difficulty thresholds ────────────────────────────────────
+/** Language level thresholds that map to CEFR vocabulary difficulty tiers */
+export const GRIMOIRE_CEFR_LEVEL_THRESHOLDS = { A2: 5, B1: 10, B2: 15, C1: 20 } as const;
+export type GrimoireCefrLevelThresholds = typeof GRIMOIRE_CEFR_LEVEL_THRESHOLDS;
+
+// ── XP economy multipliers ─────────────────────────────────────────────────
+export const XP_FACTORS = {
+    DUPLICATE_FRACTION:  0.1, // duplicate sense earns 10% of base
+    EVOLUTION_MULTIPLIER: 2,  // evolution earns 2× base (with CEFR bonus)
+} as const;
+export type XpFactors = typeof XP_FACTORS;
+
+/** Flat XP for creating a construction (phrase/sentence). Pending balance pass. */
+export const XP_CONSTRUCTION_FIXED = 50;

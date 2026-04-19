@@ -63,8 +63,8 @@ Repository 必须总是显示卡片当前选中的 "面" (Persona/Sense)，而�
 - **数据流 (Data Flow)**:
   1. `App.tsx`: 通过 `useCardGrouping` 计算出包含所有变体的 `mergedVariants`。
   2. `Dock.tsx`: 接收并将 `mergedVariants` 传递给 Repository。
-  3. `DeckRepository.tsx`: 将对应 UID 的变体列表传递给 `RepoCard`。
-  4. `RepoCard.tsx`: 使用 `useCardVariants` Hook，结合全局 `useGameStore` 中的 `activeVariants` 状态，解析出当前应该渲染的 `currentCardData`。
+  3. `DeckRepository.tsx`: 将对应 UID 的变体列表传递给内部子组件 `RepoCard`（定义于同文件中）。
+  4. `RepoCard`（内部组件）: 使用 `useCardVariants` Hook，结合全局 `useGameStore` 中的 `activeVariants` 状态，解析出当前应该渲染的 `currentCardData`。
 
 ### 3.3 严格样式复用 (Strict Token Design)
 所有视觉元素严格遵循 Design System，不硬编码 SVG 或颜色。
@@ -88,12 +88,11 @@ Repository 必须总是显示卡片当前选中的 "面" (Persona/Sense)，而�
 ## 5. 文件结构 (File Structure)
 
 ```
-src/
-  app/
-    components/
-      ui/
-        CompactCardVisual.tsx  // 核心渲染组件 (Stateless)
-        DeckRepository.tsx     // 容器组件，管理 List 渲染与模式切换
-        RepoCard.tsx           // 逻辑封装，处理 Drag与Active Variant
-        DragPreviewCard.tsx    // 拖拽时的替身组件
+src/app/components/ui/
+├── card/
+│   ├── CompactCardVisual.tsx   // 核心渲染组件 (Stateless)
+│   └── DragPreviewCard.tsx     // 拖拽时的替身组件
+└── shell/
+    └── DeckRepository.tsx      // 容器组件，管理 List 渲染与模式切换
+                                // RepoCard（处理 Drag 与 Active Variant）定义于此文件内部，非独立文件
 ```

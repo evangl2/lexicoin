@@ -5,6 +5,11 @@ import { useGameStore } from '@store/index';
 import { useCanvasPersona } from '@/app/context/PersonaContext';
 import { Slot } from '@/app/components/persona/slots';
 import { WORLD_W, WORLD_H } from '@/config/canvas';
+import {
+  ZOOM_FRICTION, ZOOM_MIN_VELOCITY, ZOOM_SENSITIVITY, ZOOM_MAX, ZOOM_MIN_FLOOR,
+  CANVAS_ZOOM_END_DEBOUNCE_MS, CANVAS_OVERSCROLL,
+} from '@/config/physics';
+import { CANVAS_PARALLAX_FACTOR } from '@/config/visual';
 
 interface CanvasProps {
   children: React.ReactNode;
@@ -78,7 +83,7 @@ export const Canvas: React.FC<CanvasProps> = ({ children, scale, x, y, onDoubleC
       if (worldRef.current) worldRef.current.style.pointerEvents = '';
       // Re-emit scale so Card LOD subscribers fire once after zoom settles
       scale.set(scale.get());
-    }, 150);
+    }, CANVAS_ZOOM_END_DEBOUNCE_MS);
   };
 
   // ============================================================
@@ -103,8 +108,8 @@ export const Canvas: React.FC<CanvasProps> = ({ children, scale, x, y, onDoubleC
     const screenW = screenWRef.current;
     const screenH = screenHRef.current;
 
-    const OVERSCROLL_X = 300;
-    const OVERSCROLL_Y = 150;
+    const OVERSCROLL_X = CANVAS_OVERSCROLL.X;
+    const OVERSCROLL_Y = CANVAS_OVERSCROLL.Y;
 
     const worldScreenW = WORLD_W * currentScale;
     const worldScreenH = WORLD_H * currentScale;
@@ -138,10 +143,8 @@ export const Canvas: React.FC<CanvasProps> = ({ children, scale, x, y, onDoubleC
   // ============================================================
   // ZOOM INERTIA LOOP
   // ============================================================
-  // FRICTION = 0.72: retains 72% per frame → ~14 frames to 1% → ~233ms coast.
+  // ZOOM_FRICTION retains that % per frame → smooth deceleration.
   // Total zoom applied equals accumulated input — same as instant, but spread over frames.
-  const ZOOM_FRICTION = 0.72;
-  const ZOOM_MIN_VELOCITY = 0.5;
 
   const runZoomInertia = () => {
     // Absorb any wheel events queued since last frame
@@ -167,12 +170,12 @@ export const Canvas: React.FC<CanvasProps> = ({ children, scale, x, y, onDoubleC
     const currentY = y.get();
     const screenW = screenWRef.current;
     const screenH = screenHRef.current;
-    const limitMinScale = Math.max(0.08, Math.max(screenW / WORLD_W, screenH / WORLD_H));
+    const limitMinScale = Math.max(ZOOM_MIN_FLOOR, Math.max(screenW / WORLD_W, screenH / WORLD_H));
 
     const applied = v * (1 - ZOOM_FRICTION);
     const newScale = Math.min(
-      Math.max(limitMinScale, currentScale * Math.exp(-applied * 0.001)),
-      2.0
+      Math.max(limitMinScale, currentScale * Math.exp(-applied * ZOOM_SENSITIVITY)),
+      ZOOM_MAX
     );
 
     if (newScale !== currentScale) {
@@ -230,8 +233,8 @@ export const Canvas: React.FC<CanvasProps> = ({ children, scale, x, y, onDoubleC
           if (isPanningRef) isPanningRef.current = false;
           const fx = x.get();
           const fy = y.get();
-          rotateSlow.set(fx * 0.015);
-          rotateReverse.set(fx * -0.015);
+          rotateSlow.set(fx * CANVAS_PARALLAX_FACTOR);
+          rotateReverse.set(fx * -CANVAS_PARALLAX_FACTOR);
           bgX.set(fx);
           bgY.set(fy);
         }
@@ -262,8 +265,8 @@ export const Canvas: React.FC<CanvasProps> = ({ children, scale, x, y, onDoubleC
           // Mouse wheel: apply instantly in one frame — no inertia tail.
           const cs = scale.get(), cx = x.get(), cy = y.get();
           const sw = screenWRef.current, sh = screenHRef.current;
-          const minScale = Math.max(0.08, Math.max(sw / WORLD_W, sh / WORLD_H));
-          const ns = Math.min(Math.max(minScale, cs * Math.exp(-normalizedDy * 0.001)), 2.0);
+          const minScale = Math.max(ZOOM_MIN_FLOOR, Math.max(sw / WORLD_W, sh / WORLD_H));
+          const ns = Math.min(Math.max(minScale, cs * Math.exp(-normalizedDy * ZOOM_SENSITIVITY)), ZOOM_MAX);
           if (ns !== cs) {
             const r = ns / cs;
             const clamped = clampCamera(
@@ -304,8 +307,8 @@ export const Canvas: React.FC<CanvasProps> = ({ children, scale, x, y, onDoubleC
   // Fix: gate updates with isPanningInternalRef so background elements hold still
   // while the camera moves. Values are snapped to final position on pan-end.
 
-  const rotateSlow = useMotionValue(x.get() * 0.015);
-  const rotateReverse = useMotionValue(x.get() * -0.015);
+  const rotateSlow = useMotionValue(x.get() * CANVAS_PARALLAX_FACTOR);
+  const rotateReverse = useMotionValue(x.get() * -CANVAS_PARALLAX_FACTOR);
   // Frozen copies of camera x/y passed to ScriptNoise instead of raw x/y.
   const bgX = useMotionValue(x.get());
   const bgY = useMotionValue(y.get());
@@ -314,8 +317,8 @@ export const Canvas: React.FC<CanvasProps> = ({ children, scale, x, y, onDoubleC
     const unsubX = x.on('change', (v: number) => {
       // Gate: skip during zoom (zoom-to-cursor changes x every frame) AND during pan
       if (isZoomingInternalRef.current || isPanningInternalRef.current) return;
-      rotateSlow.set(v * 0.015);
-      rotateReverse.set(v * -0.015);
+      rotateSlow.set(v * CANVAS_PARALLAX_FACTOR);
+      rotateReverse.set(v * -CANVAS_PARALLAX_FACTOR);
       bgX.set(v);
     });
     const unsubY = y.on('change', (v: number) => {

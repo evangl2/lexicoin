@@ -7,6 +7,8 @@ src/config/
 ├── canvas.ts         ← 世界尺寸与视口常量
 ├── balance.ts        ← 游戏数值：XP、等级、CEFR 分布、耐久度
 ├── grimoireConfig.ts ← 魔典系统：生命周期、体力、评分、奖励、类型注册
+├── timing.ts         ← 时序常量：延迟、超时
+├── physics.ts        ← 动画物理常量：弹簧参数
 └── constants.ts      ← 运行常量：并发限制、AI 模型列表
 ```
 
@@ -77,6 +79,26 @@ src/config/
 
 ### 类型注册
 `GRIMOIRE_TYPES_REGISTRY`：8 种魔典语义类型（`taxonomy`、`anatomy`、`locus`、`time`、`spectrum`、`qualia`、`ritual`、`metaphor`），每种包含 `label`、`description`、`targetLogic`（注入生成 prompt 的内部提示）。
+
+---
+
+## `timing.ts` — 时序常量
+
+| 导出 | 默认值 | 说明 |
+|------|--------|------|
+| `SYNTHESIS_LONG_STATE_DELAY_MS` | `15000` | 合成超时后显示"还在处理中"状态的等待时长（ms） |
+
+**消费方**：`useSynthesis.ts`。
+
+---
+
+## `physics.ts` — 动画物理常量
+
+| 导出 | 默认值 | 说明 |
+|------|--------|------|
+| `HUD_PROGRESS_BAR_SPRING` | `{ stiffness: 50, damping: 20 }` | ProgressionHUD 进度条和体力条的弹簧动画参数 |
+
+**消费方**：`ProgressionHUD.tsx`。
 
 ---
 

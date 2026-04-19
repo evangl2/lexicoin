@@ -14,12 +14,48 @@ import type { Grade, GrimoireType, PersonaType } from '../types/index';
 /** How long a summoned grimoire stays active before expiring (ms). */
 export const GRIMOIRE_DURATION_MS = 60 * 60 * 1000; // 1 hour
 
+/** Duration of the READY flash after successful grimoire summoning (ms). */
+export const SUMMONER_READY_FLASH_MS = 1200;
+
+/** UI lockout between echo extractions — prevents double-tap (ms). */
+export const ECHO_EXTRACTION_COOLDOWN_MS = 1500;
+
+/** How often the grimoire countdown timer re-renders (ms). */
+export const GRIMOIRE_TIMER_UPDATE_INTERVAL_MS = 10_000;
+
+/** Timer color breakpoints: cyan → orange at ORANGE_MS remaining, → red at RED_MS. */
+export const GRIMOIRE_TIMER_WARN = {
+    ORANGE_MS: 20 * 60_000,
+    RED_MS:    10 * 60_000,
+} as const;
+export type GrimoireTimerWarn = typeof GRIMOIRE_TIMER_WARN;
+
+/** Y offset below the summoner device where a new grimoire card spawns (world px). */
+export const GRIMOIRE_SPAWN_Y_OFFSET = 200;
+
+/** Diameter of the circular grimoire summoner device (px). */
+export const SUMMONER_SIZE_PX = 300;
+
+/** Pixel dimensions of the grimoire book card on the canvas. */
+export const GRIMOIRE_CARD = { W: 120, H: 160 } as const;
+export type GrimoireCard = typeof GRIMOIRE_CARD;
+
+/** Grade reveal white flash animation parameters. */
+export const GRADE_REVEAL_ANIM = { DURATION: 0.6, SCALE: 4 } as const;
+export type GradeRevealAnim = typeof GRADE_REVEAL_ANIM;
+
 /** Slot count constraints. Backend picks a number; frontend clamps to this range. */
 export const GRIMOIRE_SLOT_COUNT = {
     MIN: 3,
     MAX: 6,
     DEFAULT: 4,
 } as const;
+
+/** How often useGrimoireExpiry polls for expired grimoires (ms). */
+export const GRIMOIRE_EXPIRY_POLL_INTERVAL_MS = 30 * 1000;
+
+/** Delay before removing an expired grimoire from state, allowing exit animation to play (ms). */
+export const GRIMOIRE_EXPIRE_ANIMATION_DELAY_MS = 500;
 
 // ============================================================================
 // STAMINA CONFIGURATION

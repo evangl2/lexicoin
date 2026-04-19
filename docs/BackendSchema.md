@@ -69,7 +69,7 @@ Stores narrative descriptions and AI persona-driven content.
 | Column | Type | Default | Description |
 | :--- | :--- | :--- | :--- |
 | **`sense_id`** | `uuid` | - | **FK** -> `senses.uid`. |
-| `persona` | `text` | - | AI Persona ID (e.g., "The Joker", "The Prophet"). |
+| `persona` | `text` | - | AI Persona ID (e.g., "CHILD", "GARDENER", "ALCHEMIST"). |
 | `text` | `jsonb` | `'{}'` | Map of `Language -> PropertyEntry<string>`. |
 | `example` | `jsonb` | `'{}'` | Map of `Language -> PropertyEntry<string>`. |
 

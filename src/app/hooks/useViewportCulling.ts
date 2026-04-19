@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import type { RefObject } from 'react';
 import type { MotionValue } from 'motion/react';
 import { GRID_CELL_W, GRID_CELL_H } from './useGridSnap';
+import { VIEWPORT_VIEWPORT_CULL_MARGIN } from '@/config/physics';
 
 export interface CullItem {
   uid: string;
@@ -11,10 +12,6 @@ export interface CullItem {
   height: number;
 }
 
-// Extra pixels outside the viewport to keep rendered (prevents pop-in during pans/zooms)
-// Expanded to 2500 to aggressively pre-mount cards. This provides a massive buffer so that 
-// React renders don't need to fire quickly during zooms, completely resolving zoom reconciliation lag!
-const CULL_MARGIN = 2500;
 
 /**
  * Returns the set of card UIDs that are currently inside (or near) the viewport.
@@ -74,8 +71,8 @@ export function useViewportCulling(
       const hw = (item.width / 2) * scale;
       const hh = (item.height / 2) * scale;
       if (
-        cx + hw > -CULL_MARGIN && cx - hw < sw + CULL_MARGIN &&
-        cy + hh > -CULL_MARGIN && cy - hh < sh + CULL_MARGIN
+        cx + hw > -VIEWPORT_CULL_MARGIN && cx - hw < sw + VIEWPORT_CULL_MARGIN &&
+        cy + hh > -VIEWPORT_CULL_MARGIN && cy - hh < sh + VIEWPORT_CULL_MARGIN
       ) {
         next.add(item.uid);
       }

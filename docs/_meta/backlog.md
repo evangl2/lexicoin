@@ -12,6 +12,6 @@ Proposed doc actions waiting for user approval before execution.
 
 ## 2026-04-19 Run 2 — pending
 
-- ⏳ `docs/gameconfig.md` → 补充 `timing.ts`（`SYNTHESIS_LONG_STATE_DELAY_MS = 15000`）和 `physics.ts`（`HUD_PROGRESS_BAR_SPRING = {stiffness:50, damping:20}`）两节
-- ⏳ `docs/CompactModeSystem.md` §5 → 修正 4 条路径（2026-03 重组后全部过期），删除已消失的 `RepoCard.tsx` 条目
-- ⏳ `docs/BackendSchema.md` → `sense_flavor_texts.persona` 列示例值由 "The Joker"/"The Prophet" 改为 CHILD/GARDENER/ALCHEMIST
+- ✅ `docs/gameconfig.md` → 补充 `timing.ts` 和 `physics.ts` 两节，目录树更新
+- ✅ `docs/CompactModeSystem.md` §3.2 + §5 → 路径全部修正；RepoCard 标注为 DeckRepository.tsx 内部组件
+- ✅ `docs/BackendSchema.md` → `sense_flavor_texts.persona` 示例值改为 CHILD/GARDENER/ALCHEMIST
