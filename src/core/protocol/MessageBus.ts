@@ -56,10 +56,6 @@ class MessageBus {
         const handlers = this.subscribers.get(messageType)!;
         handlers.add(handler as MessageHandler);
 
-        if (this.debugMode) {
-            console.log(`[MessageBus] Subscribed to ${messageType}. Total subscribers: ${handlers.size}`);
-        }
-
         // Return unsubscribe function
         return () => this.unsubscribe(messageType, handler as MessageHandler);
     }
@@ -71,9 +67,6 @@ class MessageBus {
         const handlers = this.subscribers.get(messageType);
         if (handlers) {
             handlers.delete(handler);
-            if (this.debugMode) {
-                console.log(`[MessageBus] Unsubscribed from ${messageType}. Remaining: ${handlers.size}`);
-            }
         }
     }
 
@@ -159,10 +152,6 @@ class MessageBus {
     registerInterceptor(interceptor: MessageInterceptor): () => void {
         this.interceptors.push(interceptor);
 
-        if (this.debugMode) {
-            console.log(`[MessageBus] Registered interceptor: ${interceptor.name}`);
-        }
-
         // Return unregister function
         return () => this.unregisterInterceptor(interceptor.id);
     }
@@ -175,10 +164,6 @@ class MessageBus {
         if (index !== -1) {
             const interceptor = this.interceptors[index]!;
             this.interceptors.splice(index, 1);
-
-            if (this.debugMode) {
-                console.log(`[MessageBus] Unregistered interceptor: ${interceptor.name}`);
-            }
         }
     }
 
@@ -192,9 +177,6 @@ class MessageBus {
         for (const interceptor of this.interceptors) {
             // Check filter
             if (interceptor.filter && !interceptor.filter(currentMessage)) {
-                if (this.debugMode) {
-                    console.log(`[MessageBus] Message blocked by interceptor: ${interceptor.name}`);
-                }
                 return null;
             }
 
@@ -245,9 +227,6 @@ class MessageBus {
      */
     clearTelemetry(): void {
         this.telemetry.clear();
-        if (this.debugMode) {
-            console.log('[MessageBus] Telemetry cleared');
-        }
     }
 
     /**
@@ -318,20 +297,9 @@ class MessageBus {
             // Add to log
             this.addToLog(processedMessage as BaseMessage);
 
-            // Debug output
-            if (this.debugMode) {
-                console.log(`[MessageBus] Publishing ${processedMessage.type}`, {
-                    source: processedMessage.source,
-                    payload: processedMessage.payload,
-                });
-            }
-
             // Get handlers for this message type
             const handlers = this.subscribers.get(processedMessage.type);
             if (!handlers || handlers.size === 0) {
-                if (this.debugMode) {
-                    console.warn(`[MessageBus] No subscribers for ${processedMessage.type}`);
-                }
                 return;
             }
 

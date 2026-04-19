@@ -58,7 +58,6 @@ export const DEFAULT_PERSONA_NAME = 'default';
 export function getPersona(name: string): PersonaBundle | PartialPersonaBundle {
     const persona = PERSONA_REGISTRY[name];
     if (!persona) {
-        console.warn(`Persona "${name}" not found, falling back to default`);
         return PERSONA_REGISTRY[DEFAULT_PERSONA_NAME]!;
     }
     return persona;
@@ -82,9 +81,6 @@ export function hasPersona(name: string): boolean {
  * Register new skin (Runtime dynamic add)
  */
 export function registerPersona(name: string, persona: PartialPersonaBundle): void {
-    if (PERSONA_REGISTRY[name]) {
-        console.warn(`Persona "${name}" already exists, overwriting...`);
-    }
     PERSONA_REGISTRY[name] = persona;
 }
 

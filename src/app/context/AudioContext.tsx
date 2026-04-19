@@ -45,7 +45,6 @@ export const AudioProvider: React.FC<AudioProviderProps> = ({ children, isMuted,
 
     const playSFX = useCallback((effectName: string) => {
         if (isMuted) return;
-        console.log(`[Audio] Playing SFX: ${effectName} at volume ${volume}`);
         // Future: Implement actual SFX playback logic mapping names to assets
     }, [isMuted, volume]);
 

@@ -121,8 +121,6 @@ export const PersonaProvider: React.FC<PersonaProviderProps> = ({
     const setSkin = useCallback((name: string) => {
         if (availableSkins.includes(name)) {
             setActiveSkinStore(name);
-        } else {
-            console.warn(`Persona "${name}" not found. Available: ${availableSkins.join(', ')}`);
         }
     }, [availableSkins, setActiveSkinStore]);
 

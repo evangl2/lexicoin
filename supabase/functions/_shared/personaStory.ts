@@ -106,7 +106,6 @@ export function resolvePersonaContext(
     const stage = story?.stage ?? 'startingpoint';
 
     // mood 目前保留，不参与解析
-    // const mood = story?.mood;
 
     const override = persona.stages?.[stage] ?? {};
 

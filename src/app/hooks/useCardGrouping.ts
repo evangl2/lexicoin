@@ -60,8 +60,6 @@ export const useCardGrouping = ({ items, setItems, learningLang }: UseCardGroupi
 
         if (!langChanged && !itemsAdded) return;
 
-        console.log('[Regroup] Triggered. LangChanged:', langChanged, 'ItemsAdded:', itemsAdded);
-
         // 1. Flatten all cards (Anchors + Variants)
         const allCards: CardEntity[] = [];
         items.forEach(item => {
@@ -263,18 +261,14 @@ export const useCardGrouping = ({ items, setItems, learningLang }: UseCardGroupi
                     if (targetAnchorItem.location === 'repository') {
                         if (oldItem.location === 'repository') {
                             // Skip animation for Repo -> Repo merge
-                            console.log('[Group] Skipping animation for Repo->Repo merge:', uid, '->', targetAnchorUID);
                             return;
                         }
-                        console.log('[Group] Animating Canvas->Repo merge:', uid, '->', targetAnchorUID);
                         // Optimize: Target random position within Dock area (Center +/- 250px)
                         // This creates a "pile up" effect instead of a single point
                         const dockSpread = 500;
                         const randomOffsetX = (Math.random() - 0.5) * dockSpread;
                         targetX = (window.innerWidth / 2) + randomOffsetX;
                         targetY = window.innerHeight - 80;
-                    } else {
-                        console.log('[Group] Animating Standard merge:', uid, '->', targetAnchorUID, targetAnchorItem.location);
                     }
 
                     // Use existing motion values if possible, or create new ones? 
@@ -391,12 +385,10 @@ export const useCardGrouping = ({ items, setItems, learningLang }: UseCardGroupi
 
         if (itemsListChanged) {
             setItems(newItems);
-            // console.log('[Regroup] Items updated', newItems.length);
         }
 
         if (variantsChanged(mergedVariants, newMergedVariants)) {
             setMergedVariants(newMergedVariants);
-            // console.log('[Regroup] Variants updated');
         }
 
         // 5. Smart Camera: Removed as per optimization plan

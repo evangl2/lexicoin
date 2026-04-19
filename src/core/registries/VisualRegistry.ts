@@ -27,7 +27,6 @@ class VisualRegistry {
      */
     public register(entry: VisualEntry): void {
         if (!entry.uid || !entry.id) {
-            console.warn('[VisualRegistry] Cannot register visual with missing UID or ID', entry);
             return;
         }
 
@@ -38,8 +37,6 @@ class VisualRegistry {
         const senseVisuals = this.registry.get(entry.uid)!;
         senseVisuals.set(entry.id, entry);
 
-        // Debug log (can be removed in prod)
-        // console.log(`[VisualRegistry] Registered visual for ${entry.uid} (variant: ${entry.id})`);
     }
 
     /**

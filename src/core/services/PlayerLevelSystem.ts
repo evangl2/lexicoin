@@ -39,8 +39,6 @@ class PlayerLevelSystem {
                 newLevel: finalProgress.level,
                 previousLevel: previousLevel
             }, 'PlayerLevelSystem');
-
-            console.log(`[LevelSystem] ${language} 升级了！${previousLevel} -> ${finalProgress.level}`);
         }
     }
 

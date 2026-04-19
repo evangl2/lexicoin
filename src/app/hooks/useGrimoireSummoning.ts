@@ -147,13 +147,11 @@ export function useGrimoireSummoning() {
             };
 
             spawnGrimoire(entity);
-            console.log(`[Summoning] Spawned: ${entity.theme.title.learning} (${slotCount} slots)`);
 
         } catch (err: any) {
             console.error('[Summoning] Error:', err);
             setError(err.message);
             regenerateStamina(SUMMON_COST);
-            console.log('[Summoning] Stamina refunded due to failure.');
         } finally {
             setSummonerStatus('IDLE');
             setIsSummoning(false);

@@ -81,8 +81,6 @@ export const useTieredAutoType = (
 
         // --- DOWNGRADE LOGIC (Overflow) ---
         if (ratio > 1.05) { // 5% tolerance for sub-pixel rounding
-            // console.log(`[TieredText] Overflow detected (Ratio: ${ratio.toFixed(2)}). Downgrading.`);
-
             // Multi-level jump based on severity
             let jump = 1;
             if (ratio > 1.5) jump = 2; // Massive overflow
@@ -100,8 +98,6 @@ export const useTieredAutoType = (
         // Only upgrade if we have MASSIVE room (Hysteresis).
         // e.g., using less than 40% of the box.
         else if (ratio < 0.45) {
-            // console.log(`[TieredText] Underflow detected (Ratio: ${ratio.toFixed(2)}). Upgrading.`);
-
             const currentIndex = TIER_INDEX_MAP[currentTier.id] ?? 0;
             const nextIndex = Math.max(0, currentIndex - 1); // Only step up 1 tier at a time to be safe
 
