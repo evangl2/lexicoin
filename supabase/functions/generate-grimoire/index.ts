@@ -19,6 +19,7 @@
 import { resolvePersonaContext, pickNarrativeForm } from '../_shared/personaStory.ts';
 import type { PersonaStory } from '../_shared/personaStory.ts';
 import { ARCHETYPE_TABLE } from '../_shared/grimoireArchetype.ts';
+import { callAI } from '../_shared/callAI.ts';
 
 // ── CORS headers ──────────────────────────────────────────────────────────────
 const corsHeaders = {
@@ -65,39 +66,7 @@ const RESPONSE_SCHEMA = {
     required: ['_reasoning', 'title', 'personaQuest', 'explicitInstruction', 'validationTags', 'slotCount'],
 };
 
-async function callAI(params: {
-    systemPrompt: string;
-    userPrompt: string;
-    model: string;
-    temperature: number;
-}) {
-    const apiKey = Deno.env.get('GEMINI_API_KEY');
-    if (!apiKey) throw new Error('Missing GEMINI_API_KEY');
-
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${params.model}:generateContent?key=${apiKey}`;
-
-    const response = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            system_instruction: { parts: [{ text: params.systemPrompt }] },
-            contents: [{ parts: [{ text: params.userPrompt }] }],
-            generationConfig: {
-                temperature: params.temperature,
-                response_mime_type: 'application/json',
-                response_schema: RESPONSE_SCHEMA,
-            },
-        }),
-    });
-
-    if (!response.ok) {
-        const error = await response.text();
-        throw new Error(`Gemini API error: ${error}`);
-    }
-
-    const data = await response.json();
-    return data.candidates[0].content.parts[0].text;
-}
+// callAI is now imported from '../_shared/callAI.ts'
 
 // ── MAIN HANDLER ──────────────────────────────────────────────────────────────
 
@@ -115,7 +84,7 @@ Deno.serve(async (req: Request) => {
             // targetLevel forwarded by frontend for future tuning; not embedded in prompt.
             learningLanguage = 'en',
             systemLanguage = 'zh',
-            modelId = 'gemini-2.0-flash',
+            modelId = 'gemini-3.1-flash-lite-preview',
             personaStory = null as PersonaStory | null,
         } = body;
 
@@ -262,6 +231,9 @@ CONSTRAINTS:
             userPrompt,
             model: modelId,
             temperature: 0.95,
+            responseMimeType: 'application/json',
+            responseSchema: RESPONSE_SCHEMA,
+            tag: 'generate-grimoire',
         });
 
         const grimoireData = JSON.parse(stripMarkdown(rawResponse));

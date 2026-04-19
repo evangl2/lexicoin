@@ -11,7 +11,7 @@
 
 import { createClient } from 'npm:@supabase/supabase-js';
 import { generateSense } from './moduleA.ts';
-import { callAI } from './utils/callAI.ts';
+import { callAI } from '../_shared/callAI.ts';
 import { buildSynthesisPrompt } from './lib/SynthesisPromptsBackend.ts';
 import { buildDeltaPrompt } from './lib/DeltaPromptBackend.ts';
 import type { DeltaMissing } from './lib/DeltaPromptBackend.ts';

@@ -1,4 +1,4 @@
-import { callAI } from './utils/callAI.ts';
+import { callAI } from '../_shared/callAI.ts';
 import { buildSensePrompt } from './lib/SensePromtBackend.ts';
 import { injectSenseMeta } from './lib/injectSenseMeta.ts';
 import type { RawSenseAIOutput, SenseAIPayload, SynthesisRequest } from './types.ts';

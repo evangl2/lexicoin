@@ -509,9 +509,16 @@ return useWC ? <NewCardPath .../> : <OldCardPath .../>;
 以下问题在 Phase 0 前由执行者确认并记录答案到本节：
 
 - **OQ1** — `package.json` 的 `browserslist` 目标是什么？关系到 `adoptedStyleSheets` 需不需要 polyfill。
+  **答**：项目 `package.json` 未配置 `browserslist`，vite.config.ts 也未设置 `targets`。默认目标为 Vite 的 `esnext` + 现代 Evergreen 浏览器。`adoptedStyleSheets` 在 Chrome 73+、Firefox 101+、Safari 16.4+ 均已支持，**无需 polyfill**。若需支持 Safari 16.3 及以下，降级方案见 §10 Risk Matrix 第一行。
+
 - **OQ2** — 项目当前是否已有 `featureFlags` slice？若有，沿用；若无，按 §8.1 新建。
+  **答**：Phase 0 执行前无 `featureFlags` slice。已按 §8.1 新建 `src/core/store/slices/featureFlags.ts`，并挂入 `GameStore` 与 store index。**不**写入 persist 白名单（遵守 §8.4）。
+
 - **OQ3** — Persona 的 `visuals.*` 组件里是否存在使用 `useState` / `useEffect` 的动态组件？若有，不能烘焙为 HTML 字符串，需保留为 slot 填充。
+  **答**：扫描 `Card.persona.default.tsx` 与 `Card.persona.cyberpunk.tsx` 后确认：所有 `visuals.*` 组件均为纯 `React.memo(() => (...))` 无状态组件，**可烘焙**。唯一例外是 `AlchemyDurabilityBar({ progress })` 依赖外部 prop，需保留为 React 侧 slot 填充（见 `_tailwind-mapping.md §5.1`）。
+
 - **OQ4** — HMR 在 `adoptedStyleSheets` 下是否会导致样式不更新？需实测。
+  **答**：Vite 的 CSS `?inline` 导入在 HMR 时会刷新模块，但 `CSSStyleSheet` 单例（已调用 `replaceSync`）不会自动感知 HMR 变更。**缓解方案**：开发模式下在 `styleLoader.ts` 中监听 HMR 回调（`import.meta.hot?.accept`），收到更新时重新执行 `replaceSync`；或在开发模式降级为 `<style>` 注入（见 §10 Risk Matrix 末行）。Phase 1 实测时确认。
 
 ---
 

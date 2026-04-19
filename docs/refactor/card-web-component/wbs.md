@@ -97,12 +97,14 @@
 
 ### Actual Result
 
-> 执行者在完成后填写：
->
-> - 基线数据表：（链接或贴表）
-> - 样式翻译对照表路径：`docs/refactor/card-web-component/_tailwind-mapping.md`
-> - Browserslist 目标：
-> - 完成日期：
+> - 基线数据表（已实测，记录于 PRD §4.1）：
+>   - React fiber 节点数：**27**（含 `_c*` Framer 内部节点、memo、forwardRef 包装）
+>   - 真实 DOM 节点数：**225**（`$0.querySelectorAll('*').length`，远超原估算 ~25-30）
+>   - FPS / Persona 延迟 / mount 耗时：待用户测量
+> - 样式翻译对照表路径：`docs/refactor/card-web-component/_tailwind-mapping.md`（已产出，含正反面全量 class）
+> - Browserslist 目标：项目未配置，默认 Vite esnext；`adoptedStyleSheets` 无需 polyfill（Safari 16.4+）
+> - 完成日期：2026-04-20
+> - OQ 答案：全部记录于 TDD §11
 
 ---
 

@@ -6,6 +6,7 @@ import { createCardStateSlice } from './slices/createCardStateSlice';
 import { createProgressionSlice } from './slices/createProgressionSlice';
 import { createGrimoireSlice } from './slices/createGrimoireSlice';
 import { createPersonaStorySlice } from './slices/createPersonaStorySlice';
+import { createFeatureFlagsSlice } from './slices/featureFlags';
 
 import type {
     PlayerState,
@@ -99,6 +100,7 @@ export const useGameStore = create<GameStore>()(
             ...createProgressionSlice(set, get, api),
             ...createGrimoireSlice(set, get, api),
             ...createPersonaStorySlice(set, get, api),
+            ...createFeatureFlagsSlice(set, get, api),
 
             // Player State
             player: initialPlayer,

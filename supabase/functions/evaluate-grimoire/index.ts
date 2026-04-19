@@ -8,6 +8,7 @@
 
 import { resolvePersonaContext } from '../_shared/personaStory.ts';
 import type { PersonaStory } from '../_shared/personaStory.ts';
+import { callAI } from '../_shared/callAI.ts';
 
 // ── CORS headers ──────────────────────────────────────────────────────────────
 const corsHeaders = {
@@ -26,38 +27,7 @@ function stripMarkdown(raw: string): string {
     return raw.replace(/^```[a-z]*\n?/im, '').replace(/\n?```$/m, '').trim();
 }
 
-async function callAI(params: {
-    systemPrompt: string;
-    userPrompt: string;
-    model: string;
-    temperature: number;
-}) {
-    const apiKey = Deno.env.get('GEMINI_API_KEY');
-    if (!apiKey) throw new Error('Missing GEMINI_API_KEY');
-
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${params.model}:generateContent?key=${apiKey}`;
-
-    const response = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            system_instruction: { parts: [{ text: params.systemPrompt }] },
-            contents: [{ parts: [{ text: params.userPrompt }] }],
-            generationConfig: {
-                temperature: params.temperature,
-                response_mime_type: 'application/json',
-            },
-        }),
-    });
-
-    if (!response.ok) {
-        const error = await response.text();
-        throw new Error(`Gemini API error: ${error}`);
-    }
-
-    const data = await response.json();
-    return data.candidates[0].content.parts[0].text;
-}
+// callAI is now imported from '../_shared/callAI.ts'
 
 // ── MAIN HANDLER ──────────────────────────────────────────────────────────────
 
@@ -80,7 +50,7 @@ Deno.serve(async (req: Request) => {
             slotsToEvaluate,
             learningLanguage = 'en',
             systemLanguage = 'zh',
-            modelId = 'gemini-2.0-flash',
+            modelId = 'gemini-3.1-flash-lite-preview',
         } = body;
 
         if (!grimoire || !slotsToEvaluate) {
@@ -218,6 +188,8 @@ ${JSON.stringify(slotsToEvaluate, null, 2)}
             userPrompt,
             model: modelId,
             temperature: 0.6,
+            responseMimeType: 'application/json',
+            tag: 'evaluate-grimoire',
         });
 
         const evaluationData = JSON.parse(stripMarkdown(rawResponse));

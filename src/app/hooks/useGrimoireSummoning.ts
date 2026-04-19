@@ -26,6 +26,7 @@ export function useGrimoireSummoning() {
     const [error, setError] = useState<string | null>(null);
 
     const activePersonaId   = useGameStore(s => s.activePersona);
+    const activeModelId     = useGameStore(s => s.activeModelId);
     const player            = useGameStore(s => s.player);
     const learningLang      = useGameStore(s => s.player?.settings?.learningLang ?? 'en');
     const systemLang        = useGameStore(s => s.player?.settings?.interfaceLang ?? 'zh');
@@ -89,15 +90,17 @@ export function useGrimoireSummoning() {
                 stage: personaStages[resolvedPersonaId as keyof typeof personaStages] ?? 'startingpoint',
                 // mood: null — RESERVED，目前不传递
             };
+            const seedText = seed.shells?.[learningLang]?.[0]?.text?.value || seed.shells?.['en']?.[0]?.text?.value || "Unknown";
             const { data, error: invokeErr } = await supabase.functions.invoke('generate-grimoire', {
                 body: {
                     personaId: resolvedPersonaId,       // 后端查 personaDictionary
                     personaStory,                       // 后端 resolvePersonaContext 选取对应 stage
                     archetypeId: selectedType,          // e.g. 'anatomy', 'locus', 'time'
-                    seedWord: seed.word[learningLang] || seed.word.en,
+                    seedWord: seedText,
                     targetLevel,                        // CEFR level for vocabulary difficulty
                     learningLanguage: learningLang,
                     systemLanguage: systemLang,
+                    modelId: activeModelId,             // Use the model selected by the user
                 }
             });
 
@@ -121,7 +124,7 @@ export function useGrimoireSummoning() {
                 personaId: resolvedPersonaId as PersonaType,
                 grimoireType: selectedType,
                 targetLevel,
-                seedWord: seed.word[learningLang] || seed.word.en,
+                seedWord: seedText,
                 theme: {
                     title: grimoireData.title ?? { learning: '???', system: '???' },
                     // personaQuest → theme.description (unified scene+voice)

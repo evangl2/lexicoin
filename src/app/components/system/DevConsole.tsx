@@ -107,6 +107,8 @@ export const DevConsole: React.FC = () => {
     const [logs, setLogs] = useState<any[]>([]);
     const [logFilter, setLogFilter] = useState('');
     const setSenses = useGameStore(s => s.setSenses);
+    const useWCCards = useGameStore(s => s.featureFlags.useWCCards);
+    const setFeatureFlag = useGameStore(s => s.setFeatureFlag);
     const [messageFilter, setMessageFilter] = useState('');
     const [autoScroll, setAutoScroll] = useState(true);
     const [isPaused, setIsPaused] = useState(false);
@@ -517,6 +519,19 @@ export const DevConsole: React.FC = () => {
                 {activeTab === 'system' && (
                     <div className="tab-content">
                         <div className="system-panel">
+                            <h4>🚩 Feature Flags</h4>
+                            <div className="system-actions" style={{ flexDirection: 'column', alignItems: 'flex-start', marginBottom: '24px' }}>
+                                <label className="checkbox-label" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <input
+                                        type="checkbox"
+                                        checked={useWCCards}
+                                        onChange={(e) => setFeatureFlag('useWCCards', e.target.checked)}
+                                    />
+                                    <span>useWCCards</span>
+                                    <span style={{ opacity: 0.5, fontSize: '11px' }}>{useWCCards ? 'ON — Web Component path' : 'OFF — React path'}</span>
+                                </label>
+                            </div>
+
                             <h4>⚠️ Danger Zone</h4>
                             <p className="warning-text">
                                 These actions are destructive and cannot be undone.

@@ -78,8 +78,8 @@
 
 | 指标 | 基线（旧路径） | 目标（新路径） | 测量方法 |
 |------|---------------|---------------|---------|
-| 单张卡片 React fiber 节点数 | ~50 | ≤ 3 | React DevTools Profiler |
-| 单张卡片真实 DOM 节点数（light DOM 侧） | ~25-30 | ≤ 5 | DevTools Elements 面板计数 |
+| 单张卡片 React fiber 节点数 | **27**（含 `_c*` Framer 节点、memo、forwardRef） | ≤ 3 | React DevTools Components 树形视图 |
+| 单张卡片真实 DOM 节点数（`$0.querySelectorAll('*').length`） | **225** | ≤ 5（light DOM 侧） | DevTools Elements + Console |
 | 1000 张卡片画布满帧率（缩小 LOD） | 待测 | ≥ 55 FPS | Chrome Performance 面板 |
 | Persona 切换延迟（60 可见卡） | 待测 | ≤ 50 ms | 自打点 `performance.mark` |
 | 卡片进入视口 mount 耗时（单次） | 待测 | ≤ 2 ms | React Profiler flame chart |

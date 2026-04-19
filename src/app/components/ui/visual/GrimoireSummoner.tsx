@@ -33,7 +33,7 @@ export const GrimoireSummoner: React.FC<GrimoireSummonerProps> = ({
     uid, x, y, state, updateState, inputCards, canvasScale, onDragEnd,
     onCardEnter, onCardEject, mergedVariants = {}, onDropIntoRepository
 }) => {
-    const stamina = useGameStore(s => s.player.stamina);
+    const stamina = useGameStore(s => s.player?.stamina ?? 0);
     const consumeStamina = useGameStore(s => s.consumeStamina);
     const spawnGrimoire = useGameStore(s => s.spawnGrimoire);
     const activePersona = useGameStore(s => s.activePersona);
@@ -74,7 +74,7 @@ export const GrimoireSummoner: React.FC<GrimoireSummonerProps> = ({
     // Logic
     const currentStatus = (state.status as 'IDLE' | 'GENERATING' | 'READY') || 'IDLE';
     const seedCard = inputCards.find(c => c.cardData.rawSense.uid === state.seed_uid);
-    const canSummon = !!seedCard && currentStatus === 'IDLE' && stamina >= STAMINA_CONFIG.COSTS.GENERATE_GRIMOIRE && !isSummoning;
+    const canSummon = !!seedCard && currentStatus === 'IDLE' && !isSummoning;
 
     const handleSummon = async () => {
         if (!canSummon || !seedCard) return;
@@ -193,7 +193,7 @@ export const GrimoireSummoner: React.FC<GrimoireSummonerProps> = ({
                         onClick={handleSummon}
                         disabled={!canSummon}
                         className={`
-                            px-6 py-2 rounded-full border flex items-center gap-2 transition-all text-xs font-bold
+                            px-6 py-2 rounded-full border flex items-center gap-2 transition-all text-xs font-bold relative group/btn
                             ${canSummon 
                                 ? 'bg-white/10 border-white/20 text-white hover:bg-white/20 hover:scale-105 active:scale-95' 
                                 : 'bg-white/5 border-white/5 text-white/20 cursor-not-allowed'}
@@ -205,6 +205,13 @@ export const GrimoireSummoner: React.FC<GrimoireSummonerProps> = ({
                             <Wand2 size={16} />
                         )}
                         SUMMON (60)
+                        
+                        {/* Tooltip to show when disabled */}
+                        {!canSummon && !seedCard && (
+                            <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 whitespace-nowrap bg-black/80 px-2 py-1 rounded text-[10px] opacity-0 group-hover/btn:opacity-100 pointer-events-none transition-opacity">
+                                Please insert a Seed Card first
+                            </div>
+                        )}
                     </button>
                 </div>
 
