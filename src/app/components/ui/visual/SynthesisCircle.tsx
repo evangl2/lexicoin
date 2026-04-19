@@ -278,8 +278,8 @@ const Slot = React.forwardRef<HTMLDivElement, SlotProps>((props, ref) => {
             className={`
                 synthesis-slot w-[120px] h-[120px] rounded-[22px] transition-all duration-300 relative group
                 ${card ? '' : 'border-2'}
-                ${isOver && !card ? 'border-[#D4AF37] bg-[#D4AF37]/10' : ''}
-                ${!isOver && !card ? 'border-white/10 bg-black/20' : ''}
+                ${!card ? 'border-white/10 bg-black/20' : ''}
+                [&.is-drag-over]:border-[#D4AF37] [&.is-drag-over]:bg-[#D4AF37]/10
             `}
             onPointerDown={(e) => e.stopPropagation()}
         >

@@ -142,6 +142,7 @@ function InnerApp() {
     deviceManager.canvasDevices.forEach(d => {
       if (d.state.slot1_uid) ids.add(d.state.slot1_uid);
       if (d.state.slot2_uid) ids.add(d.state.slot2_uid);
+      if (d.state.seed_uid) ids.add(d.state.seed_uid);
     });
     return ids;
   }, [deviceManager.canvasDevices]);
@@ -281,6 +282,10 @@ function InnerApp() {
     });
   }, [deviceManager]);
 
+  const handleDropIntoSummoner = useCallback((cardId: string, deviceUid: string) => {
+    deviceManager.updateDeviceState(deviceUid, { seed_uid: cardId });
+  }, [deviceManager]);
+
   const handleCardDropIntoRepository = useCallback((uid: string) => {
     handleRepositoryDrop(uid, false);
   }, [handleRepositoryDrop]);
@@ -341,6 +346,7 @@ function InnerApp() {
                   groupFeedback={grouping.groupFeedback}
 
                   onDropIntoSlot={handleDropIntoSlot}
+                  onDropIntoSummoner={handleDropIntoSummoner}
                   onDropIntoRepository={handleCardDropIntoRepository}
                   isZoomingRef={isZoomingRef}
                   expandedIdsRef={expandedIdsRef}
@@ -429,6 +435,7 @@ function InnerApp() {
                   updatePosition={handleUpdatePosition} // Use stable handler here too
                   isHidden={false}
                   externalScale={item.scale}
+                  onDropIntoSummoner={handleDropIntoSummoner}
                   isZoomingRef={isZoomingRef}
                   expandedIdsRef={expandedIdsRef}
                   isPanningRef={isPanningRef}

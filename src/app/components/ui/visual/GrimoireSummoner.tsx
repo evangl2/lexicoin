@@ -39,16 +39,8 @@ export const GrimoireSummoner: React.FC<GrimoireSummonerProps> = ({
     const activePersona = useGameStore(s => s.activePersona);
     const { summon, isSummoning, error: apiError } = useGrimoireSummoning();
     
-    // Drop Target for Seed Card
-    const [{ isOver }, drop] = useDrop(() => ({
-        accept: 'CARD',
-        drop: (item: { uid: string }) => {
-            if (state.seed_uid || state.status !== 'IDLE' || isSummoning) return;
-            updateState(uid, { seed_uid: item.uid });
-            onCardEnter?.(item.uid);
-        },
-        collect: monitor => ({ isOver: monitor.isOver() })
-    }), [state.seed_uid, state.status, uid, updateState, onCardEnter]);
+    // Drop logic is now handled by elementsFromPoint in Card.tsx 
+    const isOver = false;
 
     // Drag Logic
     const summonerRef = React.useRef<HTMLDivElement | null>(null);
@@ -80,8 +72,9 @@ export const GrimoireSummoner: React.FC<GrimoireSummonerProps> = ({
     }, []);
 
     // Logic
+    const currentStatus = (state.status as 'IDLE' | 'GENERATING' | 'READY') || 'IDLE';
     const seedCard = inputCards.find(c => c.cardData.rawSense.uid === state.seed_uid);
-    const canSummon = !!seedCard && state.status === 'IDLE' && stamina >= STAMINA_CONFIG.COSTS.GENERATE_GRIMOIRE && !isSummoning;
+    const canSummon = !!seedCard && currentStatus === 'IDLE' && stamina >= STAMINA_CONFIG.COSTS.GENERATE_GRIMOIRE && !isSummoning;
 
     const handleSummon = async () => {
         if (!canSummon || !seedCard) return;
@@ -109,13 +102,12 @@ export const GrimoireSummoner: React.FC<GrimoireSummonerProps> = ({
     };
 
     const handleEject = () => {
-        if (state.status !== 'IDLE' || !state.seed_uid) return;
+        if (currentStatus !== 'IDLE' || !state.seed_uid) return;
         const target = state.seed_uid;
         updateState(uid, { seed_uid: null });
         onCardEject?.(target);
     };
 
-    const currentStatus = (state.status as 'IDLE' | 'GENERATING' | 'READY') || 'IDLE';
     const isActuallySummoning = isSummoning || currentStatus === 'GENERATING';
     const isReady = currentStatus === 'READY';
 
@@ -145,13 +137,13 @@ export const GrimoireSummoner: React.FC<GrimoireSummonerProps> = ({
                 
                 {/* Seed Slot */}
                 <div 
-                    ref={drop}
-                    className={`
+                    className={`summoner-slot
                         w-24 h-24 rounded-2xl border-2 transition-all duration-300 flex items-center justify-center relative group
                         ${seedCard ? 'border-transparent' : 'border-white/10 bg-black/40'}
-                        ${isOver && !seedCard ? 'border-blue-400 bg-blue-400/10' : ''}
+                        [&.is-drag-over]:border-blue-400 [&.is-drag-over]:bg-blue-400/10
                         ${isActuallySummoning ? 'scale-110 shadow-[0_0_30px_rgba(255,255,255,0.1)]' : ''}
                     `}
+                    data-summoner-uid={uid}
                 >
                     {seedCard ? (
                         <>

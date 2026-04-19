@@ -62,6 +62,7 @@ interface CardProps {
   isHidden?: boolean;
   groupFeedback?: { merge: string[], split: string[], timestamp: number } | null;
   onDropIntoSlot?: (cardId: string, deviceUid: string, slotId: number) => void;
+  onDropIntoSummoner?: (cardId: string, deviceUid: string) => void;
   onDropIntoRepository?: (cardId: string) => void;
   isZoomingRef?: React.MutableRefObject<boolean>;
   expandedIdsRef?: React.MutableRefObject<Set<string>>;
@@ -88,6 +89,7 @@ export const Card = React.memo<CardProps>(({
   groupFeedback,
   externalScale,
   onDropIntoSlot,
+  onDropIntoSummoner,
   onDropIntoRepository,
   isZoomingRef,
   expandedIdsRef,
@@ -613,6 +615,15 @@ export const Card = React.memo<CardProps>(({
       y.set(finalY);
 
       updatePosition(cardData.uid, finalX, finalY);
+
+      // --- Hover Visuals ---
+      const elements = document.elementsFromPoint(px, py);
+      document.querySelectorAll('.is-drag-over').forEach(el => el.classList.remove('is-drag-over'));
+      
+      const hoveredSlot = elements.find(el => el.classList.contains('synthesis-slot') || el.classList.contains('summoner-slot')) as HTMLElement;
+      if (hoveredSlot) {
+        hoveredSlot.classList.add('is-drag-over');
+      }
     }
     if (last) {
       isDraggingRef.current = false;
@@ -626,6 +637,9 @@ export const Card = React.memo<CardProps>(({
       }
       onDragEnd?.(cardData.uid);
 
+      // Clean up hover visuals
+      document.querySelectorAll('.is-drag-over').forEach(el => el.classList.remove('is-drag-over'));
+
       // Manual Drop Detection for Synthesis Slots (Bridge between use-gesture and react-dnd)
       const elements = document.elementsFromPoint(px, py);
       const slotElement = elements.find(el => el.classList.contains('synthesis-slot')) as HTMLElement;
@@ -636,6 +650,15 @@ export const Card = React.memo<CardProps>(({
 
         if (slotId && deviceUid && onDropIntoSlot) {
           onDropIntoSlot(cardData.uid, deviceUid, slotId);
+        }
+      }
+
+      // Manual Drop Detection for Grimoire Summoner
+      const summonerSlot = elements.find(el => el.classList.contains('summoner-slot')) as HTMLElement;
+      if (summonerSlot) {
+        const deviceUid = summonerSlot.dataset.summonerUid;
+        if (deviceUid && onDropIntoSummoner) {
+          onDropIntoSummoner(cardData.uid, deviceUid);
         }
       }
 

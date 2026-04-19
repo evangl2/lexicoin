@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import type { RefObject } from 'react';
 import type { MotionValue } from 'motion/react';
 import { GRID_CELL_W, GRID_CELL_H } from './useGridSnap';
-import { VIEWPORT_VIEWPORT_CULL_MARGIN } from '@/config/physics';
+import { VIEWPORT_CULL_MARGIN } from '@/config/physics';
 
 export interface CullItem {
   uid: string;

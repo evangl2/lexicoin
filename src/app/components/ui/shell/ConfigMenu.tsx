@@ -6,6 +6,7 @@ import { AI_MODELS } from '@/config/constants';
 import { useInterfacePersona, useSkinSwitcher } from '@/app/context/PersonaContext';
 import { Slot } from '@/app/components/persona/slots';
 import { exportImportService } from '@/core/services/ExportImportService';
+import { useGameStore } from '@store/index';
 
 // --- Scroll Select Component (Portal Version) ---
 interface ScrollSelectProps {
@@ -245,6 +246,16 @@ const getLoc = (key: string, lang: string) => {
       'ITALIANO': 'LINGUA DI SISTEMA',
       'PORTUGUÊS': 'IDIOMA DO SISTEMA'
     },
+    'PERSONA': {
+      'ENGLISH': 'PERSONA',
+      '简体中文': '虚拟化身 (Persona)',
+      'FRANÇAIS': 'PERSONA',
+      'DEUTSCH': 'PERSONA',
+      '日本語': 'ペルソナ (Persona)',
+      'ESPAÑOL': 'PERSONA',
+      'ITALIANO': 'PERSONA',
+      'PORTUGUÊS': 'PERSONA'
+    },
     'CARD SKIN': {
       'ENGLISH': 'CARD SKIN',
       '简体中文': '卡片皮肤',
@@ -325,15 +336,22 @@ export const ConfigMenu: React.FC<ConfigMenuProps> = ({
   // Use real Persona skin switcher
   const { activeSkin, setSkin, availableSkins } = useSkinSwitcher();
   const interfacePersona = useInterfacePersona();
+  const activePersona = useGameStore(s => s.activePersona) || 'DEFAULT';
+  const setActivePersona = useGameStore(s => s.setActivePersona);
 
   // Convert skin name to uppercase for display
-  const skinOptions = availableSkins.map(s => s.toUpperCase());
-  const currentSkin = activeSkin.toUpperCase();
+  const personaOptions = ['DEFAULT', 'CHILD', 'GARDENER', 'ALCHEMIST'];
 
-  // Unified skin change handler (Syncs all three options currently)
-  const handleSkinChange = (value: string) => {
+  // Unified persona change handler (Syncs visual skin + logic persona)
+  const handlePersonaChange = (value: string) => {
+    setActivePersona(value as any);
     const lowerValue = value.toLowerCase();
-    setSkin(lowerValue);
+    // Try to set skin if it exists in available skins, fallback to default logic handled outside
+    if (availableSkins.includes(lowerValue)) {
+      setSkin(lowerValue);
+    } else if (value === 'DEFAULT') {
+      setSkin('default');
+    }
   };
 
   return (
@@ -446,27 +464,13 @@ export const ConfigMenu: React.FC<ConfigMenuProps> = ({
                 />
               </div>
 
-              {/* Column 2: Visuals */}
+              {/* Column 2: Visuals & Persona */}
               <div className="flex flex-col px-4 py-4" style={{ backgroundColor: interfacePersona.palette.colors.bgVoid + '50' }}>
                 <ScrollSelect
-                  label={getLoc('CARD SKIN', systemLang)}
-                  options={skinOptions}
-                  value={currentSkin}
-                  onChange={handleSkinChange}
-                />
-                <Spacer />
-                <ScrollSelect
-                  label={getLoc('CANVAS SKIN', systemLang)}
-                  options={skinOptions}
-                  value={currentSkin}
-                  onChange={handleSkinChange}
-                />
-                <Spacer />
-                <ScrollSelect
-                  label={getLoc('INTERFACE SKIN', systemLang)}
-                  options={skinOptions}
-                  value={currentSkin}
-                  onChange={handleSkinChange}
+                  label={getLoc('PERSONA', systemLang)}
+                  options={personaOptions}
+                  value={activePersona}
+                  onChange={handlePersonaChange}
                 />
               </div>
 
