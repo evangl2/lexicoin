@@ -11,6 +11,7 @@ import { useGameStore } from '@store/index';
 import { logger } from '@utils/logger';
 import { INITIAL_SENSES } from '@schemas/data/initialSenses';
 import { initializeVisuals } from './initializeVisuals';
+import { initializeFonts } from './initializeFonts';
 import { realtimeService } from '@core/infra/RealtimeService';
 import { xpRegistry } from '@core/services/XPRegistry';
 
@@ -35,6 +36,9 @@ export async function initializeModules(): Promise<void> {
 
         // Set up MessageBus subscriptions for store synchronization
         setupMessageBusSubscriptions();
+
+        // Initialize lazy fonts
+        initializeFonts();
 
         // Initialize Visual Registry (async: seed + load from IndexedDB)
         await initializeVisuals();

@@ -23,6 +23,7 @@ import { useCardGrouping } from "@/app/hooks/useCardGrouping";
 import { useViewportCulling } from "@/app/hooks/useViewportCulling";
 import { snapPosition, applySnap } from "@/app/hooks/useGridSnap";
 import { useGrimoireExpiry } from "@/app/hooks/useGrimoireExpiry";
+import { useLanguageFonts } from "@/app/hooks/useLanguageFonts";
 
 // UI Components
 import { DragLayer } from "@/app/components/ui/canvas/DragLayer";
@@ -287,6 +288,9 @@ function InnerApp() {
 
   const mappedLearningLang = useMemo(() => mapLanguageCode(learningLang), [learningLang]);
   const mappedSystemLang = useMemo(() => mapLanguageCode(systemLang), [systemLang]);
+
+  // Lazy load heavy CJK fonts when languages change
+  useLanguageFonts(mappedLearningLang as any, mappedSystemLang as any);
 
   // 7. Initialize Progression System
   useEffect(() => {

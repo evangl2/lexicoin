@@ -25,4 +25,17 @@ export default defineConfig({
         port: 5173,
         host: true, // Enable network access for cross-device testing
     },
+    build: {
+        rollupOptions: {
+            output: {
+                manualChunks: {
+                    'vendor-react': ['react', 'react-dom'],
+                    'vendor-motion': ['motion', 'framer-motion'],
+                    'vendor-icons': ['lucide-react'],
+                    'vendor-db': ['dexie'],
+                    'vendor-supabase': ['@supabase/supabase-js']
+                }
+            }
+        }
+    }
 });

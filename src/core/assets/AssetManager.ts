@@ -88,7 +88,7 @@ class AssetManager {
                     await this.loadAudio(asset.url);
                     break;
                 case 'FONT':
-                    await this.loadFont(asset.url);
+                    await this.loadFont(asset);
                     break;
                 case 'DATA':
                     await this.loadData(asset.url);
@@ -142,9 +142,14 @@ class AssetManager {
     /**
      * Load font
      */
-    private async loadFont(url: string): Promise<void> {
-        // TODO: Implement font loading
-        logger.warn('Font loading not yet implemented', { url }, 'AssetManager');
+    private async loadFont(asset: AssetDescriptor): Promise<void> {
+
+        const font = new FontFace(asset.id, `url(${asset.url})`, {
+            weight: '100 900',
+            display: 'swap'
+        });
+        await font.load();
+        document.fonts.add(font);
     }
 
     /**
