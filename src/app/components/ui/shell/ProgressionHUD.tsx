@@ -13,19 +13,25 @@ import { mapLanguageCode } from '@/app/utils/localization';
 
 export const ProgressionHUD: React.FC = () => {
     const learningLang = useGameStore(s => s.player.settings.learningLang);
-    const level      = useGameStore(s => s.player?.languageProgress?.[learningLang]?.level ?? 1);
-    const xp         = useGameStore(s => s.player?.languageProgress?.[learningLang]?.xp ?? 0);
-    const xpToNext   = useGameStore(s => s.player?.languageProgress?.[learningLang]?.xpToNextLevel ?? 100);
-    const stamina    = useGameStore(s => s.player?.stamina ?? 300);
-    const maxStamina = useGameStore(s => s.player?.maxStamina ?? 300);
+    const safeNum = (v: unknown, fallback: number) => {
+        const n = Number(v);
+        return isNaN(n) ? fallback : n;
+    };
+
+    const level      = useGameStore(s => safeNum(s.player?.languageProgress?.[learningLang]?.level, 1));
+    const xp         = useGameStore(s => safeNum(s.player?.languageProgress?.[learningLang]?.xp, 0));
+    const xpToNext   = useGameStore(s => safeNum(s.player?.languageProgress?.[learningLang]?.xpToNextLevel, 100));
+    const stamina    = useGameStore(s => safeNum(s.player?.stamina, 300));
+    const maxStamina = useGameStore(s => safeNum(s.player?.maxStamina, 300));
 
     const progressInfo = React.useMemo(() => {
-        const threshold = xpToNext || LEVEL_XP_THRESHOLDS[level - 1] || 100;
+        const threshold = (xpToNext > 0 ? xpToNext : null) ?? LEVEL_XP_THRESHOLDS[level - 1] ?? 100;
+        const safeThreshold = threshold > 0 ? threshold : 100;
         return {
             level,
             xp,
-            xpToNext: threshold,
-            progress: Math.min(1.0, xp / threshold)
+            xpToNext: safeThreshold,
+            progress: Math.min(1.0, xp / safeThreshold)
         };
     }, [level, xp, xpToNext]);
 
