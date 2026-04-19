@@ -3,6 +3,8 @@ import {
   useCallback,
   useMemo,
   useRef,
+  lazy,
+  Suspense,
 } from "react";
 import { DndProvider, useDrop } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
@@ -33,7 +35,9 @@ import { Grimoire } from "@/app/components/ui/visual/Grimoire";
 import { ProgressionHUD } from "@/app/components/ui/shell/ProgressionHUD";
 import { LevelUpOverlay } from "@/app/components/ui/system/LevelUpOverlay";
 import { GrimoireOverlay } from "@/app/components/ui/visual/GrimoireOverlay";
-import { LibraryInterface } from "@/app/components/ui/visual/LibraryInterface";
+const LibraryInterface = lazy(() =>
+  import('@/app/components/ui/visual/LibraryInterface').then(m => ({ default: m.LibraryInterface }))
+);
 import { levelModule } from "@/modules/level/LevelModule";
 
 // Store & Utils
@@ -441,7 +445,9 @@ function InnerApp() {
             />
           </motion.div>
         ) : viewMode === 'LIBRARY' ? (
-          <LibraryInterface key="library" />
+          <Suspense key="library" fallback={<div className="flex items-center justify-center h-screen text-zinc-400">Loading library…</div>}>
+            <LibraryInterface />
+          </Suspense>
         ) : null}
       </AnimatePresence>
 

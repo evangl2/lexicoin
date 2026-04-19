@@ -23,6 +23,26 @@ export default defineConfig({
     },
     server: {
         port: 5173,
-        host: true, // Enable network access for cross-device testing
+        host: true,
+    },
+    build: {
+        rollupOptions: {
+            output: {
+                manualChunks: {
+                    'vendor-react':    ['react', 'react-dom'],
+                    'vendor-motion':   ['motion'],
+                    'vendor-supabase': ['@supabase/supabase-js'],
+                    'vendor-dexie':    ['dexie'],
+                    'vendor-dnd':      ['react-dnd', 'react-dnd-html5-backend'],
+                    'vendor-sucrase':  ['sucrase'],
+                },
+                assetFileNames: (assetInfo) => {
+                    if (assetInfo.name?.match(/\.(woff2?|ttf|otf)$/)) {
+                        return 'assets/fonts/[name][extname]';
+                    }
+                    return 'assets/[name]-[hash][extname]';
+                },
+            },
+        },
     },
 });

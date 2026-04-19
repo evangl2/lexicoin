@@ -6,9 +6,13 @@
   <link rel="icon" type="image/svg+xml" href="/vite.svg" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <!-- Google Fonts: Multilingual Support for 8 Languages -->
-  <!-- Local Fonts are imported in src/index.css via src/assets/fonts/fonts.css -->
-  <!-- CJK Fonts (Noto Serif/Sans) use System Fonts to avoid heavy downloads -->
+  <!-- Preload primary Latin fonts (stable filenames — no hash, see vite.config.ts) -->
+  <link rel="preload" href="/assets/fonts/Cinzel-VariableFont_wght.ttf" as="font" type="font/ttf" crossorigin>
+
+  <!-- CJK fonts via Google Fonts CDN: WOFF2-sliced (~50 KB per script range vs 65 MB local TTF) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@100..900&family=Noto+Sans+SC:wght@100..900&family=Noto+Serif+JP:wght@200..900&family=Noto+Serif+SC:wght@200..900&display=swap" rel="stylesheet">
 
   <title>Lexicoin - Language Alchemy</title>
   <meta name="description" content="Master languages through the art of linguistic alchemy" />
