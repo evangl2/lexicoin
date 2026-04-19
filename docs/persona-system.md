@@ -2,34 +2,29 @@
 
 ## 概览
 
-Persona 系统由两个独立字典组成，分别服务不同的子系统。
-各字典存放在各自的 Edge Function 目录中。
+Persona 系统由三个独立字典组成，分别服务不同的子系统。
+所有字典集中存放在 `supabase/functions/_shared/`，由各 Edge Function 按需 import。
 
 ```
-supabase/functions/
-├── generate-grimoire/
-│   └── lib/
-│       ├── personaDictionary.ts   ← PersonaContext Layer（见 §1）
-│       └── archetypeTable.ts      ← 魔典 Archetype 系统（见 §3）
-│
-├── evaluate-grimoire/
-│   └── lib/
-│       └── personaDictionary.ts   ← PersonaContext Layer（同上，独立副本）
-│
-└── synthesize-sense/
-    └── lib/
-        └── PersonaDictionary.ts   ← Flavor Text 字典（见 §2）
+supabase/functions/_shared/
+├── personas/
+│   ├── CHILD.ts          ← Persona 定义（见 §1）
+│   ├── GARDENER.ts
+│   ├── ALCHEMIST.ts
+│   ├── index.ts          ← PERSONA_DICTIONARY 汇总 + 类型导出
+│   └── types.ts          ← PersonaDefinition / PersonaBaseDirectives 类型
+├── personaStory.ts       ← resolvePersonaContext / pickNarrativeForm（见 §1）
+├── sensePersona.ts       ← Flavor Text 字典（见 §2）
+└── grimoireArchetype.ts  ← 魔典 Archetype 系统（见 §3）
 ```
 
-**注意**：`generate-grimoire/lib/personaDictionary.ts` 与
-`evaluate-grimoire/lib/personaDictionary.ts` 内容完全一致，是同一份文件的两个副本。
-修改时需同步更新两处。
+各字典均为单份文件，修改一处即可。
 
 ---
 
-## §1  `personaDictionary.ts` — PersonaContext Layer
+## §1  `personas/*.ts` + `personaStory.ts` — PersonaContext Layer
 
-**使用方**：`generate-grimoire`、`evaluate-grimoire`（各持一份副本）
+**使用方**：`generate-grimoire`、`evaluate-grimoire`
 
 **职责**：控制 AI 生成魔典任务和评判时的声音、叙事形式、评分偏向。
 
@@ -56,9 +51,9 @@ base（startingpoint）
 
 ---
 
-## §2  `synthesize-sense/lib/PersonaDictionary.ts` — Flavor Text 字典
+## §2  `sensePersona.ts` — Flavor Text 字典
 
-**使用方**：`synthesize-sense`（Delta 增量补全路径）
+**使用方**：`synthesize-sense`（通过 `SensePromtBackend.ts` import）
 
 **职责**：控制 AI 为 Sense 卡片生成 flavor text（卡片上的观察文字和例句）时的写作风格。
 
@@ -71,7 +66,7 @@ base（startingpoint）
 
 ---
 
-## §3  `generate-grimoire/lib/archetypeTable.ts` — Archetype 系统
+## §3  `grimoireArchetype.ts` — Archetype 系统
 
 **使用方**：`generate-grimoire` 独用
 
@@ -81,22 +76,21 @@ base（startingpoint）
 
 ---
 
-## 两个 Persona 字典的对比
+## 三个字典对比
 
-| | PersonaContext Layer | Flavor Text 字典 |
-|---|---|---|
-| 路径 | `*/lib/personaDictionary.ts`（两份） | `synthesize-sense/lib/PersonaDictionary.ts` |
-| 使用方 | generate-grimoire, evaluate-grimoire | synthesize-sense |
-| 控制内容 | 任务声音、叙事形式、评分偏向 | 卡片观察文字风格 |
-| 受故事阶段影响 | 是（stage override） | 否（静态） |
-| 修改时 | **两处需同步更新** | 改一处即可 |
+| | PersonaContext Layer | Flavor Text 字典 | Archetype 系统 |
+|---|---|---|---|
+| 路径 | `_shared/personas/*.ts` + `personaStory.ts` | `_shared/sensePersona.ts` | `_shared/grimoireArchetype.ts` |
+| 使用方 | generate-grimoire, evaluate-grimoire | synthesize-sense | generate-grimoire |
+| 控制内容 | 任务声音、叙事形式、评分偏向 | 卡片观察文字风格 | 8种语义类型及双向逻辑 |
+| 受故事阶段影响 | 是（stage override） | 否（静态） | 否（与 Persona 无关） |
+| 修改时 | 改对应 `personas/*.ts` 文件即可 | 改一处即可 | 改一处即可 |
 
 ---
 
 ## 未来：添加新故事阶段
 
-在 `generate-grimoire/lib/personaDictionary.ts` 和
-`evaluate-grimoire/lib/personaDictionary.ts` 中同步添加 stage 条目：
+在对应的 `_shared/personas/CHILD.ts`（或其他 Persona 文件）中添加 stage 条目：
 
 ```typescript
 stages: {
@@ -110,4 +104,4 @@ stages: {
 ```
 
 然后通过 `store.setPersonaStage('CHILD', 'chapter2_haunted')` 推进即可。
-Edge Function 其他代码无需修改。
+`personaStory.ts` 的 `resolvePersonaContext` 会自动合并；Edge Function 其他代码无需修改。
