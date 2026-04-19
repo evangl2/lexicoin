@@ -10,6 +10,7 @@ import { useGameStore } from '@store/index';
 import { selectLanguageLevelInfo } from '@store/selectors';
 import { LEVEL_XP_THRESHOLDS } from '@/config/balance';
 import { mapLanguageCode } from '@/app/utils/localization';
+import { HUD_PROGRESS_BAR_SPRING } from '@/config/physics';
 
 export const ProgressionHUD: React.FC = () => {
     const learningLang = useGameStore(s => s.player.settings.learningLang);
@@ -69,7 +70,7 @@ export const ProgressionHUD: React.FC = () => {
                     <motion.div 
                         initial={{ width: 0 }}
                         animate={{ width: `${progressInfo.progress * 100}%` }}
-                        transition={{ type: 'spring', stiffness: 50, damping: 20 }}
+                        transition={{ type: 'spring', ...HUD_PROGRESS_BAR_SPRING }}
                         className="h-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 shadow-[0_0_10px_rgba(99,102,241,0.5)]"
                     />
                 </div>
@@ -88,7 +89,7 @@ export const ProgressionHUD: React.FC = () => {
                     <motion.div 
                         initial={{ width: 0 }}
                         animate={{ width: `${(stamina / maxStamina) * 100}%` }}
-                        transition={{ type: 'spring', stiffness: 50, damping: 20 }}
+                        transition={{ type: 'spring', ...HUD_PROGRESS_BAR_SPRING }}
                         className="h-full bg-gradient-to-r from-amber-600 to-yellow-400 shadow-[0_0_8px_rgba(217,119,6,0.5)]"
                     />
                 </div>
