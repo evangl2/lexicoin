@@ -10,6 +10,12 @@ Items where it's unclear if a number is a tunable param or a fixed spec. Awaitin
 
 ---
 
+## ~~Q2: XPRegistry GRIMOIRE_COMPLETED inline gradeMap vs GRIMOIRE_REWARDS~~ — RESOLVED 2026-04-19
+
+**Decision**: `GRIMOIRE_REWARDS.xp` (grimoireConfig.ts) is canonical per GDD §7.4. Inline gradeMap deleted from `XPRegistry.ts`. `calculateAmount` now accepts a proper `grade?` parameter instead of reusing `cefrLevel`. `GRIMOIRE_COMPLETED` case returns `GRIMOIRE_REWARDS[grade as Grade]?.xp ?? 0`.
+
+---
+
 ## Q1 (archived): World Dimension Mismatch
 
 **File A** — `src/app/components/ui/canvas/Canvas.tsx:40-41`

@@ -6,13 +6,14 @@
 
 import { useGameStore } from '@/core/store';
 import { messageBus } from '@/core/protocol/MessageBus';
-import { 
-    CEFR_XP_COEFFICIENT, 
-    XP_SENSE_BASE, 
+import {
+    CEFR_XP_COEFFICIENT,
+    XP_SENSE_BASE,
     LEVEL_XP_THRESHOLDS,
-    MAX_LANGUAGE_LEVEL 
+    MAX_LANGUAGE_LEVEL
 } from '@/config/balance';
-import type { Language, CEFRLevel, LanguageProgress } from '@/types/index';
+import { GRIMOIRE_REWARDS } from '@/config/grimoireConfig';
+import type { Language, CEFRLevel, LanguageProgress, Grade } from '@/types/index';
 import { playerLevelSystem } from './PlayerLevelSystem';
 
 // XP 来源 ID，便于统计分析
@@ -77,24 +78,20 @@ class XPRegistry {
     /**
      * 计算单次获得的 XP 量
      */
-    private calculateAmount(sourceId: XPSourceId, cefrLevel?: CEFRLevel): number {
+    private calculateAmount(sourceId: XPSourceId, cefrLevel?: CEFRLevel, grade?: string): number {
         const coef = cefrLevel ? CEFR_XP_COEFFICIENT[cefrLevel] : 1.0;
-        
+
         switch (sourceId) {
             case 'SENSE_COLLECTED':
                 return Math.floor(XP_SENSE_BASE * coef);
             case 'SENSE_DUPLICATED':
-                return Math.floor(XP_SENSE_BASE * 0.1); // 重复词只给 10%
+                return Math.floor(XP_SENSE_BASE * 0.1);
             case 'EVOLUTION_SUCCESS':
-                return Math.floor(XP_SENSE_BASE * coef * 2); // 进化奖励翻倍
+                return Math.floor(XP_SENSE_BASE * coef * 2);
             case 'CONSTRUCTION_CREATED':
-                return 50; // 暂定固定值
+                return 50;
             case 'GRIMOIRE_COMPLETED':
-                // 根据 Grade 等级阶梯发放
-                const gradeMap: Record<string, number> = {
-                    'S++': 500, 'S+': 400, 'S': 300, 'A': 200, 'B': 100, 'C': 50, 'D': 25, 'F': 0
-                };
-                return gradeMap[cefrLevel || 'F'] || 50; // 复用 cefrLevel 字段传 Grade 字符串
+                return GRIMOIRE_REWARDS[grade as Grade]?.xp ?? 0;
             case 'DEBUG':
                 return 100;
             default:
