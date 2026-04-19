@@ -7,9 +7,9 @@ Last full pass: 2026-04-19.
 
 | File | Last Audited |
 |------|-------------|
-| [BackendSchema.md](../BackendSchema.md) | — |
-| [CompactModeSystem.md](../CompactModeSystem.md) | — |
-| [card-data-pipeline.md](../card-data-pipeline.md) | — |
+| [BackendSchema.md](../BackendSchema.md) | 2026-04-19 (🟡 stale — persona example values) |
+| [CompactModeSystem.md](../CompactModeSystem.md) | 2026-04-19 (🔴 broken — §5 file paths post-restructure) |
+| [card-data-pipeline.md](../card-data-pipeline.md) | 2026-04-19 |
 | [DataManagement.md](../DataManagement.md) | — |
 | [DB-schema-maintenance.md](../DB-schema-maintenance.md) | — |
 | [DurabilityLifecycle.md](../DurabilityLifecycle.md) | — |
@@ -32,7 +32,7 @@ Last full pass: 2026-04-19.
 | [SynthesisDataFlow.md](../SynthesisDataFlow.md) | — |
 | [SynthesisSystem.md](../SynthesisSystem.md) | — |
 | [tts-analysis.md](../tts-analysis.md) | — |
-| [gameconfig.md](../gameconfig.md) | 2026-04-19 |
+| [gameconfig.md](../gameconfig.md) | 2026-04-19 (🟡 stale — missing timing.ts, physics.ts) |
 | [visual-pipeline.md](../visual-pipeline.md) | — |
 
 ## docs/grimoire/ (author-owned GDD)
@@ -48,4 +48,24 @@ Last full pass: 2026-04-19.
 |------|-------------|
 | [questions.md](../params/questions.md) | — (author-owned) |
 | [registry.md](../params/registry.md) | — (author-owned) |
+| [sessions/2026-04-19-0502.md](../params/sessions/2026-04-19-0502.md) | — (author-owned) |
 | [sessions/2026-04-19-1620.md](../params/sessions/2026-04-19-1620.md) | — (author-owned) |
+
+## docs/refactor/ (author-owned — Jules refactor agent)
+
+| File | Last Audited |
+|------|-------------|
+| [backlog.md](../refactor/backlog.md) | — (author-owned) |
+| [principles.md](../refactor/principles.md) | — (author-owned) |
+| [questions.md](../refactor/questions.md) | — (author-owned) |
+| [sessions/2026-04-19-1620.md](../refactor/sessions/2026-04-19-1620.md) | — (author-owned) |
+| [weekly/2026-16.md](../refactor/weekly/2026-16.md) | — (author-owned) |
+
+## docs/feel/ (author-owned — Jules game-feel agent)
+
+| File | Last Audited |
+|------|-------------|
+| [backlog.md](../feel/backlog.md) | — (author-owned) |
+| [daily/2026-04-19.md](../feel/daily/2026-04-19.md) | — (author-owned) |
+| [principles.md](../feel/principles.md) | — (author-owned) |
+| [questions.md](../feel/questions.md) | — (author-owned) |

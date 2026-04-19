@@ -7,9 +7,9 @@ Tracks which docs have been freshness-audited and when. Pick least-recently-audi
 | file-structure-2026-03.md | 2026-04-19 |
 | persona-system.md | 2026-04-19 |
 | LevelingSystem.md | 2026-04-19 |
-| BackendSchema.md | — |
-| CompactModeSystem.md | — |
-| card-data-pipeline.md | — |
+| BackendSchema.md | 2026-04-19 |
+| CompactModeSystem.md | 2026-04-19 |
+| card-data-pipeline.md | 2026-04-19 |
 | DataManagement.md | — |
 | DB-schema-maintenance.md | — |
 | DurabilityLifecycle.md | — |
