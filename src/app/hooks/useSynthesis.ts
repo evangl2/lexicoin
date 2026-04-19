@@ -8,6 +8,7 @@ import type { CardEntity } from '@app-types/CardEntity';
 import { autoPollExhausted } from './useVisualPoll';
 import { useGameStore } from '@store/index';
 import { MAX_CONCURRENT_SYNTHESES } from '@/config/constants';
+import { SYNTHESIS_LONG_STATE_DELAY_MS } from '@/config/timing';
 
 /**
  * Poll sense_visuals once. Returns true if visual was found and broadcast.
@@ -150,7 +151,7 @@ export function useSynthesis(): UseSynthesisResult {
     clearTimeout(timeoutRef.current);
     timeoutRef.current = setTimeout(() => {
       setState(prev => (prev === 'processing' ? 'processing-long' : prev));
-    }, 15000);
+    }, SYNTHESIS_LONG_STATE_DELAY_MS);
 
     // Unique ID for this synthesis attempt — lets the backend detect network-level
     // duplicate delivery and replay the stored result instead of re-running Gemini.

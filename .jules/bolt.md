@@ -8,3 +8,6 @@
 ## 2026-04-09 - [Avoid O(N) Array Allocation in Loops]
 **Learning:** Using `Array.from(map.values()).filter(...)` creates an intermediate array containing all elements before applying the filter. In methods like `AssetManager.loadLanguageAssets`, this causes unnecessary O(N) array allocation overhead and garbage collection pressure.
 **Action:** Replaced `Array.from().filter()` patterns with single-pass `for...of` loops that push directly to a result array. This reduces memory allocation and improves iteration speed. Tested and confirmed identical behavior.
+## 2026-04-19 - Parameter Console Pattern
+**Learning:** Always export a TypeScript type alongside each config group/constant when extracting magic numbers, e.g., `export type MyType = typeof MY_CONST`.
+**Action:** Include type exports automatically when creating or moving config variables to support DevPanel bindings.
