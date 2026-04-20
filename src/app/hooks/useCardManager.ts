@@ -178,7 +178,7 @@ export const useCardManager = () => {
             const idx = prev.findIndex(item => item.cardData.rawSense.uid === uid);
             if (idx === -1) return prev;
             const next = [...prev];
-            next[idx] = { ...next[idx], location: 'repository' as CardLocation };
+            next[idx] = { ...next[idx]!, location: 'repository' as CardLocation };
             return next;
         });
 
@@ -196,7 +196,7 @@ export const useCardManager = () => {
             const idx = prev.findIndex(item => item.cardData.rawSense.uid === uid);
             if (idx === -1) return prev;
             const next = [...prev];
-            const item = next[idx];
+            const item = next[idx]!;
 
             // IMPORTANT: Create NEW MotionValues to reset velocity history.
             // Reusing the old ones causes a massive position jump (old_pos -> new_pos)
@@ -205,7 +205,7 @@ export const useCardManager = () => {
             const newMy = motionValue(y);
 
             const newItem: CardItem = {
-                ...item,
+                ...item!,
                 mx: newMx,
                 my: newMy,
                 scale: motionValue(1),
@@ -231,7 +231,7 @@ export const useCardManager = () => {
             const idx = prev.findIndex(item => item.cardData.rawSense.uid === uid);
             if (idx === -1) return prev;
             const next = [...prev];
-            const item = next[idx];
+            const item = next[idx]!;
 
             // If position is provided, update it (e.g. for ejection)
             // IMPORTANT: Create NEW MotionValues to reset velocity history (fixing "warp" effect)
@@ -244,7 +244,7 @@ export const useCardManager = () => {
             }
 
             next[idx] = {
-                ...item,
+                ...item!,
                 mx: newMx,
                 my: newMy,
                 location,
@@ -322,9 +322,9 @@ export const useCardManager = () => {
                 // Optimization: Use findIndex to update a single item. Avoids O(N) array allocation.
                 const next = [...prev];
                 next[idx] = {
-                    ...next[idx],
+                    ...next[idx]!,
                     cardData: {
-                        ...next[idx].cardData,
+                        ...next[idx]!.cardData,
                         visual: { status: 'loaded' as const, payload: entry.payload }
                     }
                 };
@@ -342,9 +342,9 @@ export const useCardManager = () => {
                 if (idx === -1) return prev;
                 const next = [...prev];
                 next[idx] = {
-                    ...next[idx],
+                    ...next[idx]!,
                     cardData: {
-                        ...next[idx].cardData,
+                        ...next[idx]!.cardData,
                         visual: { status: 'error' as const, payload: '' }
                     }
                 };
@@ -365,11 +365,11 @@ export const useCardManager = () => {
                 if (idx === -1) return prev;
                 const next = [...prev];
                 next[idx] = {
-                    ...next[idx],
+                    ...next[idx]!,
                     cardData: {
-                        ...next[idx].cardData,
+                        ...next[idx]!.cardData,
                         senseInfo: {
-                            ...next[idx].cardData.senseInfo,
+                            ...next[idx]!.cardData.senseInfo,
                             durability: current
                         }
                     }

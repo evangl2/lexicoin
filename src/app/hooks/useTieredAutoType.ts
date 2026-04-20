@@ -25,7 +25,8 @@ import {
  */
 export const useTieredAutoType = (
     text: string,
-    containerRef: React.RefObject<HTMLElement>
+    containerRef: React.RefObject<HTMLElement>,
+    customTiers?: TextTier[]
 ) => {
     // State to force re-renders when container resizes
     const [containerWidth, setContainerWidth] = useState<number>(300); // Default guess
@@ -34,8 +35,8 @@ export const useTieredAutoType = (
     // We memoize this "Initial Guess" so it only changes when content changes.
     // This is our anchor point.
     const initialTier = useMemo(() => {
-        return predictTier(text, containerWidth);
-    }, [text, containerWidth]);
+        return predictTier(text, containerWidth, customTiers);
+    }, [text, containerWidth, customTiers]);
 
     const [currentTier, setCurrentTier] = useState<TextTier>(initialTier);
 
@@ -73,11 +74,17 @@ export const useTieredAutoType = (
 
         const scrollHeight = container.scrollHeight;
         const clientHeight = container.clientHeight;
+        const scrollWidth = container.scrollWidth;
+        const clientWidth = container.clientWidth;
 
-        // Safety: If container is hidden or 0 height, do nothing.
-        if (clientHeight === 0) return;
+        // Safety: If container is hidden or 0 metrics, do nothing.
+        if (clientHeight === 0 || clientWidth === 0) return;
 
-        const ratio = scrollHeight / clientHeight;
+        const hRatio = scrollHeight / clientHeight;
+        const wRatio = scrollWidth / clientWidth;
+
+        // Peak ratio represents the tightest dimension
+        const ratio = Math.max(hRatio, wRatio);
 
         // --- DOWNGRADE LOGIC (Overflow) ---
         if (ratio > 1.05) { // 5% tolerance for sub-pixel rounding
@@ -85,28 +92,36 @@ export const useTieredAutoType = (
 
             // Multi-level jump based on severity
             let jump = 1;
-            if (ratio > 1.5) jump = 2; // Massive overflow
-            if (ratio > 2.0) jump = 3; // Catastrophic overflow
+            if (ratio > 1.3) jump = 2; // Increased sensitivity for titles
+            if (ratio > 1.8) jump = 3; 
 
-            const currentIndex = TIER_INDEX_MAP[currentTier.id] ?? 0;
-            const nextIndex = Math.min(TEXT_TIERS.length - 1, currentIndex + jump);
+            const activeTiers = customTiers || TEXT_TIERS;
+            const activeIndexMap = customTiers ? 
+                customTiers.reduce((acc, tier, index) => { acc[tier.id] = index; return acc; }, {} as Record<string, number>) : 
+                TIER_INDEX_MAP;
+
+            const currentIndex = activeIndexMap[currentTier.id] ?? 0;
+            const nextIndex = Math.min(activeTiers.length - 1, currentIndex + jump);
 
             if (nextIndex !== currentIndex) {
-                setCurrentTier(TEXT_TIERS[nextIndex]!);
+                setCurrentTier(activeTiers[nextIndex]!);
             }
         }
 
         // --- UPGRADE LOGIC (Underflow) ---
         // Only upgrade if we have MASSIVE room (Hysteresis).
-        // e.g., using less than 40% of the box.
-        else if (ratio < 0.45) {
-            // console.log(`[TieredText] Underflow detected (Ratio: ${ratio.toFixed(2)}). Upgrading.`);
+        // For titles/single lines we are more conservative.
+        else if (ratio < 0.40) {
+            const activeTiers = customTiers || TEXT_TIERS;
+            const activeIndexMap = customTiers ? 
+                customTiers.reduce((acc, tier, index) => { acc[tier.id] = index; return acc; }, {} as Record<string, number>) : 
+                TIER_INDEX_MAP;
 
-            const currentIndex = TIER_INDEX_MAP[currentTier.id] ?? 0;
+            const currentIndex = activeIndexMap[currentTier.id] ?? 0;
             const nextIndex = Math.max(0, currentIndex - 1); // Only step up 1 tier at a time to be safe
 
             if (nextIndex !== currentIndex) {
-                setCurrentTier(TEXT_TIERS[nextIndex]!);
+                setCurrentTier(activeTiers[nextIndex]!);
             }
         }
 

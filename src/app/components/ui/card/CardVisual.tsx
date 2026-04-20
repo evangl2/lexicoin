@@ -19,7 +19,7 @@ import type { Language } from '@schemas/schemas/SenseEntity.schema';
  * Calculate responsive title class based on text length and character set
  * Handles both Latin and CJK characters with appropriate spacing
  */
-const getTitleClass = (text: string, isCompact: boolean) => {
+export const getTitleClass = (text: string, isCompact: boolean) => {
   if (isCompact) return "text-5xl tracking-widest font-black mr-[-0.1em]";
 
   const len = text.length;
@@ -671,7 +671,7 @@ CardFrontText.displayName = 'CardFrontText';
 // MEMOIZED VISUAL AREA (parallax + SVG + durability)
 // ============================================================================
 
-const MemoizedCardVisual = React.memo(({
+export const MemoizedCardVisual = React.memo(({
   isCompact,
   visualPayload,
   isActive,

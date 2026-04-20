@@ -1,0 +1,592 @@
+/* =============================================================================
+   base.css — Shared skeleton for ALL lexi-card-chrome personas
+   Rules here use only CSS custom properties (var(--card-*)) and layout.
+   No colour / texture hard-coding belongs here.
+   ============================================================================= */
+
+/* ── Reset (Crucial for Tailwind parity in Shadow DOM) ────────────────────── */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+/* ── Host ─────────────────────────────────────────────────────────────────── */
+
+:host {
+  display: block;
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+/* ── Background (hermetic SVG — must be absolute so it exits flex flow) ─────
+   Without this, the SVG participates in [part="front-face"]'s flex column
+   and pushes header/visual/text sections down.                               */
+
+[part="background"] {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+[part="background"] svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* ── Hover glow (behind the card chrome, blurred ring) ───────────────────── */
+
+[part="hover-glow"] {
+  position: absolute;
+  inset: -3px;
+  border-radius: 22px;
+  opacity: 0;
+  transition: opacity 500ms;
+  z-index: -1;
+  filter: blur(5px);
+  pointer-events: none;
+  background: var(--card-gradient-gold-metallic);
+}
+
+:host(:hover) [part="hover-glow"] {
+  opacity: 1;
+}
+
+/* ── Drop-target ring ────────────────────────────────────────────────────── */
+
+[part="drop-target-ring"] {
+  display: none;
+  position: absolute;
+  inset: -10px;
+  border-radius: 30px;
+  border: 2px dashed var(--card-color-gold-metallic);
+  box-shadow: 0 0 20px var(--card-color-gold-metallic);
+  z-index: 60;
+  pointer-events: none;
+  animation: wc-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+:host([is-over]) [part="drop-target-ring"] {
+  display: block;
+}
+
+/* ── Flip wrapper (scaleX driven imperatively by Card.tsx) ───────────────── */
+
+[part="flip-wrapper"] {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+/* ── Front face ──────────────────────────────────────────────────────────── */
+
+[part="front-face"] {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  isolation: isolate;
+  -webkit-font-smoothing: antialiased;
+  border-radius: var(--card-radius);
+  background: var(--card-color-bg-front);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  /*
+   * opacity / pointer-events are NOT set here — initial values are set
+   * imperatively in connectedCallback so Card.tsx's MotionValue subscriptions
+   * take exclusive ownership (inline styles beat author stylesheets).
+   */
+}
+
+:host([is-active]) [part="front-face"] {
+  backface-visibility: visible;
+  -webkit-backface-visibility: visible;
+}
+
+/* ── Back face ───────────────────────────────────────────────────────────── */
+
+[part="back-face"] {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  padding: 1.25rem;
+  isolation: isolate;
+  -webkit-font-smoothing: antialiased;
+  border-radius: var(--card-radius);
+  background-color: var(--card-color-bg-back);
+  border: 2px solid var(--card-color-gold-metallic);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  /*
+   * opacity / pointer-events are NOT set here.
+   * Initial state is established imperatively in LexiCardChromeBase.connectedCallback
+   * so that Card.tsx's applyFront / applyBack MotionValue subscriptions own the
+   * full lifecycle of these properties (inline styles always beat stylesheet rules).
+   *
+   * Default at first paint (before Card.tsx wires up):
+   *   front-face: opacity:1  pointer-events:auto
+   *   back-face:  opacity:0  pointer-events:none
+   * (set via element.style in connectedCallback)
+   */
+}
+
+:host([is-active]) [part="back-face"] {
+  backface-visibility: visible;
+  -webkit-backface-visibility: visible;
+}
+
+/* ── Border overlays (outer / inner) ─────────────────────────────────────── */
+
+[part="border-outer"] {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 50;
+  border: 2px solid var(--card-color-border-outer);
+  border-radius: inherit;
+}
+
+[part="border-inner"] {
+  position: absolute;
+  inset: 4px;
+  pointer-events: none;
+  z-index: 50;
+  border: 1px solid var(--card-color-border-inner);
+  border-radius: inherit;
+}
+
+/* ── Corners container ───────────────────────────────────────────────────── */
+
+[part="corners"] {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 20;
+}
+
+[part~="corner"] {
+  position: absolute;
+  width: 40px;
+  height: 40px;
+}
+[part~="corner"] svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  display: block;
+}
+
+[part="corner corner-tl"] { top: 0; left: 0; }
+[part="corner corner-tr"] { top: 0; right: 0; transform: scaleX(-1); }
+[part="corner corner-bl"] { bottom: 0; left: 0; transform: scaleY(-1); }
+[part="corner corner-br"] { bottom: 0; right: 0; transform: scale(-1); }
+
+/* ── Header section (15% height — level badge) ───────────────────────────── */
+
+[part="header"] {
+  position: relative;
+  z-index: 30;
+  width: 100%;
+  height: 15%;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.75rem 1.25rem 0;
+}
+
+[part="header-panel"] {
+  position: absolute;
+  left: 1.5rem;
+  right: 1.5rem;
+  bottom: 0.5rem;
+  top: 0.75rem;
+  background: rgba(0, 0, 0, 0.2);
+  border-bottom: 1px solid var(--card-color-border-subtle);
+  border-top: 1px solid var(--card-color-border-subtle);
+  border-radius: 0.125rem;
+  z-index: -10;
+  opacity: 0.6;
+}
+
+[part="header-line"] {
+  position: absolute;
+  top: -1rem;
+  width: 1px;
+  height: 1.25rem;
+  background: linear-gradient(to bottom, transparent, #C0A062);
+}
+
+/* ── Visual section (55% height — card image + divider) ─────────────────── */
+
+[part="visual"] {
+  position: relative;
+  z-index: 20;
+  width: 100%;
+  height: 55%;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 1rem;
+  transform: translateY(-0.5rem);
+  perspective: 1000px;
+}
+
+/* ── Slotted wrapper transparency rules ─────────────────────────────────────
+   The light-DOM wrapper elements (div/span with slot="*") are transparent to
+   the shadow layout via ::slotted(). Using CSS ::slotted() is more reliable
+   than inline `style="display:contents"` which has known Blink/WebKit bugs
+   when applied to slotted elements.                                          */
+
+/* Level badge wrapper — must not add any block box inside the header flex */
+::slotted([slot="level"]) {
+  display: contents;
+}
+
+/* Word wrapper — no extra box inside word-col flex column */
+::slotted([slot="word"]) {
+  display: contents;
+}
+
+/* System-word wrapper — same */
+::slotted([slot="system-word"]) {
+  display: contents;
+}
+
+/* Pronunciation wrapper — must not add extra line-height block */
+::slotted([slot="pronunciation"]) {
+  display: contents;
+}
+
+/* Visual slot wrapper — explicit 100%×100% so MemoizedCardVisual fills slot */
+::slotted([slot="visual"]) {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* ── Divider (SunMoonDivider —烘焙 into template) ─────────────────────── */
+
+[part="divider"] {
+  position: absolute;
+  bottom: -5px;
+  left: 0;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  opacity: 0.9;
+  color: var(--card-color-gold-metallic);
+}
+
+[part="divider-svg"] {
+  width: 100%;
+  height: 8px;
+  max-width: 220px;
+  opacity: 0.8;
+  filter: drop-shadow(0 0 3px rgba(240, 208, 130, 0.4));
+}
+
+/* ── Text section (30% height — word / phonetic / translation) ───────────── */
+
+[part="text"] {
+  position: relative;
+  z-index: 30;
+  height: 30%;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 0 1rem;
+  text-align: center;
+}
+
+[part="pronunciation-row"] {
+  margin-bottom: 0.125rem;
+  width: 100%;
+  text-align: center;
+}
+
+[part="word-row"] {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  margin-bottom: 0.25rem;
+  width: 100%;
+  text-align: center;
+  position: relative;
+  z-index: 10;
+}
+
+[part="word-col"] {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.625rem;
+  padding: 0 1rem;
+  margin-bottom: 0.375rem;
+  width: 100%;
+  min-width: 0; /* Allow container to be constrained */
+}
+
+::slotted([slot="word"]) {
+  width: 100%;
+  min-width: 0;
+  display: flex;
+}
+
+/* ── Noise texture overlay ───────────────────────────────────────────────── */
+
+[part="noise-texture"] {
+  position: absolute;
+  inset: 0;
+  opacity: 0.04;
+  pointer-events: none;
+  z-index: 10;
+  mix-blend-mode: overlay;
+  background-image: var(--card-texture-noise);
+}
+
+/* ── Glare layer (values set via CSS custom props from Card.tsx) ─────────── */
+
+[part="glare"] {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  pointer-events: none;
+  mix-blend-mode: plus-lighter;
+  background: var(--_glare-bg, transparent);
+  opacity: var(--_glare-opacity, 0);
+}
+
+/* ── Feedback overlay ────────────────────────────────────────────────────── */
+
+[part="feedback-overlay"] {
+  display: none;
+  position: absolute;
+  inset: -4px;
+  z-index: 70;
+  pointer-events: none;
+  border-radius: 26px;
+  border: 3px solid;
+}
+
+:host([visual-feedback="merge"]) [part="feedback-overlay"] {
+  display: block;
+  border-color: #ffffff;
+  box-shadow: 0 0 20px rgba(255, 255, 255, 0.4), inset 0 0 10px rgba(255, 255, 255, 0.4);
+}
+
+:host([visual-feedback="split"]) [part="feedback-overlay"] {
+  display: block;
+  border-color: #F0D082;
+  box-shadow: 0 0 20px rgba(255, 215, 0, 0.4), inset 0 0 10px rgba(255, 215, 0, 0.4);
+}
+
+/* ── Back face decoration layers ─────────────────────────────────────────── */
+
+[part="back-texture"] {
+  position: absolute;
+  inset: 0;
+  opacity: 0.1;
+  pointer-events: none;
+  background-image: var(--card-texture-back-pattern);
+  background-size: 120px 60px;
+}
+
+[part="back-sheen"] {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: var(--card-gradient-back-sheen);
+}
+
+[part="back-border-outer"] {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 50;
+  border: 2px solid var(--card-color-border-outer);
+  border-radius: inherit;
+}
+
+[part="back-border-inner"] {
+  position: absolute;
+  inset: 4px;
+  pointer-events: none;
+  z-index: 50;
+  border: 1px solid var(--card-color-border-inner);
+  border-radius: inherit;
+}
+
+/* ── Back face corners ───────────────────────────────────────────────────── */
+
+[part="back-corners"] {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 20;
+}
+
+[part~="back-corner"] {
+  position: absolute;
+  width: 40px;
+  height: 40px;
+}
+
+[part~="back-corner"] svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  display: block;
+}
+
+[part="back-corner back-corner-tl"] { top: 0; left: 0; }
+[part="back-corner back-corner-tr"] { top: 0; right: 0; transform: scaleX(-1); }
+[part="back-corner back-corner-bl"] { bottom: 0; left: 0; transform: scaleY(-1); }
+[part="back-corner back-corner-br"] { bottom: 0; right: 0; transform: scale(-1); }
+
+/* ── Back face ontology badge (absolutely positioned) ────────────────────── */
+
+[part="back-ontology"] {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 40;
+  padding: 2px 6px 0;
+  border: 0.5px solid var(--card-color-gold-metallic);
+  border-radius: 9999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.5;
+  mix-blend-mode: plus-lighter;
+  pointer-events: none;
+  box-shadow: 0 0 2px rgba(212, 175, 55, 0.125);
+}
+
+::slotted([slot="ontology"]) {
+  font-size: 7px;
+  line-height: 1;
+  font-family: var(--card-font-body);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--card-color-gold-bright);
+  user-select: none;
+  white-space: nowrap;
+}
+
+/* ── Back header (word + POS, flex row baseline) ─────────────────────────── */
+
+[part="back-header"] {
+  display: flex;
+  align-items: baseline;
+  margin-bottom: 0.75rem;
+  padding: 0 0.25rem;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 10;
+}
+
+::slotted([slot="word-back"]) {
+  flex: 1;      /* Allow it to take available space but shrink */
+  min-width: 0; /* Critical for overflow detection in TieredText */
+  margin-right: 0.75rem;
+}
+
+::slotted([slot="pos"]) {
+  flex-shrink: 0;
+}
+
+/* ── Back main content area (flex column: def + flavor) ──────────────────── */
+
+[part="back-main"] {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  position: relative;
+  z-index: 10;
+}
+
+[part="back-def-wrap"] {
+  flex: 0 0 70%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 1rem; /* ~0.5cm distance to flavor text */
+}
+
+::slotted([slot="definition"]) {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+[part="back-flavor-wrap"] {
+  flex: 0 0 30%; /* 20% smaller than available space */
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  margin-top: auto; /* Move to the bottom of the content area */
+}
+
+::slotted([slot="flavor"]) {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Back overlay slot (outside flip-wrapper, positioned by :host) ────────── */
+/* display:contents makes the slot element transparent to layout.
+   Slotted content uses position:absolute relative to :host (position:relative). */
+
+slot[name="back-overlay"] {
+  display: contents;
+}
+
+/* ── Compact LOD ─────────────────────────────────────────────────────────── */
+
+:host([layout-mode="compact"]) [part="back-face"] {
+  display: none;
+}
+
+:host([layout-mode="compact"]) [part="divider"],
+:host([layout-mode="compact"]) [part="border-outer"],
+:host([layout-mode="compact"]) [part="border-inner"],
+:host([layout-mode="compact"]) [part="corners"],
+:host([layout-mode="compact"]) [part="noise-texture"],
+:host([layout-mode="compact"]) [part="glare"],
+:host([layout-mode="compact"]) [part="text"],
+:host([layout-mode="compact"]) [part="visual"],
+:host([layout-mode="compact"]) [part="background"],
+:host([layout-mode="compact"]) [part="feedback-overlay"] {
+  display: none;
+}
+
+:host([layout-mode="compact"]) [part="header"] {
+  height: 100%;
+  padding: 0;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ── Keyframes ───────────────────────────────────────────────────────────── */
+
+@keyframes wc-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.5; }
+}

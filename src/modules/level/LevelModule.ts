@@ -49,7 +49,7 @@ class LevelModule {
         
         // 当新感知（Sense）被创建时（通常是合成成功）
         messageBus.subscribe<any>('SENSE_CREATED', async (message) => {
-            const sense = message.payload as Sense;
+            const sense = message.payload as any;
             const learningLang = useGameStore.getState().player.settings.learningLang;
 
             // A. 发放 XP
@@ -58,7 +58,7 @@ class LevelModule {
             });
 
             // B. 注册到库存（初始化耐久度）
-            await durabilitySystem.registerNewCard(sense.uid, learningLang);
+            await durabilitySystem.registerNewCard(sense.uid || sense.id, learningLang);
         });
 
         // --- 2. 自动扣除耐久 ---

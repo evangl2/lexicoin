@@ -27,7 +27,7 @@ export const TEXT_TIERS: TextTier[] = [
     {
         id: 'headline',
         fontSize: 24,
-        lineHeight: 1.2,
+        lineHeight: 1.1,
         tracking: '0.02em',
         weight: 600,
         opacity: 1.0,
@@ -36,7 +36,7 @@ export const TEXT_TIERS: TextTier[] = [
     {
         id: 'statement',
         fontSize: 18,
-        lineHeight: 1.35,
+        lineHeight: 1.25,
         tracking: '0.01em',
         weight: 500,
         opacity: 0.95,
@@ -45,7 +45,7 @@ export const TEXT_TIERS: TextTier[] = [
     {
         id: 'body',
         fontSize: 15,
-        lineHeight: 1.5,
+        lineHeight: 1.4,
         tracking: '0em',
         weight: 400,
         opacity: 0.9,
@@ -145,23 +145,27 @@ export const getVisualLength = (text: string): number => {
  * @param containerWidthWidth of the container in pixels. Default 300px (approx standard card).
  * @returns The TextTier object
  */
-export const predictTier = (text: string, containerWidth: number = 300): TextTier => {
+export const predictTier = (text: string, containerWidth: number = 300, customTiers?: TextTier[]): TextTier => {
     const vLength = getVisualLength(text);
 
     // "Density" = How many characters are we trying to fit per 100px of width?
-    // Scale the capacity based on the actual width relative to our calibration width (300px).
     const widthRatio = containerWidth / 300;
-
-    // Adjusted thresholds based on width
-    // e.g., if width is 600px (double), thresholds act as if text is half as long.
-    // Effectively: Capacity increases with width.
     const effectiveLength = vLength / (Math.max(0.5, widthRatio));
 
-    if (effectiveLength < 15) return TEXT_TIERS[0]!; // Headline
-    if (effectiveLength < 45) return TEXT_TIERS[1]!; // Statement
-    if (effectiveLength < 90) return TEXT_TIERS[2]!; // Body
-    if (effectiveLength < 140) return TEXT_TIERS[3]!; // Dense
-    return TEXT_TIERS[4]!; // Micro
+    const activeTiers = customTiers || TEXT_TIERS;
+    
+    // Default prediction logic thresholds mapped proportionally to available tiers
+    const step = 80 / Math.max(1, activeTiers.length - 1);
+    
+    for (let i = 0; i < activeTiers.length - 1; i++) {
+        // Reduced thresholds for single-line titles vs multi-line paragraphs
+        const threshold = i === 0 ? 8 : (i === 1 ? 16 : (i === 2 ? 30 : 60)); 
+        const dynamicThreshold = customTiers ? 8 + (i * step) : threshold;
+        
+        if (effectiveLength < dynamicThreshold) return activeTiers[i]!;
+    }
+    
+    return activeTiers[activeTiers.length - 1]!;
 };
 
 /**

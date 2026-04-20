@@ -69,7 +69,7 @@ export const FlavorCarousel: React.FC<FlavorCarouselProps> = ({
                 <button
                     onClick={(e) => { e.stopPropagation(); handlePaginate(-1); }}
                     className="absolute left-0 top-0 bottom-0 w-5 flex items-center justify-center z-20 
-                               opacity-0 group-hover/flavor:opacity-100 transition-opacity duration-200
+                               opacity-0 group-hover/carousel:opacity-100 transition-opacity duration-200
                                hover:bg-black/20 cursor-pointer
                                text-neutral-400 hover:text-white"
                     style={{ color: tokens.colors.goldMetallic }}
@@ -120,7 +120,7 @@ export const FlavorCarousel: React.FC<FlavorCarouselProps> = ({
                 <button
                     onClick={(e) => { e.stopPropagation(); handlePaginate(1); }}
                     className="absolute right-0 top-0 bottom-0 w-5 flex items-center justify-center z-20 
-                               opacity-0 group-hover/flavor:opacity-100 transition-opacity duration-200
+                               opacity-0 group-hover/carousel:opacity-100 transition-opacity duration-200
                                hover:bg-black/20 cursor-pointer
                                text-neutral-400 hover:text-white"
                     style={{ color: tokens.colors.goldMetallic }}

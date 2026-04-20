@@ -1,0 +1,269 @@
+<!-- Default (Alchemy) persona shadow template.
+     Loaded via Vite ?raw import → innerHTML of a <template> element.
+     All decoration烘焙 here; dynamic content enters via named <slot>s.  -->
+
+<!-- Hover glow (behind chrome, CSS :host(:hover) driven) -->
+<div part="hover-glow"></div>
+
+<!-- Drop-target dashed ring (CSS :host([is-over]) driven) -->
+<div part="drop-target-ring"></div>
+
+<!-- Flip wrapper — scaleX written imperatively by Card.tsx -->
+<div part="flip-wrapper">
+
+  <!-- ═══════════════════ FRONT FACE ═══════════════════ -->
+  <div part="front-face">
+
+    <!-- Layer 0: Hermetic Background (HermeticBackground 烘焙) -->
+    <div part="background">
+      <svg viewBox="0 0 400 600" preserveAspectRatio="xMidYMid slice">
+        <defs>
+          <linearGradient id="wc-bg-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%"   stop-color="#C0A062" stop-opacity="0.8"/>
+            <stop offset="100%" stop-color="#C0A062" stop-opacity="0"/>
+          </linearGradient>
+        </defs>
+        <line x1="200" y1="0" x2="200" y2="600"
+              stroke="#C0A062" stroke-width="0.5" stroke-dasharray="2 4"/>
+        <g transform="translate(200,300)">
+          <circle r="180" fill="none" stroke="#C0A062" stroke-width="0.5"/>
+          <circle r="175" fill="none" stroke="#C0A062" stroke-width="0.2" stroke-dasharray="10 5"/>
+          <path d="M0 -180 L155.88 90 H-155.88 Z"
+                fill="none" stroke="#C0A062" stroke-width="0.5" opacity="0.6"/>
+          <path d="M0 180 L-155.88 -90 H155.88 Z"
+                fill="none" stroke="#C0A062" stroke-width="0.5" opacity="0.6"/>
+          <rect x="-120" y="-120" width="240" height="240"
+                transform="rotate(45)" fill="none" stroke="#C0A062" stroke-width="0.3"/>
+          <ellipse rx="80" ry="220" fill="none"
+                   stroke="url(#wc-bg-grad)" stroke-width="0.5" transform="rotate(30)"/>
+          <ellipse rx="80" ry="220" fill="none"
+                   stroke="url(#wc-bg-grad)" stroke-width="0.5" transform="rotate(-30)"/>
+        </g>
+      </svg>
+    </div>
+
+    <!-- Layer: Border outer / inner -->
+    <div part="border-outer"></div>
+    <div part="border-inner"></div>
+
+    <!-- Layer: Alchemical Corners (AlchemicalCorners 烘焙) -->
+    <div part="corners">
+      <!-- Hidden defs for gradient shared across corners -->
+      <svg width="0" height="0" style="position:absolute;pointer-events:none">
+        <defs>
+          <linearGradient id="wc-corner-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%"   stop-color="#F0D082"/>
+            <stop offset="100%" stop-color="#A08855"/>
+          </linearGradient>
+        </defs>
+      </svg>
+      <!-- Top-left -->
+      <div part="corner corner-tl">
+        <svg viewBox="0 0 40 40">
+          <path d="M2 2 L35 2 L2 35 Z"
+                fill="url(#wc-corner-grad)" fill-opacity="0.05"
+                stroke="url(#wc-corner-grad)" stroke-width="0.5"/>
+          <circle cx="8"  cy="8"  r="1.5" fill="#F0D082"/>
+          <path d="M2 14 H14"  stroke="#C0A062" stroke-width="0.5"/>
+          <path d="M14 2 V14"  stroke="#C0A062" stroke-width="0.5"/>
+          <circle cx="20" cy="5"  r="1" fill="#C0A062" opacity="0.5"/>
+          <circle cx="5"  cy="20" r="1" fill="#C0A062" opacity="0.5"/>
+        </svg>
+      </div>
+      <!-- Top-right (CSS transform: scaleX(-1)) -->
+      <div part="corner corner-tr">
+        <svg viewBox="0 0 40 40">
+          <path d="M2 2 L35 2 L2 35 Z"
+                fill="url(#wc-corner-grad)" fill-opacity="0.05"
+                stroke="url(#wc-corner-grad)" stroke-width="0.5"/>
+          <circle cx="8"  cy="8"  r="1.5" fill="#F0D082"/>
+          <path d="M2 14 H14"  stroke="#C0A062" stroke-width="0.5"/>
+          <path d="M14 2 V14"  stroke="#C0A062" stroke-width="0.5"/>
+          <circle cx="20" cy="5"  r="1" fill="#C0A062" opacity="0.5"/>
+          <circle cx="5"  cy="20" r="1" fill="#C0A062" opacity="0.5"/>
+        </svg>
+      </div>
+      <!-- Bottom-left (CSS transform: scaleY(-1)) -->
+      <div part="corner corner-bl">
+        <svg viewBox="0 0 40 40">
+          <path d="M2 2 L35 2 L2 35 Z"
+                fill="url(#wc-corner-grad)" fill-opacity="0.05"
+                stroke="url(#wc-corner-grad)" stroke-width="0.5"/>
+          <circle cx="8"  cy="8"  r="1.5" fill="#F0D082"/>
+          <path d="M2 14 H14"  stroke="#C0A062" stroke-width="0.5"/>
+          <path d="M14 2 V14"  stroke="#C0A062" stroke-width="0.5"/>
+          <circle cx="20" cy="5"  r="1" fill="#C0A062" opacity="0.5"/>
+          <circle cx="5"  cy="20" r="1" fill="#C0A062" opacity="0.5"/>
+        </svg>
+      </div>
+      <!-- Bottom-right (CSS transform: scale(-1)) -->
+      <div part="corner corner-br">
+        <svg viewBox="0 0 40 40">
+          <path d="M2 2 L35 2 L2 35 Z"
+                fill="url(#wc-corner-grad)" fill-opacity="0.05"
+                stroke="url(#wc-corner-grad)" stroke-width="0.5"/>
+          <circle cx="8"  cy="8"  r="1.5" fill="#F0D082"/>
+          <path d="M2 14 H14"  stroke="#C0A062" stroke-width="0.5"/>
+          <path d="M14 2 V14"  stroke="#C0A062" stroke-width="0.5"/>
+          <circle cx="20" cy="5"  r="1" fill="#C0A062" opacity="0.5"/>
+          <circle cx="5"  cy="20" r="1" fill="#C0A062" opacity="0.5"/>
+        </svg>
+      </div>
+    </div>
+
+    <!-- Section: Header (level badge) -->
+    <div part="header">
+      <div part="header-panel"></div>
+      <div part="header-line"></div>
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;width:100%;position:relative;z-index:10;margin-top:-0.25rem">
+        <slot name="level"></slot>
+      </div>
+    </div>
+
+    <!-- Section: Visual area (MemoizedCardVisual slotted in) -->
+    <div part="visual">
+      <slot name="visual"></slot>
+      <!-- Alchemical Glyph Chain Divider -->
+      <div part="divider">
+        <svg part="divider-svg" width="100%" height="8" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <pattern id="glyph-pattern" x="0" y="0" width="30" height="8" patternUnits="userSpaceOnUse">
+              <line x1="0" y1="4" x2="30" y2="4" stroke="currentColor" stroke-width="0.3" opacity="0.3" />
+              <circle cx="5" cy="4" r="0.8" fill="currentColor" opacity="0.8" />
+              <path d="M15,2 L17,4 L15,6 L13,4 Z" fill="none" stroke="currentColor" stroke-width="0.5" opacity="0.9"/>
+              <circle cx="25" cy="4" r="0.8" fill="currentColor" opacity="0.8" />
+            </pattern>
+            <linearGradient id="fade-grad" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stop-color="transparent" />
+              <stop offset="30%" stop-color="white" />
+              <stop offset="70%" stop-color="white" />
+              <stop offset="100%" stop-color="transparent" />
+            </linearGradient>
+            <mask id="fade-mask">
+              <rect width="100%" height="100%" fill="url(#fade-grad)" />
+            </mask>
+          </defs>
+          <rect x="0" y="0" width="100%" height="100%" fill="url(#glyph-pattern)" mask="url(#fade-mask)"/>
+        </svg>
+      </div>
+    </div>
+
+    <!-- Section: Text (pronunciation / word / system-word) -->
+    <div part="text">
+      <div part="pronunciation-row">
+        <slot name="pronunciation"></slot>
+      </div>
+      <div part="word-row">
+        <div part="word-col">
+          <slot name="word"></slot>
+          <slot name="system-word"></slot>
+        </div>
+      </div>
+    </div>
+
+    <!-- Layer: Noise texture -->
+    <div part="noise-texture"></div>
+
+    <!-- Layer: Glare (--_glare-bg / --_glare-opacity CSS props from Card.tsx) -->
+    <div part="glare"></div>
+
+    <!-- Layer: Visual feedback overlay (merge / split) -->
+    <div part="feedback-overlay"></div>
+
+  </div><!-- /front-face -->
+
+  <!-- ═══════════════════ BACK FACE ═══════════════════ -->
+  <div part="back-face">
+
+    <!-- Layer: Background texture pattern -->
+    <div part="back-texture"></div>
+
+    <!-- Layer: Back sheen gradient -->
+    <div part="back-sheen"></div>
+
+    <!-- Layer: Border outer / inner (back face) -->
+    <div part="back-border-outer"></div>
+    <div part="back-border-inner"></div>
+
+    <!-- Layer: Alchemical Corners (back face) -->
+    <div part="back-corners">
+      <svg width="0" height="0" style="position:absolute;pointer-events:none">
+        <defs>
+          <linearGradient id="wc-bc-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%"   stop-color="#F0D082"/>
+            <stop offset="100%" stop-color="#A08855"/>
+          </linearGradient>
+        </defs>
+      </svg>
+      <div part="back-corner back-corner-tl">
+        <svg viewBox="0 0 40 40">
+          <path d="M2 2 L35 2 L2 35 Z" fill="url(#wc-bc-grad)" fill-opacity="0.05" stroke="url(#wc-bc-grad)" stroke-width="0.5"/>
+          <circle cx="8" cy="8" r="1.5" fill="#F0D082"/>
+          <path d="M2 14 H14" stroke="#C0A062" stroke-width="0.5"/>
+          <path d="M14 2 V14" stroke="#C0A062" stroke-width="0.5"/>
+          <circle cx="20" cy="5" r="1" fill="#C0A062" opacity="0.5"/>
+          <circle cx="5" cy="20" r="1" fill="#C0A062" opacity="0.5"/>
+        </svg>
+      </div>
+      <div part="back-corner back-corner-tr">
+        <svg viewBox="0 0 40 40">
+          <path d="M2 2 L35 2 L2 35 Z" fill="url(#wc-bc-grad)" fill-opacity="0.05" stroke="url(#wc-bc-grad)" stroke-width="0.5"/>
+          <circle cx="8" cy="8" r="1.5" fill="#F0D082"/>
+          <path d="M2 14 H14" stroke="#C0A062" stroke-width="0.5"/>
+          <path d="M14 2 V14" stroke="#C0A062" stroke-width="0.5"/>
+          <circle cx="20" cy="5" r="1" fill="#C0A062" opacity="0.5"/>
+          <circle cx="5" cy="20" r="1" fill="#C0A062" opacity="0.5"/>
+        </svg>
+      </div>
+      <div part="back-corner back-corner-bl">
+        <svg viewBox="0 0 40 40">
+          <path d="M2 2 L35 2 L2 35 Z" fill="url(#wc-bc-grad)" fill-opacity="0.05" stroke="url(#wc-bc-grad)" stroke-width="0.5"/>
+          <circle cx="8" cy="8" r="1.5" fill="#F0D082"/>
+          <path d="M2 14 H14" stroke="#C0A062" stroke-width="0.5"/>
+          <path d="M14 2 V14" stroke="#C0A062" stroke-width="0.5"/>
+          <circle cx="20" cy="5" r="1" fill="#C0A062" opacity="0.5"/>
+          <circle cx="5" cy="20" r="1" fill="#C0A062" opacity="0.5"/>
+        </svg>
+      </div>
+      <div part="back-corner back-corner-br">
+        <svg viewBox="0 0 40 40">
+          <path d="M2 2 L35 2 L2 35 Z" fill="url(#wc-bc-grad)" fill-opacity="0.05" stroke="url(#wc-bc-grad)" stroke-width="0.5"/>
+          <circle cx="8" cy="8" r="1.5" fill="#F0D082"/>
+          <path d="M2 14 H14" stroke="#C0A062" stroke-width="0.5"/>
+          <path d="M14 2 V14" stroke="#C0A062" stroke-width="0.5"/>
+          <circle cx="20" cy="5" r="1" fill="#C0A062" opacity="0.5"/>
+          <circle cx="5" cy="20" r="1" fill="#C0A062" opacity="0.5"/>
+        </svg>
+      </div>
+    </div>
+
+    <!-- Slot: Ontology badge (absolutely positioned by CSS) -->
+    <div part="back-ontology">
+      <slot name="ontology"></slot>
+    </div>
+
+    <!-- Slot: Back header — word + POS (laid out by [part="back-header"] flex row) -->
+    <div part="back-header">
+      <slot name="word-back"></slot>
+      <slot name="pos"></slot>
+    </div>
+
+    <!-- Main content: definition + flavor -->
+    <div part="back-main">
+      <div part="back-def-wrap">
+        <slot name="definition"></slot>
+      </div>
+      <div part="back-flavor-wrap">
+        <slot name="flavor"></slot>
+      </div>
+    </div>
+
+  </div><!-- /back-face -->
+
+</div><!-- /flip-wrapper -->
+
+<!-- ── Overlay slot ─────────────────────────────────────────────────────────
+     Outside flip-wrapper so back-face overflow:hidden doesn't clip it.
+     Slotted content uses position:absolute relative to :host (position:relative).
+     Used for: flavor indicators + SelectionOverlay.                        -->
+<slot name="back-overlay"></slot>

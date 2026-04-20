@@ -84,7 +84,7 @@ export const GrimoireSlotVisual: React.FC<GrimoireSlotVisualProps> = ({ slot, on
                             mode="icon" 
                             learningData={filledSense.word[learningLang] as any}
                             senseInfo={filledSense as any}
-                            visual={filledSense.visual}
+                            visual={typeof filledSense.visual === 'string' ? { status: 'loaded', payload: filledSense.visual } : (filledSense.visual as any || { status: 'idle', payload: '' })}
                             persona={DefaultCardPersona}
                             isActive={false}
                         />

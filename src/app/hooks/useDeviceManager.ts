@@ -125,7 +125,7 @@ export const useDeviceManager = () => {
             const idx = prev.findIndex(d => d.uid === uid);
             if (idx === -1) return prev;
             const next = [...prev];
-            const d = next[idx];
+            const d = next[idx]!;
 
             // Ejection Logic
             if (onEject) {
@@ -144,10 +144,10 @@ export const useDeviceManager = () => {
             }
 
             next[idx] = {
-                ...d,
+                ...d!,
                 location: 'repository',
                 // Clear slots on store - MUTUALLY EXCLUSIVE
-                state: { ...d.state, slot1_uid: null, slot2_uid: null }
+                state: { ...d!.state, slot1_uid: null, slot2_uid: null }
             };
             return next;
         });
@@ -160,11 +160,11 @@ export const useDeviceManager = () => {
             const idx = prev.findIndex(d => d.uid === uid);
             if (idx === -1) return prev;
             const next = [...prev];
-            const d = next[idx];
+            const d = next[idx]!;
 
             // Return new object with new MotionValues to reset velocity (same as cards)
             next[idx] = {
-                ...d,
+                ...d!,
                 location: 'canvas',
                 mx: motionValue(x),
                 my: motionValue(y)
@@ -180,7 +180,7 @@ export const useDeviceManager = () => {
             const idx = prev.findIndex(d => d.uid === uid);
             if (idx === -1) return prev;
             const next = [...prev];
-            next[idx] = { ...next[idx], state: { ...next[idx].state, ...newState } };
+            next[idx] = { ...next[idx]!, state: { ...next[idx]!.state, ...newState } };
             return next;
         });
     }, []);

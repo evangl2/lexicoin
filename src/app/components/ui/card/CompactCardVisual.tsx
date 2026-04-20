@@ -63,8 +63,8 @@ export const CompactCardVisual: React.FC<CompactCardVisualProps> = React.memo(({
                                 fontFamily: 'var(--card-font-label)',
                                 color: 'var(--card-color-text-highlight)',
                                 background: 'var(--card-gradient-label-text)',
-                                WebkitBackgroundClip: 'var(--card-gradient-label-text)' ? 'text' : undefined,
-                                WebkitTextFillColor: 'var(--card-gradient-label-text)' ? 'transparent' : undefined,
+                                WebkitBackgroundClip: Persona.tokens?.typography?.label?.gradient ? 'text' : undefined,
+                                WebkitTextFillColor: Persona.tokens?.typography?.label?.gradient ? 'transparent' : undefined,
                             }}
                         >
                             {level}

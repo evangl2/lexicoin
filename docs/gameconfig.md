@@ -102,6 +102,19 @@ src/config/
 
 ---
 
+## Feature Flags (`src/core/store/slices/featureFlags.ts`)
+
+运行时特性开关，存储在 Zustand 中（**不**持久化到 IndexedDB）。
+
+| Flag | Type | Default | 用途 |
+|------|------|---------|------|
+| `useWCCards` | `boolean` | `false` | 启用 Web Component 版卡片渲染（与 `docs/refactor/card-web-component/` 重构关联） |
+
+**读取**：`useGameStore(s => s.featureFlags.useWCCards)`  
+**写入**：`useGameStore(s => s.setFeatureFlag)('useWCCards', true)`
+
+---
+
 ## `constants.ts` — 运行常量
 
 | 导出 | 值 | 说明 |

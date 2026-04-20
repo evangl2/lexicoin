@@ -111,10 +111,10 @@ export const RewardCinematicOverlay: React.FC<RewardCinematicOverlayProps> = ({ 
                                 <div className="absolute inset-0 bg-amber-500/20 blur-3xl rounded-full scale-150 animate-pulse" />
                                 <div className="relative bg-black rounded-lg shadow-[0_0_50px_rgba(251,191,36,0.2)] border-2 border-amber-500/30 overflow-hidden transform hover:scale-105 transition-transform duration-500">
                                     <CompactCardVisual 
-                                        mode="full"
+                                        mode="repository"
                                         learningData={result.echo.word[learningLang] as any}
                                         senseInfo={result.echo as any}
-                                        visual={result.echo.visual}
+                                        visual={typeof result.echo.visual === 'string' ? { status: 'loaded', payload: result.echo.visual } : (result.echo.visual as any || { status: 'idle', payload: '' })}
                                         persona={DefaultCardPersona}
                                         isActive={true}
                                     />

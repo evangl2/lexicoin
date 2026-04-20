@@ -95,7 +95,7 @@ interface TieredTextProps {
 注意：**父容器必须有明确的宽度**（可以是 `flex-1`, `w-full`, 或固定像素），否则预测算法无法工作。
 
 ```tsx
-import { TieredText } from '@/app/components/ui/TieredText';
+import { TieredText } from '@/app/components/ui/text/TieredText';
 
 // 父容器
 <div className="w-full h-32 flex items-center justify-center p-4">

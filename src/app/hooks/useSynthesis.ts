@@ -195,7 +195,7 @@ export function useSynthesis(): UseSynthesisResult {
         // Normalize field names: edge function returns DB columns (sense_id),
         // but ASSET_LOADED consumers expect { uid, id, payload, meta }
         messageBus.send('ASSET_LOADED', {
-          uid: response.visual.sense_id ?? response.visual.uid,
+          uid: (response.visual as any).sense_id ?? response.visual.uid,
           id: response.visual.id,
           payload: response.visual.payload,
           meta: response.visual.meta ?? { stability: 100 },

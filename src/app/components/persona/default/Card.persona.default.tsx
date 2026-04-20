@@ -68,6 +68,11 @@ const tokens = {
     selectionActive: "rgba(192, 160, 98, 0.2)",
     scrollbarThumb: "rgba(212, 175, 55, 0.5)", // Original gold semi-transparent
 
+    // Legacy/Metallic Fallbacks
+    goldMetallic: definitions.colors.goldMetallic,
+    goldBright: definitions.colors.goldBright,
+    goldDeep: definitions.colors.goldDeep,
+
     // Back Face Specifics
     selectionBackend: "rgba(5, 5, 5, 0.96)",
     selectionItemActive: "rgba(192, 160, 98, 0.12)",
@@ -124,7 +129,17 @@ const tokens = {
     body: {
       family: "'Merriweather', 'Noto Sans SC', 'Noto Sans JP', 'PingFang SC', 'Hiragino Sans', 'Microsoft YaHei', 'SimHei', 'MS Gothic', sans-serif",
       color: definitions.colors.goldBase,
-    }
+    },
+    /**
+     * Custom tiers for the dominant card title (Learning Language Word)
+     */
+    mainWordTiers: [
+      { id: 'word-xl', fontSize: 40, lineHeight: 1.1, tracking: '0.1em', weight: 700, opacity: 1, label: 'XL (<10)' },
+      { id: 'word-lg', fontSize: 34, lineHeight: 1.1, tracking: '0.1em', weight: 700, opacity: 1, label: 'LG (10-15)' },
+      { id: 'word-md', fontSize: 28, lineHeight: 1.1, tracking: '0.1em', weight: 700, opacity: 1, label: 'MD (15-20)' },
+      { id: 'word-sm', fontSize: 22, lineHeight: 1.1, tracking: '0.1em', weight: 700, opacity: 0.95, label: 'SM (20-30)' },
+      { id: 'word-xs', fontSize: 18, lineHeight: 1.2, tracking: '0.1em', weight: 700, opacity: 0.9, label: 'XS (> 30)' },
+    ],
   },
   shadows: {
     base: "0 10px 20px -5px rgba(0, 0, 0, 0.6)",

@@ -15,3 +15,9 @@ Proposed doc actions waiting for user approval before execution.
 - ✅ `docs/gameconfig.md` → 补充 `timing.ts` 和 `physics.ts` 两节，目录树更新
 - ✅ `docs/CompactModeSystem.md` §3.2 + §5 → 路径全部修正；RepoCard 标注为 DeckRepository.tsx 内部组件
 - ✅ `docs/BackendSchema.md` → `sense_flavor_texts.persona` 示例值改为 CHILD/GARDENER/ALCHEMIST
+
+## 2026-04-20 — pending
+
+- ✅ 新建 `docs/technical/callAI.md` — `supabase/functions/_shared/callAI.ts` 接口文档
+- ✅ `docs/gameconfig.md` → 追加 Feature Flags 节（`useWCCards` 标志位）
+- ✅ `docs/DataManagement.md` → "Dexie V6" 改为 "Dexie v4"

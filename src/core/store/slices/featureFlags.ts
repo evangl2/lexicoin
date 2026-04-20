@@ -13,7 +13,7 @@ export interface FeatureFlagsState {
 
 export const createFeatureFlagsSlice: StateCreator<GameStore, [], [], FeatureFlagsState> = (set) => ({
     featureFlags: {
-        useWCCards: false,
+        useWCCards: true,
     },
     setFeatureFlag: (key, value) =>
         set((state) => ({

@@ -15,6 +15,10 @@ interface TieredTextProps {
      * Optional text shadow.
      */
     shadow?: string;
+    /**
+     * Optional custom text tiers for responsive sizing.
+     */
+    tiers?: TextTier[];
 }
 
 export const TieredText: React.FC<TieredTextProps> = ({
@@ -22,10 +26,11 @@ export const TieredText: React.FC<TieredTextProps> = ({
     className = '',
     style = {},
     gradient,
-    shadow
+    shadow,
+    tiers
 }) => {
     const containerRef = useRef<HTMLDivElement>(null);
-    const tier: TextTier = useTieredAutoType(text, containerRef);
+    const tier: TextTier = useTieredAutoType(text, containerRef, tiers);
 
     // Merge styles
     const tierStyle: React.CSSProperties = {
@@ -62,7 +67,7 @@ export const TieredText: React.FC<TieredTextProps> = ({
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.2 }}
                 style={tierStyle}
-                className="text-center w-full break-words whitespace-pre-wrap p-1"
+                className="text-center w-full break-words whitespace-pre-wrap p-0.5"
             >
                 {text}
             </motion.p>

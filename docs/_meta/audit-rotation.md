@@ -10,11 +10,11 @@ Tracks which docs have been freshness-audited and when. Pick least-recently-audi
 | BackendSchema.md | 2026-04-19 |
 | CompactModeSystem.md | 2026-04-19 |
 | card-data-pipeline.md | 2026-04-19 |
-| DataManagement.md | — |
-| DB-schema-maintenance.md | — |
-| DurabilityLifecycle.md | — |
-| dynamic_text_feature.md | — |
-| genui-architecture.md | — |
+| DataManagement.md | 2026-04-20 |
+| DB-schema-maintenance.md | 2026-04-20 |
+| DurabilityLifecycle.md | 2026-04-20 |
+| dynamic_text_feature.md | 2026-04-20 |
+| genui-architecture.md | 2026-04-20 |
 | InflectionSystem.md | — |
 | infrastructure_prd.md | — |
 | infrastructure_tdd.md | — |
