@@ -16,12 +16,12 @@ Last full pass: 2026-04-20.
 | [dynamic_text_feature.md](../dynamic_text_feature.md) | 2026-04-20 (🔴 auto-fixed import path in §6.1) |
 | [file-structure-2026-03.md](../file-structure-2026-03.md) | 2026-04-19 |
 | [genui-architecture.md](../genui-architecture.md) | 2026-04-20 |
-| [InflectionSystem.md](../InflectionSystem.md) | — |
+| [InflectionSystem.md](../InflectionSystem.md) | 2026-04-21 |
 | [infrastructure_prd.md](../infrastructure_prd.md) | — |
 | [infrastructure_tdd.md](../infrastructure_tdd.md) | — |
 | [infrastructure_wbs.md](../infrastructure_wbs.md) | — |
 | [LevelingSystem.md](../LevelingSystem.md) | 2026-04-19 |
-| [MergeSplitSystem.md](../MergeSplitSystem.md) | — |
+| [MergeSplitSystem.md](../MergeSplitSystem.md) | 2026-04-21 (🔴 auto-fixed path Card.tsx) |
 | [MessageBus-maintenance.md](../MessageBus-maintenance.md) | — |
 | [performance-optimizations.md](../performance-optimizations.md) | — |
 | [PersistenceSystem.md](../PersistenceSystem.md) | — |
@@ -32,7 +32,7 @@ Last full pass: 2026-04-20.
 | [SynthesisDataFlow.md](../SynthesisDataFlow.md) | — |
 | [SynthesisSystem.md](../SynthesisSystem.md) | — |
 | [tts-analysis.md](../tts-analysis.md) | — |
-| [gameconfig.md](../gameconfig.md) | 2026-04-19 (🟡 stale — missing timing.ts, physics.ts) |
+| [gameconfig.md](../gameconfig.md) | 2026-04-21 |
 | [visual-pipeline.md](../visual-pipeline.md) | — |
 
 ## docs/technical/
@@ -71,6 +71,7 @@ Last full pass: 2026-04-20.
 | [backlog.md](../feel/backlog.md) | — (author-owned) |
 | [daily/2026-04-19.md](../feel/daily/2026-04-19.md) | — (author-owned) |
 | [daily/2026-04-20.md](../feel/daily/2026-04-20.md) | — (author-owned, added 2026-04-20) |
+| [daily/2026-04-21.md](../feel/daily/2026-04-21.md) | — (author-owned, added 2026-04-21) |
 | [principles.md](../feel/principles.md) | — (author-owned) |
 | [questions.md](../feel/questions.md) | — (author-owned) |
 
@@ -89,6 +90,7 @@ Last full pass: 2026-04-20.
 |------|-------------|
 | [backlog.md](../perf/backlog.md) | — (author-owned) |
 | [daily/2026-04-19.md](../perf/daily/2026-04-19.md) | — (author-owned) |
+| [daily/2026-04-21.md](../perf/daily/2026-04-21.md) | — (author-owned, added 2026-04-21) |
 
 ## docs/params/ (author-owned — parameter console)
 

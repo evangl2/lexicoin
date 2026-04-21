@@ -21,6 +21,13 @@ export interface CompactCardVisualProps {
     isActive?: boolean;
 }
 
+const COMPACT_TIERS = [
+    { id: 'compact-xl', fontSize: 32, lineHeight: 1.1, tracking: '0.02em', weight: 700, opacity: 1, label: 'XL' },
+    { id: 'compact-lg', fontSize: 26, lineHeight: 1.1, tracking: '0.01em', weight: 600, opacity: 1, label: 'LG' },
+    { id: 'compact-md', fontSize: 20, lineHeight: 1.2, tracking: '0em', weight: 500, opacity: 0.95, label: 'MD' },
+    { id: 'compact-sm', fontSize: 16, lineHeight: 1.25, tracking: '0em', weight: 500, opacity: 0.9, label: 'SM' },
+];
+
 export const CompactCardVisual: React.FC<CompactCardVisualProps> = React.memo(({
     mode,
     learningData,
@@ -42,8 +49,8 @@ export const CompactCardVisual: React.FC<CompactCardVisualProps> = React.memo(({
 
     const renderRepository = () => (
         <div className="relative w-full h-full flex flex-col p-2 isolate">
-            {/* Visual background watermark */}
-            <div className="absolute inset-0 z-0 opacity-40 mix-blend-luminosity overflow-hidden pointer-events-none">
+            {/* Visual background watermark - removed luminosity to restore color */}
+            <div className="absolute inset-0 z-0 opacity-40 mix-blend-normal overflow-hidden pointer-events-none">
                 <div className="absolute inset-0 flex items-center justify-center scale-105 -translate-y-[5%]">
                     <DynamicVisual code={visual.payload} fallbackElement={word} isActive={false} />
                 </div>
@@ -77,6 +84,7 @@ export const CompactCardVisual: React.FC<CompactCardVisualProps> = React.memo(({
             <div className="flex-1 flex flex-col items-center justify-center relative z-20 pointer-events-none w-full px-1">
                 <TieredText
                     text={word}
+                    tiers={COMPACT_TIERS}
                     style={{
                         fontFamily: 'var(--card-font-label)',
                         color: 'var(--card-color-text-highlight)',
@@ -136,6 +144,7 @@ export const CompactCardVisual: React.FC<CompactCardVisualProps> = React.memo(({
             <div className="relative z-20 flex items-center justify-center px-2 pb-1 w-full h-full">
                 <TieredText
                     text={word}
+                    tiers={COMPACT_TIERS}
                     style={{
                         fontFamily: 'var(--card-font-label)',
                         color: 'var(--card-color-text-highlight)',

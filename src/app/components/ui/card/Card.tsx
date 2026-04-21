@@ -572,8 +572,10 @@ export const Card = React.memo<CardProps>(({
     // must persist across flip/expand transitions. The compact LOD case (where
     // LexiCardChrome is replaced by CompactCardVisual) naturally returns early
     // because wcHostRef.current is null when the element is unmounted.
+    // uiTheme IS included: persona switch replaces the custom element entirely,
+    // so the new shadow DOM must be re-wired after mount. (Phase 3)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [useWCCards, flipScaleX, frontOpacity, backOpacity]);
+  }, [useWCCards, uiTheme, flipScaleX, frontOpacity, backOpacity]);
 
   // ── WC path: synchronise face opacity on flip/expand transitions ────────────
   // After isFlipped changes, the spring animation drives continuous updates via
@@ -597,7 +599,18 @@ export const Card = React.memo<CardProps>(({
       backEl.style.opacity = String(v);
       backEl.style.pointerEvents = v > 0.5 ? 'auto' : 'none';
     }
-  }, [useWCCards, isFlipped, isExpanded, frontOpacity, backOpacity]);
+  }, [useWCCards, uiTheme, isFlipped, isExpanded, frontOpacity, backOpacity]);
+
+  // ── WC path: persona switch latency measurement (Phase 3, Task 3.4) ─────────
+  // Each card emits a mark on every persona change. To measure total switch time:
+  //   const marks = performance.getEntriesByType('mark')
+  //     .filter(m => m.name.startsWith('wc-persona-switch:'));
+  //   marks.sort((a,b) => a.startTime - b.startTime);
+  //   console.log('total ms:', marks.at(-1).startTime - marks[0].startTime);
+  useLayoutEffect(() => {
+    if (!useWCCards) return;
+    performance.mark(`wc-persona-switch:${uid}:${uiTheme}`);
+  }, [useWCCards, uiTheme, uid]);
 
   useLayoutEffect(() => {
     const wrapper = scaleWrapperRef.current;
@@ -960,10 +973,15 @@ export const Card = React.memo<CardProps>(({
                 />
               ),
               word: (
-                <div className="w-full flex justify-center items-center h-[2.75rem]">
+                <div className={`w-full flex justify-center items-center ${isCompactLOD && !isExpanded && !isFlipped ? 'h-[4rem]' : 'h-[2.75rem]'}`}>
                   <TieredText
                     text={title}
-                    tiers={CardPersona.tokens.typography.mainWordTiers}
+                    tiers={isCompactLOD && !isExpanded && !isFlipped ? [
+                      { id: 'compact-xl', fontSize: 48, lineHeight: 1.1, tracking: '0.1em', weight: 700, opacity: 1, label: 'XL' },
+                      { id: 'compact-lg', fontSize: 40, lineHeight: 1.1, tracking: '0.1em', weight: 700, opacity: 1, label: 'LG' },
+                      { id: 'compact-md', fontSize: 32, lineHeight: 1.1, tracking: '0.1em', weight: 700, opacity: 1, label: 'MD' },
+                      { id: 'compact-sm', fontSize: 24, lineHeight: 1.1, tracking: '0.1em', weight: 700, opacity: 0.95, label: 'SM' },
+                    ] : CardPersona.tokens.typography.mainWordTiers}
                     style={{
                       fontFamily: 'var(--card-font-label)',
                       backgroundImage: 'var(--card-gradient-gold-text)',

@@ -1,0 +1,214 @@
+<!-- Cyberpunk persona shadow template.
+     Loaded via Vite ?raw import → innerHTML of a <template> element.
+     No corner decorations (CyberpunkPersona.card.slots.Corners = null).
+     Decoration烘焙 as inline SVG; dynamic content enters via named <slot>s. -->
+
+<!-- Hover glow (behind chrome, CSS :host(:hover) driven) -->
+<div part="hover-glow"></div>
+
+<!-- Drop-target dashed ring (CSS :host([is-over]) driven) -->
+<div part="drop-target-ring"></div>
+
+<!-- Flip wrapper — scaleX written imperatively by Card.tsx -->
+<div part="flip-wrapper">
+
+  <!-- ═══════════════════ FRONT FACE ═══════════════════ -->
+  <div part="front-face">
+
+    <!-- Layer 0: Cyberpunk Digital Field (CyberpunkDigitalField 烘焙) -->
+    <div part="background">
+      <svg viewBox="0 0 400 600" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <!-- Horizontal scanline pattern -->
+          <pattern id="cp-scanlines" x="0" y="0" width="400" height="6" patternUnits="userSpaceOnUse">
+            <line x1="0" y1="3" x2="400" y2="3" stroke="#00FF88" stroke-width="0.3"/>
+          </pattern>
+          <!-- Radial neon glow -->
+          <radialGradient id="cp-glow" cx="50%" cy="35%" r="60%">
+            <stop offset="0%"   stop-color="#00FF88" stop-opacity="0.35"/>
+            <stop offset="60%"  stop-color="#00FFFF" stop-opacity="0.1"/>
+            <stop offset="100%" stop-color="#00FF88" stop-opacity="0"/>
+          </radialGradient>
+          <!-- Fade mask for circuit traces -->
+          <linearGradient id="cp-trace-fade" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%"   stop-color="white" stop-opacity="0.8"/>
+            <stop offset="50%"  stop-color="white" stop-opacity="0.5"/>
+            <stop offset="100%" stop-color="white" stop-opacity="0.8"/>
+          </linearGradient>
+        </defs>
+
+        <!-- Radial glow layer -->
+        <rect x="0" y="0" width="400" height="600" fill="url(#cp-glow)"/>
+
+        <!-- Scanlines layer -->
+        <rect x="0" y="0" width="400" height="600" fill="url(#cp-scanlines)" opacity="0.25"/>
+
+        <!-- Circuit traces — left side -->
+        <g stroke="#00FF88" stroke-width="0.6" fill="none" opacity="0.5">
+          <path d="M20 80 H60 L80 100 V200 L60 220 H20"/>
+          <path d="M20 380 H60 L80 360 V280 L60 260 H20"/>
+          <circle cx="80" cy="100" r="2" fill="#00FF88"/>
+          <circle cx="80" cy="200" r="2" fill="#00FF88"/>
+          <circle cx="60" cy="220" r="1.5" fill="#00FF88"/>
+          <circle cx="80" cy="360" r="2" fill="#00FF88"/>
+          <circle cx="80" cy="280" r="2" fill="#00FF88"/>
+          <!-- Tick marks -->
+          <line x1="15" y1="140" x2="25" y2="140" stroke-width="0.5"/>
+          <line x1="15" y1="160" x2="25" y2="160" stroke-width="0.5"/>
+          <line x1="15" y1="180" x2="25" y2="180" stroke-width="0.5"/>
+        </g>
+
+        <!-- Circuit traces — right side (mirrored) -->
+        <g stroke="#00FF88" stroke-width="0.6" fill="none" opacity="0.5">
+          <path d="M380 80 H340 L320 100 V200 L340 220 H380"/>
+          <path d="M380 380 H340 L320 360 V280 L340 260 H380"/>
+          <circle cx="320" cy="100" r="2" fill="#00FF88"/>
+          <circle cx="320" cy="200" r="2" fill="#00FF88"/>
+          <circle cx="340" cy="220" r="1.5" fill="#00FF88"/>
+          <circle cx="320" cy="360" r="2" fill="#00FF88"/>
+          <circle cx="320" cy="280" r="2" fill="#00FF88"/>
+          <line x1="385" y1="140" x2="375" y2="140" stroke-width="0.5"/>
+          <line x1="385" y1="160" x2="375" y2="160" stroke-width="0.5"/>
+          <line x1="385" y1="180" x2="375" y2="180" stroke-width="0.5"/>
+        </g>
+
+        <!-- Center HUD target ring -->
+        <g stroke="#00FFFF" stroke-width="0.5" fill="none" opacity="0.2">
+          <circle cx="200" cy="300" r="100"/>
+          <circle cx="200" cy="300" r="95" stroke-dasharray="8 4"/>
+          <!-- Crosshair ticks -->
+          <line x1="180" y1="300" x2="192" y2="300"/>
+          <line x1="208" y1="300" x2="220" y2="300"/>
+          <line x1="200" y1="280" x2="200" y2="292"/>
+          <line x1="200" y1="308" x2="200" y2="320"/>
+          <!-- Corner brackets -->
+          <path d="M170 270 H180 V280"/>
+          <path d="M230 270 H220 V280"/>
+          <path d="M170 330 H180 V320"/>
+          <path d="M230 330 H220 V320"/>
+        </g>
+
+        <!-- Data stream dots along vertical center -->
+        <g fill="#00FF88" opacity="0.15">
+          <circle cx="200" cy="30"  r="1.5"/>
+          <circle cx="200" cy="50"  r="1"/>
+          <circle cx="200" cy="68"  r="1.5"/>
+          <circle cx="200" cy="540" r="1.5"/>
+          <circle cx="200" cy="558" r="1"/>
+          <circle cx="200" cy="574" r="1.5"/>
+        </g>
+      </svg>
+    </div>
+
+    <!-- Layer: Border outer / inner -->
+    <div part="border-outer"></div>
+    <div part="border-inner"></div>
+
+    <!-- No corners (CyberpunkPersona.card.slots.Corners = null) -->
+
+    <!-- Section: Header (level badge) -->
+    <div part="header">
+      <div part="header-panel"></div>
+      <div part="header-line"></div>
+      <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;width:100%;position:relative;z-index:10;margin-top:-0.25rem">
+        <slot name="level"></slot>
+      </div>
+    </div>
+
+    <!-- Section: Visual area (MemoizedCardVisual slotted in) -->
+    <div part="visual">
+      <slot name="visual"></slot>
+      <!-- Tech circuit divider (replaces alchemical glyph chain) -->
+      <div part="divider">
+        <svg part="divider-svg" width="100%" height="8" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <pattern id="cp-div-pattern" x="0" y="0" width="24" height="8" patternUnits="userSpaceOnUse">
+              <line x1="0" y1="4" x2="24" y2="4" stroke="currentColor" stroke-width="0.4" opacity="0.4"/>
+              <rect x="9" y="2.5" width="6" height="3" fill="currentColor" opacity="0.9"/>
+              <circle cx="3"  cy="4" r="0.8" fill="currentColor" opacity="0.6"/>
+              <circle cx="21" cy="4" r="0.8" fill="currentColor" opacity="0.6"/>
+            </pattern>
+            <linearGradient id="cp-div-fade" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%"   stop-color="transparent"/>
+              <stop offset="25%"  stop-color="white"/>
+              <stop offset="75%"  stop-color="white"/>
+              <stop offset="100%" stop-color="transparent"/>
+            </linearGradient>
+            <mask id="cp-div-mask">
+              <rect width="100%" height="100%" fill="url(#cp-div-fade)"/>
+            </mask>
+          </defs>
+          <rect x="0" y="0" width="100%" height="100%" fill="url(#cp-div-pattern)" mask="url(#cp-div-mask)"/>
+        </svg>
+      </div>
+    </div>
+
+    <!-- Section: Text (pronunciation / word / system-word) -->
+    <div part="text">
+      <div part="pronunciation-row">
+        <slot name="pronunciation"></slot>
+      </div>
+      <div part="word-row">
+        <div part="word-col">
+          <slot name="word"></slot>
+          <slot name="system-word"></slot>
+        </div>
+      </div>
+    </div>
+
+    <!-- Layer: Noise texture -->
+    <div part="noise-texture"></div>
+
+    <!-- Layer: Glare (--_glare-bg / --_glare-opacity CSS props from Card.tsx) -->
+    <div part="glare"></div>
+
+    <!-- Layer: Visual feedback overlay (merge / split) -->
+    <div part="feedback-overlay"></div>
+
+  </div><!-- /front-face -->
+
+  <!-- ═══════════════════ BACK FACE ═══════════════════ -->
+  <div part="back-face">
+
+    <!-- Layer: Background texture pattern -->
+    <div part="back-texture"></div>
+
+    <!-- Layer: Back sheen gradient -->
+    <div part="back-sheen"></div>
+
+    <!-- Layer: Border outer / inner (back face) -->
+    <div part="back-border-outer"></div>
+    <div part="back-border-inner"></div>
+
+    <!-- No back corners (CyberpunkPersona.card.slots.Corners = null) -->
+
+    <!-- Slot: Ontology badge (absolutely positioned by CSS) -->
+    <div part="back-ontology">
+      <slot name="ontology"></slot>
+    </div>
+
+    <!-- Slot: Back header — word + POS -->
+    <div part="back-header">
+      <slot name="word-back"></slot>
+      <slot name="pos"></slot>
+    </div>
+
+    <!-- Main content: definition + flavor -->
+    <div part="back-main">
+      <div part="back-def-wrap">
+        <slot name="definition"></slot>
+      </div>
+      <div part="back-flavor-wrap">
+        <slot name="flavor"></slot>
+      </div>
+    </div>
+
+  </div><!-- /back-face -->
+
+</div><!-- /flip-wrapper -->
+
+<!-- ── Overlay slot ─────────────────────────────────────────────────────────
+     Outside flip-wrapper so back-face overflow:hidden doesn't clip it.
+     Slotted content uses position:absolute relative to :host (position:relative).
+     Used for: flavor indicators + SelectionOverlay.                        -->
+<slot name="back-overlay"></slot>

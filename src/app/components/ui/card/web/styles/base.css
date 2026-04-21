@@ -586,8 +586,8 @@ slot[name="back-overlay"] {
   height: 100%;
   padding: 0;
   transform: none;
-  opacity: 0.3;
-  mix-blend-mode: luminosity;
+  opacity: 0.4;
+  mix-blend-mode: normal;
   z-index: 0;
   pointer-events: none;
 }

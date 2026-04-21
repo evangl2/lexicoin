@@ -119,7 +119,7 @@ This hook runs inside each `Card` component that has variants. It manages *which
 
 ## 5. Visual Layer Integration
 
-**Location**: `src/app/components/ui/Card.tsx` & `App.tsx`
+**Location**: `src/app/components/ui/card/Card.tsx` & `src/app/App.tsx`
 
 ### 5.1 App Integration
 `App.tsx` initializes `useCardGrouping` and distributes the data:

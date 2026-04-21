@@ -17,7 +17,8 @@
  * Phase 3: add 'cyberpunk' case when LexiCardChromeDefault template is ready.
  */
 
-import { LexiCardChromeDefault } from './LexiCardChromeDefault';
+import { LexiCardChromeDefault }   from './LexiCardChromeDefault';
+import { LexiCardChromeCyberpunk } from './LexiCardChromeCyberpunk';
 
 export function ensurePersonaRegistered(personaId: string): void {
   switch (personaId) {
@@ -27,13 +28,11 @@ export function ensurePersonaRegistered(personaId: string): void {
       }
       break;
 
-    // Phase 3 — uncomment when cyberpunk template + class are ready:
-    // case 'cyberpunk':
-    //   if (!customElements.get('lexi-card-chrome-cyberpunk')) {
-    //     const { LexiCardChromeCyberpunk } = await import('./LexiCardChromeCyberpunk'); // not yet
-    //     customElements.define('lexi-card-chrome-cyberpunk', LexiCardChromeCyberpunk);
-    //   }
-    //   break;
+    case 'cyberpunk':
+      if (!customElements.get('lexi-card-chrome-cyberpunk')) {
+        customElements.define('lexi-card-chrome-cyberpunk', LexiCardChromeCyberpunk);
+      }
+      break;
 
     default:
       console.warn(

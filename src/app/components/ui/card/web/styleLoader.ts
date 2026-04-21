@@ -9,8 +9,9 @@
  * Vite `?inline` import → CSS string at build time, no extra network request.
  */
 
-import baseCSS    from './styles/base.css?inline';
-import defaultCSS from './styles/default.css?inline';
+import baseCSS      from './styles/base.css?inline';
+import defaultCSS   from './styles/default.css?inline';
+import cyberpunkCSS from './styles/cyberpunk.css?inline';
 
 // ── Base sheet (shared by ALL personas) ──────────────────────────────────────
 
@@ -28,7 +29,9 @@ function buildPersonaSheet(personaId: string): CSSStyleSheet {
     case 'default':
       css = defaultCSS;
       break;
-    // Phase 3: add 'cyberpunk' branch here
+    case 'cyberpunk':
+      css = cyberpunkCSS;
+      break;
     default:
       console.warn(`[LexiCardChrome] No persona stylesheet for "${personaId}", using empty sheet.`);
   }

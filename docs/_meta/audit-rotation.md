@@ -15,11 +15,11 @@ Tracks which docs have been freshness-audited and when. Pick least-recently-audi
 | DurabilityLifecycle.md | 2026-04-20 |
 | dynamic_text_feature.md | 2026-04-20 |
 | genui-architecture.md | 2026-04-20 |
-| InflectionSystem.md | — |
+| InflectionSystem.md | 2026-04-21 |
 | infrastructure_prd.md | — |
 | infrastructure_tdd.md | — |
 | infrastructure_wbs.md | — |
-| MergeSplitSystem.md | — |
+| MergeSplitSystem.md | 2026-04-21 |
 | MessageBus-maintenance.md | — |
 | performance-optimizations.md | — |
 | PersistenceSystem.md | — |
@@ -30,4 +30,5 @@ Tracks which docs have been freshness-audited and when. Pick least-recently-audi
 | SynthesisSystem.md | — |
 | tts-analysis.md | — |
 | visual-pipeline.md | — |
+| gameconfig.md | 2026-04-21 |
 | grimoire/WBS_Grimoire.md | 2026-04-19 |
