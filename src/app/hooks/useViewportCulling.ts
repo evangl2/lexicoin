@@ -80,7 +80,16 @@ export function useViewportCulling(
 
     // Only setState if the visible set actually changed (avoids cascading re-renders)
     setVisibleIds(prev => {
-      if (prev.size === next.size && [...next].every(id => prev.has(id))) return prev;
+      if (prev.size === next.size) {
+        let isEqual = true;
+        for (const id of next) {
+          if (!prev.has(id)) {
+            isEqual = false;
+            break;
+          }
+        }
+        if (isEqual) return prev;
+      }
       return next;
     });
   };
