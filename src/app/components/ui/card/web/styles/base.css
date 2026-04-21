@@ -559,29 +559,69 @@ slot[name="back-overlay"] {
 }
 
 /* ── Compact LOD ─────────────────────────────────────────────────────────── */
+/*
+ * Compact layout mirrors CompactCardVisual 'repository' mode:
+ *   - visual: full-bleed watermark (absolute, low opacity, luminosity blend)
+ *   - header: level badge pinned top-right (absolute, exits flex flow)
+ *   - text: word only, vertically centered (fills flex)
+ *   - all decorations hidden
+ */
 
-:host([layout-mode="compact"]) [part="back-face"] {
-  display: none;
-}
-
+:host([layout-mode="compact"]) [part="back-face"],
+:host([layout-mode="compact"]) [part="background"],
 :host([layout-mode="compact"]) [part="divider"],
 :host([layout-mode="compact"]) [part="border-outer"],
 :host([layout-mode="compact"]) [part="border-inner"],
 :host([layout-mode="compact"]) [part="corners"],
 :host([layout-mode="compact"]) [part="noise-texture"],
 :host([layout-mode="compact"]) [part="glare"],
-:host([layout-mode="compact"]) [part="text"],
-:host([layout-mode="compact"]) [part="visual"],
-:host([layout-mode="compact"]) [part="background"],
 :host([layout-mode="compact"]) [part="feedback-overlay"] {
   display: none;
 }
 
-:host([layout-mode="compact"]) [part="header"] {
+/* Visual: becomes a full-bleed watermark behind text */
+:host([layout-mode="compact"]) [part="visual"] {
+  position: absolute;
+  inset: 0;
   height: 100%;
   padding: 0;
-  align-items: center;
+  transform: none;
+  opacity: 0.3;
+  mix-blend-mode: luminosity;
+  z-index: 0;
+  pointer-events: none;
+}
+
+/* Header: level badge pinned to top-right, exits flex flow */
+:host([layout-mode="compact"]) [part="header"] {
+  position: absolute;
+  top: 0;
+  right: 0;
+  height: auto;
+  width: auto;
+  padding: 4px 6px;
+  z-index: 30;
+  justify-content: flex-end;
+}
+
+/* Text: fills the remaining flex space, word centered */
+:host([layout-mode="compact"]) [part="text"] {
+  height: 100%;
+  flex: 1;
   justify-content: center;
+  padding: 0 4px;
+  z-index: 20;
+}
+
+/* Hide pronunciation and system-word; keep only the learning word */
+:host([layout-mode="compact"]) [part="pronunciation-row"] {
+  display: none;
+}
+:host([layout-mode="compact"]) ::slotted([slot="pronunciation"]) {
+  display: none;
+}
+:host([layout-mode="compact"]) ::slotted([slot="system-word"]) {
+  display: none;
 }
 
 /* ── Keyframes ───────────────────────────────────────────────────────────── */

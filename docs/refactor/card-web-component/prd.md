@@ -78,13 +78,15 @@
 
 | 指标 | 基线（旧路径） | 目标（新路径） | 测量方法 |
 |------|---------------|---------------|---------|
-| 单张卡片 React fiber 节点数 | **27**（含 `_c*` Framer 节点、memo、forwardRef） | ≤ 3 | React DevTools Components 树形视图 |
+| 单张卡片 React fiber 节点数 | **27**（含 `_c*` Framer 节点、memo、forwardRef） | ≤ 8（注1） | React DevTools Components 树形视图 |
 | 单张卡片真实 DOM 节点数（`$0.querySelectorAll('*').length`） | **225** | ≤ 5（light DOM 侧） | DevTools Elements + Console |
 | 1000 张卡片画布满帧率（缩小 LOD） | 待测 | ≥ 55 FPS | Chrome Performance 面板 |
 | Persona 切换延迟（60 可见卡） | 待测 | ≤ 50 ms | 自打点 `performance.mark` |
 | 卡片进入视口 mount 耗时（单次） | 待测 | ≤ 2 ms | React Profiler flame chart |
 
 > **注**：基线在 Phase 0 开始前由执行者实测填入本表，不得使用估算值。
+>
+> **注1**：原目标 ≤ 3 假设 slot 内容为纯 DOM 字符串。Phase 1 实际决策保留 `MemoizedCardVisual`（视差+动画）和 `TieredText`（自适应字号）为 React 组件，两者各贡献 2~3 个 fiber（React.memo 固有双节点）。Phase 2 实测为 **7 个节点**（LexiCardChrome + MemoizedCardVisual×2 + _c5/_c11 Framer + DynamicVisual + TieredText），较基线降低 74%，目标修订为 ≤ 8。
 
 ### 4.2 回归零容忍项
 

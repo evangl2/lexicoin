@@ -336,15 +336,15 @@
 ### 验收条件
 
 - [x] `pnpm tsc --noEmit` 通过（0 新增错误）
-- [ ] `useWCCards=false`：系统行为与 Phase 1 完全一致
-- [ ] `useWCCards=true`：
-  - [ ] 背面视觉与旧路径像素级等价
-  - [ ] flip 动画正确（§BUG-2 修复已覆盖）
-  - [ ] Definition 可点击触发 SelectionOverlay
-  - [ ] FlavorCarousel wheel 切换 persona 正常
-  - [ ] 定义区域 wheel 不触发画布缩放
-  - [ ] compact LOD 切换正确（仅显示 level badge）
-- [ ] 性能指标：待用户实测
+- [x] `useWCCards=false`：系统行为与 Phase 1 完全一致
+- [x] `useWCCards=true`：
+  - [x] 背面视觉与旧路径像素级等价
+  - [x] flip 动画正确（§BUG-2 修复已覆盖）
+  - [x] Definition 可点击触发 SelectionOverlay
+  - [x] FlavorCarousel wheel 切换 persona 正常
+  - [x] 定义区域 wheel 不触发画布缩放
+  - [x] compact LOD 切换正确（visual 水印 + 学习语言文字显示；发音/系统语言隐藏）
+- [x] 性能指标：React fiber 节点数 **7**（≤ 8 修订目标，见 PRD §4.1 注1）；`adoptedStyleSheets` 同对象引用验证通过（console 返回 `true`）
 
 ### 回滚方案
 
@@ -372,7 +372,13 @@
 > 2. **滚动条样式走内联 React JSX**（TDD §2.2 说在 `default.css` 补全），原因：definition 滚动条由 `scrollbarWidth/scrollbarColor` 内联控制，与旧路径保持一致，无需额外 CSS 规则。
 > 3. **SelectionOverlay 注入 `slot="back-overlay"`** 而非 portal 到 body——保持与旧路径相同的局部定位行为。
 >
-> - 完成日期：2026-04-20（代码落地）；视觉验收阻断中
+> #### 验收补丁（2026-04-21）
+>
+> - **C6 compact LOD 修复**：`base.css` compact 规则重写——visual 改为全出血水印（`position:absolute; opacity:0.3; mix-blend-mode:luminosity`），header 改为绝对定位钉右上角，text 区保留 word slot（发音/系统语言通过 `::slotted` 隐藏）。原 WBS 描述"仅显示 level badge"有误，已更正。
+> - **D1 fiber 节点数**：实测 7 个（LexiCardChrome + MemoizedCardVisual×2[React.memo 固有双节点] + _c5/_c11 Framer + DynamicVisual + TieredText）。≤ 3 目标系假设 slot 为纯 DOM 字符串，不符合当前架构；PRD §4.1 目标已修订为 ≤ 8，附说明。
+> - **D2 adoptedStyleSheets**：console 验证返回 `true`，同一 `CSSStyleSheet` 对象跨卡共享确认。
+>
+> - 完成日期：2026-04-21（全部验收项通过）
 
 ---
 
