@@ -1,4 +1,8 @@
 ## Open
+- [🟡] ConfigMenu slide-up is harsh and abrupt
+- [🟡] LevelUpOverlay backdrop appears instantly
+- [🟡] GrimoireOverlay enter animation feels rigid
+- [🟢] LibraryInterface transition is too linear
 - [🟢] Card hover scale feels lifeless
 - [🟡] Card snap-to-grid is overdamped
 - [🟡] Card flip is sluggish
