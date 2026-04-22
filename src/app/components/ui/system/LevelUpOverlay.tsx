@@ -40,6 +40,7 @@ export const LevelUpOverlay: React.FC = () => {
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
+                    transition={{ duration: 0.4, ease: "easeOut" }}
                     className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md"
                 >
                     {/* 装饰性背景光效 */}

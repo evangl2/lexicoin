@@ -361,7 +361,7 @@ export const ConfigMenu: React.FC<ConfigMenuProps> = ({
           initial={{ y: 200, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: 200, opacity: 0 }}
-          transition={{ type: "spring", stiffness: 300, damping: 30 }}
+          transition={{ type: "spring", stiffness: 300, damping: 22 }}
           className="absolute bottom-0 left-1/2 -translate-x-1/2 z-40"
           style={{
             width: interfacePersona.interfaceLayout.menuWidth,

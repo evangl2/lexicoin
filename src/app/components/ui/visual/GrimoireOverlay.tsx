@@ -52,6 +52,7 @@ export const GrimoireOverlay: React.FC = () => {
                 {/* The Physical Book / Manuscript */}
                 <motion.div
                     initial={{ scale: 0.9, y: 20, rotateX: 10 }}
+                    transition={{ type: "spring", damping: 20, stiffness: 150 }}
                     animate={{ scale: 1, y: 0, rotateX: 0 }}
                     className="relative w-full max-w-5xl aspect-[1.4/1] bg-[#2a241e] rounded-xl shadow-[0_30px_60px_rgba(0,0,0,0.8)] overflow-hidden flex border border-[#4a3e35]"
                     onClick={(e) => e.stopPropagation()}

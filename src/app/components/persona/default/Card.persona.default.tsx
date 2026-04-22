@@ -314,8 +314,8 @@ export const DefaultCardPersona = {
     springs: {
       smoothVelocity: { damping: 40, stiffness: 150, mass: 0.8 },
       mouseTilt: { damping: 50, stiffness: 120, mass: 1 },
-      scale: { stiffness: 200, damping: 25, mass: 0.8 },
-      flip: { stiffness: 150, damping: 20 },
+      scale: { stiffness: 260, damping: 22, mass: 0.8 },
+      flip: { stiffness: 220, damping: 24 },
     },
     tilt: {
       velocityRange: [-1500, 1500],

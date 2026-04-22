@@ -25,7 +25,8 @@ export const LibraryInterface: React.FC = () => {
 
     return (
         <motion.div
-            initial={{ opacity: 0, scale: 1.1 }}
+            initial={{ opacity: 0, scale: 1.05 }}
+            transition={{ type: "spring", stiffness: 100, damping: 25, mass: 1.2 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
             className="fixed inset-0 z-[10] flex flex-col bg-black overflow-hidden"

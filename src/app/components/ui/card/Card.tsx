@@ -914,7 +914,7 @@ export const Card = React.memo<CardProps>(({
         isHoveredRef.current = true;
         setIsHovered(true);
         setVisualFeedback(null);
-        if (!isExpanded) scaleSpring.set(1.05);
+        if (!isExpanded) scaleSpring.set(1.08);
       }}
       onHoverEnd={() => {
         if (isFlipped) return;

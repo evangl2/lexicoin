@@ -65,7 +65,7 @@ export const TieredText: React.FC<TieredTextProps> = ({
                 key={text}
                 initial={{ opacity: 0, y: 2 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.2 }}
+                transition={{ type: "spring", stiffness: 300, damping: 25 }}
                 style={tierStyle}
                 className="text-center w-full break-words whitespace-pre-wrap p-0.5"
             >
