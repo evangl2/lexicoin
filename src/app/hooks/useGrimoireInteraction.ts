@@ -99,8 +99,11 @@ export function useGrimoireInteraction() {
             // 处理评判结果
             const apiResults = data.data.results; // [{ slotId, grade, commentary }]
             
+            // Convert results to Map for O(1) lookup to avoid nested loop (.find inside .map)
+            const resultMap = new Map(apiResults.map((r: any) => [r.slotId, r]));
+
             const updatedSlots = grimoire.slots.map(slot => {
-                const result = apiResults.find((r: any) => r.slotId === slot.id);
+                const result = resultMap.get(slot.id);
                 if (result) {
                     const isF = result.grade === 'F';
                     return {

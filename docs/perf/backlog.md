@@ -6,7 +6,9 @@ Issues waiting for approval before fixing. See `daily/` for full context on each
 
 ## Open
 
-*(none)*
+| # | Priority | Title | Reported | Notes |
+|---|----------|--------|----------|-------|
+| B-007 | 🟡 P1 | Forced Layout Thrashing in useTextFit hook | 2026-04-22 | Proposing removing visual safety check and getComputedStyle |
 
 ---
 
