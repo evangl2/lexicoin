@@ -32,7 +32,7 @@ export const VIEWPORT_CULL_MARGIN = 2500;
 
 // ── Card snap ────────────────────────────────────────────────────────────────
 /** Spring physics for card grid-snap animation */
-export const SNAP_SPRING = { stiffness: 400, damping: 35, mass: 0.8 } as const;
+export const SNAP_SPRING = { stiffness: 400, damping: 28, mass: 0.8 } as const;
 export type SnapSpring = typeof SNAP_SPRING;
 
 /** Maximum grid cells searched outward for an empty snap slot (spiral search radius) */
