@@ -30,7 +30,7 @@ import type { VisualEntry } from '@schemas/schemas/SenseEntity.schema';
 import type { BaseMessage } from '@app-types/protocol';
 import './DevConsole.css';
 
-type TabType = 'messages' | 'state' | 'telemetry' | 'inject' | 'logs' | 'system';
+type TabType = 'messages' | 'state' | 'telemetry' | 'inject' | 'logs' | 'system' | 'cheat';
 
 const StateInspector: React.FC = () => {
     // Get all store state - moved here to prevent re-renders in main console
@@ -116,6 +116,12 @@ export const DevConsole: React.FC = () => {
     const [isPaused, setIsPaused] = useState(false);
     const [isRefetching, setIsRefetching] = useState(false);
     const [refetchResult, setRefetchResult] = useState<string | null>(null);
+    const player = useGameStore(s => s.player);
+    const updateLanguageProgress = useGameStore(s => s.updateLanguageProgress);
+    const regenerateStamina = useGameStore(s => s.regenerateStamina);
+    const updatePlayer = useGameStore(s => s.updatePlayer);
+    const [cheatStamina, setCheatStamina] = useState(100);
+    const [cheatLevel, setCheatLevel] = useState(1);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
     // Real-time message subscription
@@ -317,6 +323,13 @@ export const DevConsole: React.FC = () => {
                     onClick={() => setActiveTab('system')}
                 >
                     ⚠️ System
+                </button>
+                <button
+                    className={activeTab === 'cheat' ? 'active' : ''}
+                    onClick={() => setActiveTab('cheat')}
+                    style={{ color: '#ffcc00' }}
+                >
+                    ✨ Cheat
                 </button>
             </div>
 
@@ -595,6 +608,65 @@ export const DevConsole: React.FC = () => {
                                     💥 Restore Initial State
                                 </button>
                             </div>
+                        </div>
+                    </div>
+                )}
+                {/* Cheat Tab */}
+                {activeTab === 'cheat' && (
+                    <div className="tab-content">
+                        <div className="cheat-panel">
+                            <section className="cheat-section">
+                                <h4>⚡ Stamina Control</h4>
+                                <div className="cheat-row">
+                                    <input 
+                                        type="number" 
+                                        value={cheatStamina} 
+                                        onChange={e => setCheatStamina(parseInt(e.target.value))}
+                                        className="cheat-input"
+                                    />
+                                    <button onClick={() => updatePlayer({ stamina: cheatStamina })}>Set Exact</button>
+                                    <button onClick={() => regenerateStamina(1000)}>Refill Max</button>
+                                </div>
+                                <div className="cheat-presets">
+                                    <button onClick={() => updatePlayer({ stamina: Math.max(0, player.stamina - 10) })}>-10</button>
+                                    <button onClick={() => updatePlayer({ stamina: Math.min(player.maxStamina, player.stamina + 10) })}>+10</button>
+                                    <button onClick={() => updatePlayer({ stamina: 0 })}>Empty</button>
+                                </div>
+                            </section>
+
+                            <section className="cheat-section">
+                                <h4>🆙 Progression Control</h4>
+                                <div className="cheat-row">
+                                    <div className="lang-target">
+                                        Target: <strong>{player.settings.learningLang}</strong>
+                                    </div>
+                                    <input 
+                                        type="number" 
+                                        value={cheatLevel} 
+                                        onChange={e => setCheatLevel(parseInt(e.target.value))}
+                                        className="cheat-input"
+                                        placeholder="Level"
+                                    />
+                                    <button onClick={() => updateLanguageProgress(player.settings.learningLang, { level: cheatLevel })}>Set Level</button>
+                                </div>
+                                <div className="cheat-presets">
+                                    <button onClick={() => {
+                                        const currentXP = player.languageProgress[player.settings.learningLang]?.xp || 0;
+                                        updateLanguageProgress(player.settings.learningLang, { xp: currentXP + 100 });
+                                    }}>Add 100 XP</button>
+                                    <button onClick={() => {
+                                        updateLanguageProgress(player.settings.learningLang, { level: 1, xp: 0 });
+                                    }}>Reset Progress</button>
+                                </div>
+                            </section>
+
+                            <section className="cheat-section">
+                                <h4>🎒 Resource Cheat</h4>
+                                <div className="cheat-presets">
+                                    <button onClick={() => updatePlayer({ echoCharges: 10 })}>Set 10 Echo Charges</button>
+                                    <button disabled style={{ opacity: 0.5 }}>Unlock All Archetypes (Coming Soon)</button>
+                                </div>
+                            </section>
                         </div>
                     </div>
                 )}

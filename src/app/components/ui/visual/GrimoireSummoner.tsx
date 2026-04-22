@@ -76,23 +76,28 @@ export const GrimoireSummoner: React.FC<GrimoireSummonerProps> = ({
     const seedCard = inputCards.find(c => c.cardData.rawSense.uid === state.seed_uid);
     const canSummon = !!seedCard && currentStatus === 'IDLE' && !isSummoning;
 
-    const handleSummon = async () => {
-        if (!canSummon || !seedCard) return;
+    const handleEject = () => {
+        if (currentStatus !== 'IDLE' || !state.seed_uid) return;
+        const target = state.seed_uid;
+        updateState(uid, { seed_uid: null });
+        onCardEject?.(target);
+    };
 
-        // Capture seed uid before clearing
-        const seedUid = state.seed_uid;
-        updateState(uid, { status: 'GENERATING' });
+    const executeSummon = async (targetCard: any) => {
+        if (!targetCard || isSummoning || currentStatus !== 'IDLE') return;
 
-        await summon(seedCard.cardData.rawSense, {
+        const seedUid = targetCard.cardData.rawSense.uid;
+        // Set both generating state and the seed reference immediately
+        updateState(uid, { status: 'GENERATING', seed_uid: seedUid });
+
+        await summon(targetCard.cardData.rawSense, {
             x: x.get(),
             y: y.get() + 200
         });
 
         // §5.2: Eject seed card back to canvas after generation
-        if (seedUid) {
-            updateState(uid, { seed_uid: null });
-            onCardEject?.(seedUid);
-        }
+        updateState(uid, { seed_uid: null });
+        onCardEject?.(seedUid);
 
         // §5.3: Brief READY flash before returning to IDLE
         updateState(uid, { status: 'READY' });
@@ -101,11 +106,22 @@ export const GrimoireSummoner: React.FC<GrimoireSummonerProps> = ({
         }, 1200);
     };
 
-    const handleEject = () => {
-        if (currentStatus !== 'IDLE' || !state.seed_uid) return;
-        const target = state.seed_uid;
-        updateState(uid, { seed_uid: null });
-        onCardEject?.(target);
+    const handleSummon = async () => {
+        if (!canSummon || !seedCard) return;
+        await executeSummon(seedCard);
+    };
+
+    const handleRandomSeed = async (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (currentStatus !== 'IDLE' || state.seed_uid || !inputCards.length) return;
+        
+        const available = inputCards.filter(c => c.cardData.rawSense.uid !== state.seed_uid);
+        if (available.length === 0) return;
+
+        const randomPick = available[Math.floor(Math.random() * available.length)];
+        
+        // One-tap: set seed and summon immediately
+        await executeSummon(randomPick);
     };
 
     const isActuallySummoning = isSummoning || currentStatus === 'GENERATING';
@@ -161,6 +177,17 @@ export const GrimoireSummoner: React.FC<GrimoireSummonerProps> = ({
                         <div className="text-white/20 flex flex-col items-center gap-1">
                             <Sparkles size={20} />
                             <span className="text-[8px] uppercase tracking-tighter">Seed Slot</span>
+                            
+                            {/* Random Seed Button - GDD §5.2 */}
+                            {!isActuallySummoning && currentStatus === 'IDLE' && inputCards.length > 0 && (
+                                <button
+                                    onClick={handleRandomSeed}
+                                    className="mt-2 px-2 py-1 bg-white/10 hover:bg-white/20 border border-white/10 rounded text-[9px] text-white/60 hover:text-white transition-all flex items-center gap-1"
+                                    title="Auto-assign random card from canvas"
+                                >
+                                    🎲 AUTO
+                                </button>
+                            )}
                         </div>
                     )}
                 </div>

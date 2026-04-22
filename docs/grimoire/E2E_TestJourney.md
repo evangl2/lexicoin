@@ -76,8 +76,8 @@
 
 | 优先级 | 验证点 | 结果 | 备注 |
 |--------|--------|------|------|
-| 🔴 P0 | Grimoire 闭合态和展开态图标与抬头依然是 Persona A | $\square$ Pass $\square$ Fail $\square$ Block | |
-| 🔴 P0 | 后续提交评判收到的评语风格仍然是 Persona A | $\square$ Pass $\square$ Fail $\square$ Block | |
+| 🔴 P0 | Grimoire 闭合态和展开态图标与抬头依然是 Persona A | $✔$ Pass $\square$ Fail $\square$ Block | |
+| 🔴 P0 | 后续提交评判收到的评语风格仍然是 Persona A | $✔$ Pass $\square$ Fail $\square$ Block | |
 
 💬 **测试者备注**：___________________________________________________________________
 
@@ -90,29 +90,29 @@
 
 | 优先级 | 验证点 | 结果 | 备注 |
 |--------|--------|------|------|
-| 🔴 P0 | 体力不足时，无法生成，触发体力不足提示框 | $\square$ Pass $\square$ Fail $\square$ Block | |
-| 🔴 P0 | 体力充足时生成，扣除精确数字的体力值 (60) | $\square$ Pass $\square$ Fail $\square$ Block | |
+| 🔴 P0 | 体力不足时，无法生成，触发体力不足提示框 | $✔$ Pass $\square$ Fail $\square$ Block | |
+| 🔴 P0 | 体力充足时生成，扣除精确数字的体力值 (60) | $✔$ Pass $\square$ Fail $\square$ Block | |
 
 #### 3.2 随机种子机制
 **操作**：清空 Summoner 槽位，点击“随机分配”。
 
 | 优先级 | 验证点 | 结果 | 备注 |
 |--------|--------|------|------|
-| 🔴 P0 | 成功从当前画布中抽取某张实体 Sense 卡作为种子 | $\square$ Pass $\square$ Fail $\square$ Block | |
-| 🟡 P1 | 抽取时画布有连线或视觉暗示源头卡片位置 | $\square$ Pass $\square$ Fail $\square$ Skip | |
+| 🔴 P0 | 成功从当前画布中抽取某张实体 Sense 卡作为种子 | $✔$ Pass $\square$ Fail $\square$ Block | |
+| 🟡 P1 | 抽取时画布有连线或视觉暗示源头卡片位置 | $✔$ Pass $\square$ Fail $\square$ Skip | |
 
 #### 3.3 AI 响应与生成状态机
 **操作**：触发有效生成，等待后端 Edge Function 响应。
 
 | 优先级 | 验证点 | 结果 | 备注 |
 |--------|--------|------|------|
-| 🔴 P0 | 生成期间 Summoner 进入 GENERATING 锁定态，禁止新种子放入 | $\square$ Pass $\square$ Fail $\square$ Block | |
-| 🔴 P0 | AI 响应成功后，Grimoire 实体出现在 Canvas 上并且附带初始时间条（满 1 小时） | $\square$ Pass $\square$ Fail $\square$ Block | |
-| 🔴 P0 | 种子词对应卡片被自动弹回 Canvas 游离状态 | $\square$ Pass $\square$ Fail $\square$ Block | |
-| 🟡 P1 | Canvas 上新生成的闭合态显示正确的进度 (0/N 槽位数) | $\square$ Pass $\square$ Fail $\square$ Skip | |
+| 🔴 P0 | 生成期间 Summoner 进入 GENERATING 锁定态，禁止新种子放入 | $✔$ Pass $\square$ Fail $\square$ Block | |
+| 🔴 P0 | AI 响应成功后，Grimoire 实体出现在 Canvas 上并且附带初始时间条（满 1 小时） | $✔$ Pass $\square$ Fail $\square$ Block | |
+| 🔴 P0 | 种子词对应卡片被自动弹回 Canvas 游离状态 | $✔$ Pass $\square$ Fail $\square$ Block | |
+| 🟡 P1 | Canvas 上新生成的闭合态显示正确的进度 (0/N 槽位数) | $✔$ Pass $\square$ Fail $\square$ Skip | |
 
 > ⚠️ **异常路径：AI 超时/断网**：在生成期间断开网络。
-> | 🔴 P0 | 提示网络错误，体力自动退还 60，Summoner 恢复 IDLE | $\square$ Pass $\square$ Fail  | |
+> | 🔴 P0 | 提示网络错误，体力自动退还 60，Summoner 恢复 IDLE | $✔$ Pass $\square$ Fail  | |
 
 💬 **测试者备注**：___________________________________________________________________
 
@@ -125,8 +125,8 @@
 
 | 优先级 | 验证点 | 结果 | 备注 |
 |--------|--------|------|------|
-| 🔴 P0 | 内容面板（左侧）渲染出 `title`, `description` (personaQuest), 以及 `explicitInstruction` | $\square$ Pass $\square$ Fail $\square$ Block | |
-| 🟡 P1 | 点击切换按钮，上述文本能在学习语言（Learning）与系统语言（System）间无缝切换，但边框及控件维持系统语言 | $\square$ Pass $\square$ Fail $\square$ Skip | |
+| 🔴 P0 | 内容面板（左侧）渲染出 `title`, `description` (personaQuest), 以及 `explicitInstruction` | $✔$ Pass $\square$ Fail $\square$ Block | |
+| 🟡 P1 | 点击切换按钮，上述文本能在学习语言（Learning）与系统语言（System）间无缝切换，但边框及控件维持系统语言 | $✔$ Pass $\square$ Fail $\square$ Skip | |
 
 #### 4.2 拖拽交互与部分持久化
 **操作**：从 Canvas 或仓库拖拽一张卡片进入 Grimoire 空槽。随后直接关闭 Modal。再次打开 Modal 观察时间条与填词状态。
