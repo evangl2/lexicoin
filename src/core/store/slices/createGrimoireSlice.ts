@@ -61,33 +61,42 @@ export const createGrimoireSlice: StateCreator<
         activeGrimoires: [...state.activeGrimoires, grimoire]
     })),
 
-    updateGrimoire: (id, updates) => set((state) => ({
-        activeGrimoires: state.activeGrimoires.map((g) =>
-            g.id === id ? { ...g, ...updates } : g
-        )
-    })),
+    updateGrimoire: (id, updates) => set((state) => {
+        const idx = state.activeGrimoires.findIndex((g) => g.id === id);
+        if (idx === -1) return state;
+        const next = [...state.activeGrimoires];
+        next[idx] = { ...next[idx], ...updates };
+        return { activeGrimoires: next };
+    }),
 
-    updateGrimoireStatus: (id, status) => set((state) => ({
-        activeGrimoires: state.activeGrimoires.map((g) =>
-            g.id === id ? { ...g, status } : g
-        )
-    })),
+    updateGrimoireStatus: (id, status) => set((state) => {
+        const idx = state.activeGrimoires.findIndex((g) => g.id === id);
+        if (idx === -1) return state;
+        const next = [...state.activeGrimoires];
+        next[idx] = { ...next[idx], status };
+        return { activeGrimoires: next };
+    }),
 
-    expireGrimoire: (id) => set((state) => ({
-        // First mark as EXPIRED (for animation), then remove
-        activeGrimoires: state.activeGrimoires
-            .map((g) => g.id === id ? { ...g, status: 'EXPIRED' as GrimoireStatus } : g)
-            .filter((g) => g.id !== id)
-    })),
+    expireGrimoire: (id) => set((state) => {
+        const idx = state.activeGrimoires.findIndex((g) => g.id === id);
+        if (idx === -1) return state;
+        // We do not need to mark it as EXPIRED and then filter it immediately
+        // The original logic filtered it out in the same frame, making the state update pointless
+        const next = [...state.activeGrimoires];
+        next.splice(idx, 1);
+        return { activeGrimoires: next };
+    }),
 
     resolveGrimoire: (id) => {
         // Final grade calculation and slot locking are handled in useGrimoireInteraction
         // via updateGrimoire. This action exists for external/direct use only.
-        set((state) => ({
-            activeGrimoires: state.activeGrimoires.map((g) =>
-                g.id === id ? { ...g, status: 'RESOLVED' as GrimoireStatus } : g
-            )
-        }));
+        set((state) => {
+            const idx = state.activeGrimoires.findIndex((g) => g.id === id);
+            if (idx === -1) return state;
+            const next = [...state.activeGrimoires];
+            next[idx] = { ...next[idx], status: 'RESOLVED' as GrimoireStatus };
+            return { activeGrimoires: next };
+        });
     },
 
     archiveGrimoire: (id) => set((state) => {
@@ -108,12 +117,18 @@ export const createGrimoireSlice: StateCreator<
 
     setSummonerStatus: (status) => set({ summonerStatus: status }),
     setActiveGrimoireId: (id) => set({ activeGrimoireId: id }),
-    updateSlotSense: (grimoireId, slotId, senseId) => set((state) => ({
-        activeGrimoires: state.activeGrimoires.map((g) => 
-            g.id === grimoireId ? {
-                ...g,
-                slots: g.slots.map((s) => s.id === slotId ? { ...s, senseId } : s)
-            } : g
-        )
-    })),
+    updateSlotSense: (grimoireId, slotId, senseId) => set((state) => {
+        const idx = state.activeGrimoires.findIndex((g) => g.id === grimoireId);
+        if (idx === -1) return state;
+        const target = state.activeGrimoires[idx];
+        const slotIdx = target.slots.findIndex((s) => s.id === slotId);
+        if (slotIdx === -1) return state;
+
+        const nextSlots = [...target.slots];
+        nextSlots[slotIdx] = { ...nextSlots[slotIdx], senseId };
+
+        const next = [...state.activeGrimoires];
+        next[idx] = { ...target, slots: nextSlots };
+        return { activeGrimoires: next };
+    }),
 });
