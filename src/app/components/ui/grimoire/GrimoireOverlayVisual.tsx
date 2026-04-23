@@ -1,16 +1,17 @@
 /**
  * GrimoireOverlayVisual.tsx
  * 
- * 职责：渲染全屏魔典界面的外壳和布局。
- * 组合左页与右页。
+ * 职责：渲染全屏魔典交互界面。
+ * 包含：翻开的书本背景、左页（叙事）、右页（槽位与动作）。
  */
 
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X } from 'lucide-react';
+import { X, Languages } from 'lucide-react';
 import { GrimoireEntity } from '@/types/index';
 import { GrimoireLeftPage } from './GrimoireLeftPage';
 import { GrimoireRightPage } from './GrimoireRightPage';
+import { getGrimoirePersona } from '@/app/components/persona/grimoire';
 
 interface GrimoireOverlayVisualProps {
     grimoire: GrimoireEntity;
@@ -37,31 +38,58 @@ export const GrimoireOverlayVisual: React.FC<GrimoireOverlayVisualProps> = React
     onArchive,
     onToggleLang
 }) => {
+    const persona = getGrimoirePersona(grimoire.personaId);
+    const { tokens, visuals } = persona;
+
     return (
         <AnimatePresence>
             <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-lg p-8"
+                className="fixed inset-0 z-50 flex items-center justify-center p-8 bg-black/60 backdrop-blur-md"
             >
-                {/* Backdrop Click */}
-                <div className="absolute inset-0" onClick={onClose} />
+                {/* Close Button */}
+                <button
+                    onClick={onClose}
+                    className="absolute top-8 right-8 p-3 rounded-full bg-white/10 hover:bg-white/20 text-white transition-all z-[60]"
+                >
+                    <X size={24} />
+                </button>
 
-                {/* The Physical Book / Manuscript */}
+                {/* Language Toggle */}
+                <button
+                    onClick={onToggleLang}
+                    className="absolute top-8 right-24 flex items-center gap-2 px-4 py-3 rounded-full bg-white/10 hover:bg-white/20 text-white transition-all z-[60]"
+                >
+                    <Languages size={18} />
+                    <span className="text-[10px] font-bold uppercase tracking-widest">{displayLang}</span>
+                </button>
+
+                {/* Main Book Container */}
                 <motion.div
                     initial={{ scale: 0.9, y: 20, rotateX: 10 }}
-                    transition={{ type: "spring", damping: 20, stiffness: 150 }}
                     animate={{ scale: 1, y: 0, rotateX: 0 }}
-                    className="relative w-full max-w-5xl aspect-[1.4/1] bg-[#2a241e] rounded-xl shadow-[0_30px_60px_rgba(0,0,0,0.8)] overflow-hidden flex border border-[#4a3e35]"
-                    onClick={(e) => e.stopPropagation()}
+                    exit={{ scale: 0.9, y: 20, rotateX: 10 }}
+                    className={`relative w-full max-w-6xl aspect-[1.4/1] flex rounded-xl overflow-hidden ${tokens.shadows.overlay}`}
+                    style={{ perspective: '1000px' }}
                 >
+                    {/* Left Page */}
                     <GrimoireLeftPage
                         grimoire={grimoire}
                         displayLang={displayLang}
-                        onToggleLang={onToggleLang}
+                        persona={persona}
                     />
 
+                    {/* Book Spine (Internal) */}
+                    <div className={`w-12 h-full ${tokens.colors.spineBase} relative z-20 flex flex-col justify-between py-12 shadow-[inset_0_0_20px_rgba(0,0,0,0.5)]`}>
+                        <div className="w-full h-[1px] bg-white/5" />
+                        <div className="w-full h-[1px] bg-white/5" />
+                        <div className="w-full h-[1px] bg-white/5" />
+                        <div className="w-full h-[1px] bg-white/5" />
+                    </div>
+
+                    {/* Right Page */}
                     <GrimoireRightPage
                         grimoire={grimoire}
                         displayLang={displayLang}
@@ -70,23 +98,24 @@ export const GrimoireOverlayVisual: React.FC<GrimoireOverlayVisualProps> = React
                         submitting={submitting}
                         onSubmit={onSubmit}
                         onArchive={onArchive}
+                        persona={persona}
                     />
 
-                    {/* Close Button */}
-                    <button 
-                        onClick={onClose}
-                        className="absolute top-6 right-6 w-10 h-10 rounded-full bg-black/10 hover:bg-black/20 flex items-center justify-center transition-colors z-20"
-                    >
-                        <X size={20} className="text-[#3e2723]" />
-                    </button>
-                    
-                    {/* Error Toast (Optional internal display) */}
-                    {error && (
-                        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 px-4 py-2 bg-red-900/80 text-red-100 text-xs rounded-lg border border-red-500/50 backdrop-blur-md z-50">
-                            {error}
-                        </div>
-                    )}
+                    {/* Page Texture Overlays (Global) */}
+                    <visuals.PageTexture />
                 </motion.div>
+
+                {/* Error Banner */}
+                {error && (
+                    <motion.div
+                        initial={{ y: 50, opacity: 0 }}
+                        animate={{ y: 0, opacity: 1 }}
+                        className="absolute bottom-12 left-1/2 -translate-x-1/2 px-6 py-3 bg-red-500 text-white rounded-full font-bold shadow-xl flex items-center gap-3 z-[70]"
+                    >
+                        <span className="text-sm">{error}</span>
+                        <button onClick={onSubmit} className="underline text-xs opacity-80 hover:opacity-100">Retry</button>
+                    </motion.div>
+                )}
             </motion.div>
         </AnimatePresence>
     );

@@ -107,7 +107,6 @@ export const DevConsole: React.FC = () => {
     const [logs, setLogs] = useState<any[]>([]);
     const [logFilter, setLogFilter] = useState('');
     const setSenses = useGameStore(s => s.setSenses);
-    const useWCCards = useGameStore(s => s.featureFlags.useWCCards);
     const setFeatureFlag = useGameStore(s => s.setFeatureFlag);
     const uiTheme = useGameStore(s => s.uiTheme);
     const setUiTheme = useGameStore(s => s.setUiTheme);
@@ -536,15 +535,6 @@ export const DevConsole: React.FC = () => {
                         <div className="system-panel">
                             <h4>🚩 Feature Flags</h4>
                             <div className="system-actions" style={{ flexDirection: 'column', alignItems: 'flex-start', marginBottom: '24px', gap: '12px' }}>
-                                <label className="checkbox-label" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <input
-                                        type="checkbox"
-                                        checked={useWCCards}
-                                        onChange={(e) => setFeatureFlag('useWCCards', e.target.checked)}
-                                    />
-                                    <span>useWCCards</span>
-                                    <span style={{ opacity: 0.5, fontSize: '11px' }}>{useWCCards ? 'ON — Web Component path' : 'OFF — React path'}</span>
-                                </label>
                                 <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px' }}>
                                     <span>Persona (WC)</span>
                                     <select

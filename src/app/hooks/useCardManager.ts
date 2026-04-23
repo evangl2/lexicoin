@@ -378,12 +378,21 @@ export const useCardManager = () => {
             });
         };
         const subDurability = messageBus.subscribe('CARD_DURABILITY_CHANGED', handleDurabilityChanged);
+        
+        const handleLocationChanged = (msg: any) => {
+            const { uid, location } = msg.payload;
+            if (uid && location) {
+                setCardLocation(uid, location);
+            }
+        };
+        const subLocation = messageBus.subscribe('CARD_LOCATION_CHANGED', handleLocationChanged);
 
         return () => {
             sub();
             subVisual();
             subVisualErr();
             subDurability();
+            subLocation();
         };
     }, [isLoaded]);
 

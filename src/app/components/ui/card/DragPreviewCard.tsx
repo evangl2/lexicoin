@@ -1,5 +1,7 @@
 import { CompactCardVisual } from '@/app/components/ui/card/CompactCardVisual';
-import { CardVisual } from '@/app/components/ui/card/CardVisual';
+import { LexiCardChrome } from './web/LexiCardChrome';
+import { getCardWCSlots } from './CardWCSlots';
+import { DefaultCardPersona as DefaultPersona } from '@/app/components/persona/default/Card.persona.default';
 import { useMotionValue } from 'motion/react';
 
 interface DragPreviewCardProps {
@@ -93,17 +95,48 @@ export const DragPreviewCard: React.FC<DragPreviewCardProps> = ({
           persona={commonProps.persona}
         />
       ) : (
-        <CardVisual
-          {...commonProps}
+        <LexiCardChrome
+          persona="default"
           isActive={false}
+          isExpanded={false}
+          isFlipped={false}
           isOver={false}
-          frontOpacity={1}
-          backOpacity={0}
-          flipScaleX={1}
-          // Force disable physics
-          smoothXVelocity={zero}
-          smoothYVelocity={zero}
-          displayRotateY={zero}
+          layoutMode="default"
+          visualFeedback={null}
+          slots={getCardWCSlots({
+            learningData: commonProps.learningData,
+            systemData: commonProps.systemData,
+            currentCardData: {
+              ...commonProps.senseInfo,
+              visual: commonProps.visual,
+            } as any,
+            learningLanguage: commonProps.learningLanguage as any,
+            systemLanguage: commonProps.systemLanguage as any,
+            isCompactLOD: false,
+            isExpanded: false,
+            isFlipped: false,
+            isOverlayOpen: false,
+            selectionItems: [],
+            selectedDefId: '',
+            handleDefinitionClick: () => {},
+            handleSelectDefinition: () => {},
+            wcFlavorContainerRef: { current: null },
+            wcCurrentFlavorContents: [],
+            wcFlavorIndex: 0,
+            wcFlavorDirection: 0,
+            setWcFlavorIndex: () => {},
+            setWcFlavorDirection: () => {},
+            isActive: false,
+            visualFeedback: null,
+            bgParallaxX: zero,
+            bgParallaxY: zero,
+            fgParallaxX: zero,
+            fgParallaxY: zero,
+            backFaceMounted: false,
+            WcScrapLabel: persona?.visuals?.ScrapLabel,
+            title: title,
+            CardPersona: persona || DefaultPersona,
+          })}
         />
       )}
     </div>

@@ -44,6 +44,8 @@ export interface GrimoireActions {
     updateSlotSense: (grimoireId: UUID, slotId: UUID, senseId: UUID | null) => void;
     /** Semantic action: Fill a slot and optionally remove from inventory */
     fillGrimoireSlot: (grimoireId: UUID, slotId: UUID, senseId: UUID, inventoryInstanceId?: UUID) => void;
+    /** Semantic action: Remove a card from a slot (e.g. by dragging it out) */
+    unfillGrimoireSlot: (grimoireId: UUID, slotId: UUID) => void;
 }
 
 export const createGrimoireSlice: StateCreator<
@@ -77,8 +79,6 @@ export const createGrimoireSlice: StateCreator<
     expireGrimoire: (id) => set((state) => {
         const idx = state.activeGrimoires.findIndex((g) => g.id === id);
         if (idx === -1) return state;
-        // We do not need to mark it as EXPIRED and then filter it immediately
-        // The original logic filtered it out in the same frame, making the state update pointless
         const next = [...state.activeGrimoires];
         next.splice(idx, 1);
         return { activeGrimoires: next };
@@ -94,9 +94,7 @@ export const createGrimoireSlice: StateCreator<
         const grimoire = state.activeGrimoires.find(g => g.id === id);
         if (!grimoire || grimoire.status !== 'RESOLVED') return state;
 
-        // Max 99 books in library
         if (state.libraryGrimoires.length >= 99) {
-            // TODO: Add notification via get().addNotification
             return state;
         }
 
@@ -122,13 +120,29 @@ export const createGrimoireSlice: StateCreator<
 
     fillGrimoireSlot: (grimoireId, slotId, senseId, inventoryInstanceId) => {
         const state = get();
-        
-        // 1. Update the slot
         state.updateSlotSense(grimoireId, slotId, senseId);
-        
-        // 2. If it came from inventory, remove it
         if (inventoryInstanceId) {
             state.removeInventoryItem(inventoryInstanceId);
         }
+    },
+
+    unfillGrimoireSlot: (grimoireId, slotId) => {
+        const state = get();
+        const grimoire = state.activeGrimoires.find(g => g.id === grimoireId);
+        if (!grimoire) return;
+        
+        const slot = grimoire.slots.find(s => s.id === slotId);
+        if (!slot || !slot.senseId) return;
+
+        const senseId = slot.senseId;
+        state.updateSlotSense(grimoireId, slotId, null);
+        
+        // Return to Repository (prevents loss)
+        import('../../protocol/MessageBus').then(({ messageBus }) => {
+            messageBus.send('CARD_LOCATION_CHANGED', { 
+                uid: senseId, 
+                location: 'repository' 
+            }, 'GrimoireModule');
+        });
     },
 });

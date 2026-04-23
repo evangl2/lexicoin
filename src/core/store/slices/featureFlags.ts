@@ -3,7 +3,6 @@ import type { GameStore } from '../interfaces';
 
 export interface FeatureFlagsState {
     featureFlags: {
-        useWCCards: boolean;
     };
     setFeatureFlag: <K extends keyof FeatureFlagsState['featureFlags']>(
         key: K,
@@ -13,7 +12,6 @@ export interface FeatureFlagsState {
 
 export const createFeatureFlagsSlice: StateCreator<GameStore, [], [], FeatureFlagsState> = (set) => ({
     featureFlags: {
-        useWCCards: true,
     },
     setFeatureFlag: (key, value) =>
         set((state) => ({

@@ -10,6 +10,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Award, Star, Archive, Send, Loader2 } from 'lucide-react';
 import { GrimoireEntity } from '@/types/index';
 import { GrimoireSlot } from './GrimoireSlot';
+import { GrimoirePersonaBundle } from '@/app/components/persona/grimoire/Grimoire.persona.base';
 
 interface GrimoireRightPageProps {
     grimoire: GrimoireEntity;
@@ -19,6 +20,7 @@ interface GrimoireRightPageProps {
     submitting: boolean;
     onSubmit: () => void;
     onArchive: () => void;
+    persona: GrimoirePersonaBundle;
 }
 
 export const GrimoireRightPage: React.FC<GrimoireRightPageProps> = React.memo(({
@@ -28,25 +30,30 @@ export const GrimoireRightPage: React.FC<GrimoireRightPageProps> = React.memo(({
     isFailing,
     submitting,
     onSubmit,
-    onArchive
+    onArchive,
+    persona
 }) => {
+    const { tokens, visuals } = persona;
     const grimoireStatus = grimoire.status;
 
     return (
-        <div className="flex-1 h-full bg-[#faedd0] relative overflow-hidden flex flex-col p-12">
-            {/* Parchment Texture Overlay */}
-            <div className="absolute inset-0 opacity-[0.03] pointer-events-none bg-[url('https://www.transparenttextures.com/patterns/handmade-paper.png')]" />
-            <div className="absolute inset-0 shadow-[inset_0_0_100px_rgba(139,69,19,0.05)] pointer-events-none" />
+        <div className={`flex-1 h-full ${tokens.colors.pageBg} relative overflow-hidden flex flex-col p-12`}>
+            {/* Background Texture Overlay (Handled by PageTexture in parent, but can add specifics here) */}
 
             <div className="relative z-10 flex flex-col h-full">
                 <div className="flex justify-between items-center mb-6">
-                    <span className="text-[10px] font-bold tracking-[0.3em] uppercase text-[#8d6e63]">Sacred Slots</span>
+                    <span className={`text-[10px] font-bold tracking-[0.3em] uppercase ${tokens.colors.textSecondary}`} style={{ fontFamily: tokens.typography.titleFamily }}>
+                        Sacred Slots
+                    </span>
                     <div className="flex gap-1">
                         {grimoire.slots.map((s) => (
-                            <div key={s.id} className={`w-1.5 h-1.5 rounded-full ${s.senseId ? 'bg-emerald-500' : 'bg-[#8d6e63]/20'}`} />
+                            <div key={s.id} className={`w-1.5 h-1.5 rounded-full ${s.senseId ? tokens.colors.textAccent : tokens.colors.textSecondary + ' opacity-20'}`} />
                         ))}
                     </div>
                 </div>
+
+                {/* Persona Divider */}
+                <visuals.Divider />
 
                 <div className="flex-1 space-y-3 overflow-y-auto pr-2 scrollbar-hide">
                     {grimoire.slots.map((slot, index) => (
@@ -72,12 +79,14 @@ export const GrimoireRightPage: React.FC<GrimoireRightPageProps> = React.memo(({
                             className="absolute bottom-32 right-12 pointer-events-none"
                         >
                             <div className="relative flex items-center justify-center">
-                                <Award className="text-red-600/20 w-48 h-48" />
-                                <div className="absolute inset-0 flex flex-col items-center justify-center border-4 border-red-600/40 rounded-full scale-75 rotate-12">
-                                    <span className="text-[10px] font-bold tracking-[0.4em] text-red-600/60 uppercase">Final Rating</span>
-                                    <span className="text-6xl font-serif font-black text-red-600/80 italic">{grimoire.finalGrade}</span>
+                                <Award className={`${tokens.colors.textAccent} opacity-10 w-48 h-48`} />
+                                <div className={`absolute inset-0 flex flex-col items-center justify-center border-4 ${tokens.colors.stampS} rounded-full scale-75 rotate-12`}>
+                                    <span className="text-[10px] font-bold tracking-[0.4em] uppercase opacity-60">Final Rating</span>
+                                    <span className={`text-6xl font-serif font-black italic`} style={{ fontFamily: tokens.typography.titleFamily }}>
+                                        {grimoire.finalGrade}
+                                    </span>
                                     <div className="flex gap-1 mt-1">
-                                        {[...Array(3)].map((_, i) => <Star key={i} size={10} className="fill-red-600/40 text-transparent" />)}
+                                        {[...Array(3)].map((_, i) => <Star key={i} size={10} className={`fill-current text-current opacity-40`} />)}
                                     </div>
                                 </div>
                             </div>
@@ -86,8 +95,8 @@ export const GrimoireRightPage: React.FC<GrimoireRightPageProps> = React.memo(({
                 </AnimatePresence>
 
                 {/* Actions / Footer */}
-                <div className="mt-8 pt-6 border-t border-[#3e2723]/10 flex justify-between items-center">
-                    <div className="text-[10px] text-[#3e2723]/40 font-mono italic">
+                <div className={`mt-8 pt-6 border-t ${tokens.colors.pageBorder} flex justify-between items-center`}>
+                    <div className={`text-[10px] ${tokens.colors.textSecondary} opacity-60 font-mono italic`}>
                         {grimoireStatus === 'RESOLVED' ? 'Ritual completed. Archive to Library.' : 'Assemble the senses to fulfill the persona\'s logic.'}
                     </div>
 
@@ -97,7 +106,7 @@ export const GrimoireRightPage: React.FC<GrimoireRightPageProps> = React.memo(({
                                 whileHover={{ scale: 1.05 }}
                                 whileTap={{ scale: 0.95 }}
                                 onClick={onArchive}
-                                className="flex items-center gap-2 px-8 py-3 rounded-full font-serif italic font-bold shadow-xl transition-all bg-amber-700 text-white hover:bg-amber-800 shadow-amber-900/20"
+                                className={`flex items-center gap-2 px-8 py-3 rounded-full font-serif italic font-bold shadow-xl transition-all ${tokens.colors.coverBase} text-white hover:brightness-110 shadow-amber-900/20`}
                             >
                                 <Archive size={20} />
                                 Archive to Library
@@ -109,7 +118,7 @@ export const GrimoireRightPage: React.FC<GrimoireRightPageProps> = React.memo(({
                                 className={`
                                     flex items-center gap-2 px-8 py-3 rounded-full font-serif italic font-bold shadow-xl transition-all
                                     ${grimoire.slots.every(s => s.senseId) && !isEvaluating && !submitting
-                                        ? 'bg-[#3e2723] text-[#fdf2d5] hover:bg-[#2d1d1a]' 
+                                        ? `${tokens.colors.textPrimary} bg-white border border-current hover:bg-zinc-50` 
                                         : 'bg-zinc-200 text-zinc-400 cursor-not-allowed shadow-none'}
                                 `}
                             >

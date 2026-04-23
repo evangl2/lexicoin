@@ -1,11 +1,9 @@
-import React, { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect, useCallback, useMemo, startTransition } from 'react';
 import { useCardVariants } from '@/app/hooks/useCardVariants';
 import { useDrop } from 'react-dnd';
 import { motion, useMotionValue, MotionValue } from 'motion/react';
 import { useWindowDimensions } from '@/app/hooks/useWindowDimensions';
 import { DefaultCardPersona as CardPersona } from '@/app/components/persona/default/Card.persona.default';
-import { CardVisual } from '@/app/components/ui/card/CardVisual';
-import { CompactCardVisual } from '@/app/components/ui/card/CompactCardVisual';
 import { LexiCardChrome } from '@/app/components/ui/card/web/LexiCardChrome';
 import { cardFocusRegistry } from '@/app/utils/cardFocusRegistry';
 import { tts } from '@/app/utils/audio/tts';
@@ -128,7 +126,6 @@ export const Card = React.memo<CardProps>(({
   });
 
   // ========== UI Store & Theme ==========
-  const useWCCards = useGameStore(s => s.featureFlags.useWCCards);
   const uiTheme = useGameStore(s => s.uiTheme);
   const focusCard = useGameStore(s => s.focusCard);
   const blurCard = useGameStore(s => s.blurCard);
@@ -169,13 +166,25 @@ export const Card = React.memo<CardProps>(({
   // ========== Mouse & Interaction ==========
   useEffect(() => {
     if (!isExpanded || isFlipped) return;
+    // RAF throttle: accumulate latest coords and flush once per frame.
+    // Without this, 120-240Hz mice drove the full tilt+parallax chain multiple times per frame.
+    let lastX = 0, lastY = 0, rafId: number | null = null;
     const handleMouseMove = (e: MouseEvent) => {
       if (isPanningRef?.current) return;
-      mouseX.set(e.clientX);
-      mouseY.set(e.clientY);
+      lastX = e.clientX;
+      lastY = e.clientY;
+      if (rafId !== null) return;
+      rafId = requestAnimationFrame(() => {
+        rafId = null;
+        mouseX.set(lastX);
+        mouseY.set(lastY);
+      });
     };
-    window.addEventListener('mousemove', handleMouseMove);
-    return () => window.removeEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mousemove', handleMouseMove, { passive: true });
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      if (rafId !== null) cancelAnimationFrame(rafId);
+    };
   }, [isExpanded, isFlipped, mouseX, mouseY, isPanningRef]);
 
   // ========== Visual Feedback Effect ==========
@@ -204,8 +213,17 @@ export const Card = React.memo<CardProps>(({
     [learningData.flavorContents, wcCurrentPersonaName]
   );
 
+  const handleDefinitionClickCb = useCallback(() => setIsOverlayOpen(true), []);
+
+  const handleSelectDefinitionCb = useCallback((item: any) => {
+    setActiveUid(item.id);
+    setIsOverlayOpen(false);
+    const variant = sortedVariants.find((v: CardEntity) => v.uid === item.id);
+    const def = variant?.displayData[learningLanguage]?.definition;
+    if (def) tts.speak(def, learningLanguage);
+  }, [setActiveUid, sortedVariants, learningLanguage]);
+
   useEffect(() => {
-    if (!useWCCards) return;
     const el = wcFlavorContainerRef.current;
     if (!el) return;
     const handleWheel = (e: WheelEvent) => {
@@ -222,35 +240,50 @@ export const Card = React.memo<CardProps>(({
     };
     el.addEventListener('wheel', handleWheel, { passive: false });
     return () => el.removeEventListener('wheel', handleWheel);
-  }, [useWCCards, isFlipped, isExpanded, wcAvailablePersonas.length]);
+  }, [isFlipped, isExpanded, wcAvailablePersonas.length]);
 
   useLayoutEffect(() => {
-    if (!useWCCards) return;
     const host = wcHostRef.current;
     if (!host?.shadowRoot) return;
     const flipEl = host.shadowRoot.querySelector('[part="flip-wrapper"]') as HTMLElement | null;
     const frontEl = host.shadowRoot.querySelector('[part="front-face"]') as HTMLElement | null;
     const backEl = host.shadowRoot.querySelector('[part="back-face"]') as HTMLElement | null;
 
-    const applyFlip = (v: number) => { if (flipEl) flipEl.style.transform = `scaleX(${v})`; };
-    const applyFace = (el: HTMLElement | null, v: number) => {
-      if (el) { el.style.opacity = String(v); el.style.pointerEvents = v > 0.5 ? 'auto' : 'none'; }
+    // Track last pointerEvents state to avoid forcing event-tree recalc every frame.
+    let prevFrontOver = animation.frontOpacity.get() > 0.5;
+    let prevBackOver = animation.backOpacity.get() > 0.5;
+    let pending = false;
+
+    // Batch all three shadow DOM writes into a single microtask flush.
+    // Previously, three independent .on('change') callbacks each caused a separate style mutation.
+    const flush = () => {
+      pending = false;
+      if (flipEl) flipEl.style.transform = `scaleX(${animation.flipScaleX.get()})`;
+      if (frontEl) {
+        const v = animation.frontOpacity.get();
+        frontEl.style.opacity = String(v);
+        const over = v > 0.5;
+        if (over !== prevFrontOver) { frontEl.style.pointerEvents = over ? 'auto' : 'none'; prevFrontOver = over; }
+      }
+      if (backEl) {
+        const v = animation.backOpacity.get();
+        backEl.style.opacity = String(v);
+        const over = v > 0.5;
+        if (over !== prevBackOver) { backEl.style.pointerEvents = over ? 'auto' : 'none'; prevBackOver = over; }
+      }
     };
+    const schedule = () => { if (pending) return; pending = true; Promise.resolve().then(flush); };
 
-    applyFlip(animation.flipScaleX.get());
-    applyFace(frontEl, animation.frontOpacity.get());
-    applyFace(backEl, animation.backOpacity.get());
-
+    flush();
     const unsubs = [
-      animation.flipScaleX.on('change', applyFlip),
-      animation.frontOpacity.on('change', (v) => applyFace(frontEl, v)),
-      animation.backOpacity.on('change', (v) => applyFace(backEl, v)),
+      animation.flipScaleX.on('change', schedule),
+      animation.frontOpacity.on('change', schedule),
+      animation.backOpacity.on('change', schedule),
     ];
     return () => unsubs.forEach(u => u());
-  }, [useWCCards, uiTheme, animation.flipScaleX, animation.frontOpacity, animation.backOpacity]);
+  }, [uiTheme, animation.flipScaleX, animation.frontOpacity, animation.backOpacity]);
 
   useEffect(() => {
-    if (!useWCCards) return;
     const host = wcHostRef.current;
     if (!host?.shadowRoot) return;
     const frontEl = host.shadowRoot.querySelector('[part="front-face"]') as HTMLElement | null;
@@ -260,7 +293,7 @@ export const Card = React.memo<CardProps>(({
     };
     applyFace(frontEl, animation.frontOpacity.get());
     applyFace(backEl, animation.backOpacity.get());
-  }, [useWCCards, uiTheme, isFlipped, isExpanded, animation.frontOpacity, animation.backOpacity]);
+  }, [uiTheme, isFlipped, isExpanded, animation.frontOpacity, animation.backOpacity]);
 
   // ========== Selection Overlay Helpers ==========
   const selectionItems = useMemo(() => sortedVariants.map(variant => ({
@@ -287,6 +320,27 @@ export const Card = React.memo<CardProps>(({
   const isActive = (isHovered || isExpanded || isOver || isOverlayOpen) && !isAnimating;
   const backFaceMountedRef = useRef(false);
   if (isExpanded || isFlipped) backFaceMountedRef.current = true;
+
+  const slots = useMemo(() => getCardWCSlots({
+    learningData, systemData, currentCardData, learningLanguage, systemLanguage,
+    isCompactLOD, isExpanded, isFlipped, isOverlayOpen, selectionItems,
+    selectedDefId: activeUid,
+    handleDefinitionClick: handleDefinitionClickCb,
+    handleSelectDefinition: handleSelectDefinitionCb,
+    wcFlavorContainerRef, wcCurrentFlavorContents, wcFlavorIndex, wcFlavorDirection,
+    setWcFlavorIndex, setWcFlavorDirection, isActive, visualFeedback,
+    bgParallaxX: physics.bgParallaxX, bgParallaxY: physics.bgParallaxY,
+    fgParallaxX: physics.fgParallaxX, fgParallaxY: physics.fgParallaxY,
+    backFaceMounted: backFaceMountedRef.current,
+    WcScrapLabel: CardPersona.visuals.ScrapLabel as any,
+    title, CardPersona,
+  }), [
+    learningData, systemData, currentCardData, learningLanguage, systemLanguage,
+    isCompactLOD, isExpanded, isFlipped, isOverlayOpen, selectionItems,
+    activeUid, handleDefinitionClickCb, handleSelectDefinitionCb,
+    wcCurrentFlavorContents, wcFlavorIndex, wcFlavorDirection,
+    isActive, visualFeedback, title,
+  ]);
 
   const targetShadow = isExpanded ? CardPersona.tokens.shadows.expanded 
     : isHoveredRef.current ? CardPersona.tokens.shadows.hover 
@@ -318,70 +372,29 @@ export const Card = React.memo<CardProps>(({
       }}
       onHoverStart={() => {
         if (isFlipped) return;
-        isHoveredRef.current = true; setIsHovered(true); setVisualFeedback(null);
+        isHoveredRef.current = true;
+        // startTransition defers the re-render as non-urgent so it doesn't compete
+        // with the scale spring animation kicking off in the same frame.
+        startTransition(() => setIsHovered(true));
+        setVisualFeedback(null);
         if (!isExpanded) animation.scaleSpring.set(1.08);
       }}
       onHoverEnd={() => {
         if (isFlipped) return;
-        isHoveredRef.current = false; setIsHovered(false);
+        isHoveredRef.current = false;
+        startTransition(() => setIsHovered(false));
         if (!isExpanded && !isDraggingRef.current) animation.scaleSpring.set(1);
       }}
       className="canvas-card select-none group relative transition-colors duration-300"
     >
       <div ref={scaleWrapperRef} style={{ width: '100%', height: '100%', transformOrigin: 'center center' }}>
-        {useWCCards ? (
-          <LexiCardChrome
-            persona={(uiTheme as 'default' | 'cyberpunk')}
-            isActive={isActive} isExpanded={isExpanded} isFlipped={isFlipped} isOver={isOver}
-            layoutMode={isCompactLOD && !isExpanded && !isFlipped ? 'compact' : 'default'}
-            visualFeedback={visualFeedback} hostRef={wcHostRef}
-            slots={getCardWCSlots({
-              learningData, systemData, currentCardData, learningLanguage, systemLanguage,
-              isCompactLOD, isExpanded, isFlipped, isOverlayOpen, selectionItems,
-              selectedDefId: activeUid, handleDefinitionClick: () => setIsOverlayOpen(true),
-              handleSelectDefinition: (item) => {
-                setActiveUid(item.id); setIsOverlayOpen(false);
-                const variant = sortedVariants.find(v => v.uid === item.id);
-                const def = variant?.displayData[learningLanguage]?.definition;
-                if (def) tts.speak(def, learningLanguage);
-              },
-              wcFlavorContainerRef, wcCurrentFlavorContents, wcFlavorIndex, wcFlavorDirection,
-              setWcFlavorIndex, setWcFlavorDirection, isActive, visualFeedback,
-              bgParallaxX: physics.bgParallaxX, bgParallaxY: physics.bgParallaxY,
-              fgParallaxX: physics.fgParallaxX, fgParallaxY: physics.fgParallaxY,
-              backFaceMounted: backFaceMountedRef.current,
-              WcScrapLabel: CardPersona.visuals.ScrapLabel as any,
-              title, CardPersona
-            })}
-          />
-        ) : (isCompactLOD && !isExpanded && !isFlipped) ? (
-          <CompactCardVisual
-            mode="repository" learningData={learningData} senseInfo={currentCardData.senseInfo}
-            visual={currentCardData.visual} persona={CardPersona} isActive={isActive}
-          />
-        ) : (
-          <CardVisual
-            learningData={learningData} systemData={systemData}
-            senseInfo={currentCardData.senseInfo} visual={currentCardData.visual}
-            learningLanguage={learningLanguage} systemLanguage={systemLanguage}
-            isActive={isActive} isOver={isOver}
-            flipScaleX={animation.flipScaleX} frontOpacity={animation.frontOpacity} backOpacity={animation.backOpacity}
-            bgParallaxX={physics.bgParallaxX} bgParallaxY={physics.bgParallaxY}
-            fgParallaxX={physics.fgParallaxX} fgParallaxY={physics.fgParallaxY}
-            displayRotateY={physics.displayRotateY}
-            smoothXVelocity={physics.smoothXVelocity} smoothYVelocity={physics.smoothYVelocity}
-            isExpanded={isExpanded} backFaceMounted={backFaceMountedRef.current}
-            isOverlayOpen={isOverlayOpen} selectionItems={selectionItems}
-            selectedDefId={activeUid} onDefinitionClick={() => setIsOverlayOpen(true)}
-            onSelectDefinition={(item) => {
-              setActiveUid(item.id); setIsOverlayOpen(false);
-              const variant = sortedVariants.find(v => v.uid === item.id);
-              const def = variant?.displayData[learningLanguage]?.definition;
-              if (def) tts.speak(def, learningLanguage);
-            }}
-            visualFeedback={visualFeedback}
-          />
-        )}
+        <LexiCardChrome
+          persona={(uiTheme as 'default' | 'cyberpunk')}
+          isActive={isActive} isExpanded={isExpanded} isFlipped={isFlipped} isOver={isOver}
+          layoutMode={isCompactLOD && !isExpanded && !isFlipped ? 'compact' : 'default'}
+          visualFeedback={visualFeedback} hostRef={wcHostRef}
+          slots={slots}
+        />
       </div>
     </motion.div >
   );

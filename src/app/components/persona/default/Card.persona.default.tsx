@@ -244,38 +244,7 @@ const CrucibleFrame = React.memo(() => (
   </>
 ));
 
-const SunMoonDivider = React.memo(() => (
-  <div className="relative flex items-center justify-center w-full mb-5 opacity-90">
-    <div className="h-[1px] w-full max-w-[140px]" style={{ background: definitions.gradients.sheen }} />
-    <div className="absolute flex items-center justify-center">
-      <div className="w-3 h-3 rounded-full border flex items-center justify-center z-10" style={{ borderColor: definitions.colors.goldBright, backgroundColor: definitions.colors.obsidian, boxShadow: `0 0 10px rgba(240, 208, 130, 0.3)` }}>
-        <div className="w-1 h-1 rounded-full" style={{ backgroundColor: definitions.colors.goldBright, boxShadow: `0 0 4px ${definitions.colors.goldBright}` }} />
-      </div>
-      <div className="absolute -left-5 w-3 h-3 rounded-full border-l -rotate-45" style={{ borderColor: tokens.colors.borderHighlight }} />
-      <div className="absolute -right-5 w-3 h-3 rounded-full border-r rotate-45" style={{ borderColor: tokens.colors.borderHighlight }} />
-    </div>
-  </div>
-));
 
-const BackTopDecoration = React.memo(() => (
-  <div className="w-full flex items-center justify-center mb-1 opacity-70">
-    <div className="h-[1px] flex-1 mr-2" style={{ background: `linear-gradient(to right, transparent, ${tokens.colors.borderOuter}, transparent)` }} />
-    <svg width="24" height="12" viewBox="0 0 24 12" style={{ color: definitions.colors.goldBase }}>
-      <path d="M12 0L14 4L18 5L14 6L12 10L10 6L6 5L10 4L12 0Z" fill="currentColor" />
-      <circle cx="2" cy="6" r="1" fill="currentColor" opacity="0.6" />
-      <circle cx="22" cy="6" r="1" fill="currentColor" opacity="0.6" />
-    </svg>
-    <div className="h-[1px] flex-1 ml-2" style={{ background: `linear-gradient(to right, transparent, ${tokens.colors.borderOuter}, transparent)` }} />
-  </div>
-));
-
-const BackMiddleSeparator = React.memo(() => (
-  <div className="w-full flex items-center justify-center my-3 opacity-60">
-    <div className="w-1.5 h-1.5 rotate-45 border bg-black/40" style={{ borderColor: definitions.colors.goldBase }} />
-    <div className="h-[1px] w-full max-w-[80%] mx-2" style={{ backgroundColor: tokens.colors.borderInner }} />
-    <div className="w-1.5 h-1.5 rotate-45 border bg-black/40" style={{ borderColor: definitions.colors.goldBase }} />
-  </div>
-));
 
 const AlchemyDurabilityBar = React.memo(({ progress }: { progress: number }) => (
   <div className="w-full flex justify-center items-end pb-[1px]">
@@ -303,9 +272,9 @@ export const DefaultCardPersona = {
     Background: HermeticBackground,
     Corners: AlchemicalCorners,
     Frame: CrucibleFrame,
-    Divider: SunMoonDivider,
-    BackTop: BackTopDecoration,
-    BackSeparator: BackMiddleSeparator,
+    Divider: null,
+    BackTop: null,
+    BackSeparator: null,
     DurabilityBar: AlchemyDurabilityBar,
     ScrapLabel: null, // Placeholder for other personas
     TextureOverlay: null, // Placeholder for other personas

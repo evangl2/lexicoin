@@ -1,6 +1,6 @@
 import React from 'react';
 import { MotionValue } from 'motion/react';
-import { MemoizedCardVisual } from '@/app/components/ui/card/CardVisual';
+import { MemoizedCardVisual } from '@/app/components/ui/card/MemoizedCardVisual';
 import { TieredText } from '@/app/components/ui/text/TieredText';
 import { FlavorCarousel } from '@/app/components/ui/text/FlavorCarousel';
 import { SelectionOverlay } from '@/app/components/ui/canvas/SelectionOverlay';

@@ -187,41 +187,55 @@ export function useCardAnimation({
     if (!wrapper || !card) return;
     const scaleSource = externalScale ?? scaleSpring;
 
+    // Hysteresis prevents layer promotion/demotion oscillation near the threshold.
+    // Promote when scale crosses 1.05 upward; demote only when it falls below 0.97.
+    const PROMOTE_AT = 1.05;
+    const DEMOTE_AT = 0.97;
+    let promoted = scaleSource.get() > PROMOTE_AT;
+
+    const applyPromoted = (v: number) => {
+      card.style.transformStyle = 'flat';
+      card.style.willChange = 'transform';
+      wrapper.style.transformStyle = 'preserve-3d';
+      wrapper.style.transform = `scale(${v}) translateZ(0)`;
+    };
+    const applyDemoted = (v: number) => {
+      card.style.transformStyle = 'preserve-3d';
+      card.style.willChange = 'auto';
+      wrapper.style.transformStyle = '';
+      wrapper.style.transform = `scale(${v})`;
+    };
+
     const sync = (v: number) => {
-      if (v > 1.01) {
-        card.style.transformStyle = 'flat';
-        card.style.willChange = 'transform';
-        wrapper.style.transformStyle = 'preserve-3d';
-        wrapper.style.transform = `scale(${v}) translateZ(0)`;
+      if (!promoted && v > PROMOTE_AT) {
+        promoted = true;
+        applyPromoted(v);
+      } else if (promoted && v < DEMOTE_AT) {
+        promoted = false;
+        applyDemoted(v);
       } else {
-        card.style.transformStyle = 'preserve-3d';
-        card.style.willChange = 'auto';
-        wrapper.style.transformStyle = '';
-        wrapper.style.transform = `scale(${v})`;
+        wrapper.style.transform = promoted ? `scale(${v}) translateZ(0)` : `scale(${v})`;
       }
     };
-    sync(scaleSource.get());
+    promoted ? applyPromoted(scaleSource.get()) : applyDemoted(scaleSource.get());
     const unsub = scaleSource.on('change', sync);
 
+    // Single-RAF rerasterize: demote layer for one frame then re-promote with fresh pixels.
+    // Double-RAF removed — it caused a visible 2-frame (~33ms) stutter on settle.
     const forceRerasterize = (v: number) => {
       if (!card.isConnected || !wrapper.isConnected) return;
       card.style.willChange = 'auto';
-      card.style.opacity = '0.999';
       wrapper.style.transform = `scale(${v})`;
       requestAnimationFrame(() => {
         if (!card.isConnected || !wrapper.isConnected) return;
-        requestAnimationFrame(() => {
-          if (!card.isConnected || !wrapper.isConnected) return;
-          card.style.willChange = 'transform';
-          card.style.opacity = '1';
-          wrapper.style.transform = `scale(${v}) translateZ(0)`;
-        });
+        card.style.willChange = 'transform';
+        wrapper.style.transform = `scale(${v}) translateZ(0)`;
       });
     };
 
     let scaleSettleRaf: number | null = null;
     const onScaleChange = (v: number) => {
-      if (v <= 1.01) {
+      if (v <= PROMOTE_AT) {
         if (scaleSettleRaf !== null) { cancelAnimationFrame(scaleSettleRaf); scaleSettleRaf = null; }
         return;
       }
@@ -229,7 +243,7 @@ export function useCardAnimation({
         if (scaleSettleRaf === null) {
           scaleSettleRaf = requestAnimationFrame(() => {
             scaleSettleRaf = null;
-            if (Math.abs(scaleSource.getVelocity()) < 0.5 && scaleSource.get() > 1.01) {
+            if (Math.abs(scaleSource.getVelocity()) < 0.5 && scaleSource.get() > PROMOTE_AT) {
               forceRerasterize(scaleSource.get());
             }
           });
@@ -242,7 +256,7 @@ export function useCardAnimation({
 
     const onFlipChange = (v: number) => {
       const atRest = v < 0.01 || v > 0.99;
-      if (atRest && Math.abs(flipSpring.getVelocity()) < 0.5 && scaleSource.get() > 1.01) {
+      if (atRest && Math.abs(flipSpring.getVelocity()) < 0.5 && scaleSource.get() > PROMOTE_AT) {
         forceRerasterize(scaleSource.get());
       }
     };

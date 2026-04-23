@@ -8,7 +8,7 @@
  */
 
 import React from 'react';
-import { MotionValue } from 'motion/react';
+import { MotionValue, useMotionValue } from 'motion/react';
 import { GrimoireEntity } from '@/types/index';
 import { useGameStore } from '@/core/store';
 import { useGrimoireDrop } from '@/app/hooks/useGrimoireDrop';
@@ -26,10 +26,15 @@ export const Grimoire: React.FC<GrimoireProps> = ({
     grimoire, 
     x, 
     y, 
+    canvasScale,
     isLibraryView = false 
 }) => {
     const setActiveGrimoireId = useGameStore(s => s.setActiveGrimoireId);
     
+    // Provide a fallback motion value if none exists (e.g., initial render or detached views)
+    const fallbackScale = useMotionValue(1);
+    const scale = canvasScale || fallbackScale;
+
     const isOpenable = grimoire.status !== 'SUMMONING' && !isLibraryView;
     const isEvaluating = grimoire.status === 'EVALUATING';
 
@@ -55,6 +60,7 @@ export const Grimoire: React.FC<GrimoireProps> = ({
             dropRef={dropRef as any}
             x={x}
             y={y}
+            canvasScale={scale}
             onOpen={handleOpen}
         />
     );
