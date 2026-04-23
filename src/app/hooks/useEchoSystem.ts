@@ -9,7 +9,7 @@ export const useEchoSystem = () => {
     const [isExtracting, setIsExtracting] = useState(false);
     const consumeEchoCharge = useGameStore(s => s.consumeEchoCharge);
     const addNotification = useGameStore(s => s.addNotification);
-    const player = useGameStore(s => s.player);
+    const settings = useGameStore(s => s.player?.settings);
 
     const extractEcho = useCallback(async (grimoire: GrimoireEntity) => {
         if (isExtracting) return;
@@ -25,8 +25,8 @@ export const useEchoSystem = () => {
             // Pick a random word from the hidden validation tags
             const echoWord = tags[Math.floor(Math.random() * tags.length)]!;
 
-            const learningLang = player.settings.learningLang;
-            const systemLang = player.settings.interfaceLang;
+            const learningLang = settings?.learningLang ?? 'en';
+            const systemLang = settings?.interfaceLang ?? 'zh';
 
             // Always create a fresh Echo Sense — the point is to surface words
             // the player may not yet own, not to retrieve existing cards
@@ -67,7 +67,7 @@ export const useEchoSystem = () => {
         } finally {
             setTimeout(() => setIsExtracting(false), 1500);
         }
-    }, [isExtracting, consumeEchoCharge, addNotification, player.settings]);
+    }, [isExtracting, consumeEchoCharge, addNotification, settings]);
 
     return { extractEcho, isExtracting };
 };

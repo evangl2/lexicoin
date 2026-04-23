@@ -129,7 +129,11 @@ export const createProgressionSlice: StateCreator<
                 nextActive = state.activeGrimoires.filter(g => g.id !== grimoireId);
                 nextLibrary = [...state.libraryGrimoires, updatedG];
             } else {
-                nextLibrary = state.libraryGrimoires.map(g => g.id === grimoireId ? updatedG : g);
+                const libIdx = state.libraryGrimoires.findIndex(g => g.id === grimoireId);
+                if (libIdx !== -1) {
+                    nextLibrary = [...state.libraryGrimoires];
+                    nextLibrary[libIdx] = updatedG;
+                }
             }
 
             return {

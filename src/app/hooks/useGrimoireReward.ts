@@ -19,7 +19,7 @@ export function useGrimoireReward() {
     const activeGrimoires = useGameStore(s => s.activeGrimoires);
     const libraryGrimoires = useGameStore(s => s.libraryGrimoires);
     const claimGrimoireReward = useGameStore(s => s.claimGrimoireReward);
-    const player = useGameStore(s => s.player);
+    const settings = useGameStore(s => s.player?.settings);
 
     const claim = useCallback(async (grimoireId: UUID) => {
         const grimoire =
@@ -40,8 +40,8 @@ export function useGrimoireReward() {
                 ? grimoire.validationTags[Math.floor(Math.random() * grimoire.validationTags.length)]
                 : grimoire.seedWord;
 
-            const learningLang = player.settings.learningLang;
-            const systemLang = player.settings.interfaceLang;
+            const learningLang = settings?.learningLang ?? 'en';
+            const systemLang = settings?.interfaceLang ?? 'zh';
 
             const echoSense: Sense = {
                 id: generateId(),
@@ -84,7 +84,7 @@ export function useGrimoireReward() {
             logger.error('Failed to claim grimoire rewards', err, 'GrimoireReward');
             setIsClaiming(false);
         }
-    }, [activeGrimoires, libraryGrimoires, claimGrimoireReward, player.settings]);
+    }, [activeGrimoires, libraryGrimoires, claimGrimoireReward, settings]);
 
     const resetReward = useCallback(() => {
         setRewardResult(null);

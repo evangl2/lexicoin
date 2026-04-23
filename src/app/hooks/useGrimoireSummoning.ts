@@ -27,7 +27,8 @@ export function useGrimoireSummoning() {
 
     const activePersonaId   = useGameStore(s => s.activePersona);
     const activeModelId     = useGameStore(s => s.activeModelId);
-    const player            = useGameStore(s => s.player);
+    const stamina           = useGameStore(s => s.player?.stamina ?? 0);
+    const languageProgress  = useGameStore(s => s.player?.languageProgress);
     const learningLang      = useGameStore(s => s.player?.settings?.learningLang ?? 'en');
     const systemLang        = useGameStore(s => s.player?.settings?.interfaceLang ?? 'zh');
     const personaStages     = useGameStore(s => s.personaStages);
@@ -45,7 +46,7 @@ export function useGrimoireSummoning() {
         if (isSummoning) return;
 
         // 1. 资源校验
-        if (player.stamina < SUMMON_COST) {
+        if (stamina < SUMMON_COST) {
             setError(`Insufficient stamina (Need ${SUMMON_COST})`);
             return;
         }
@@ -78,7 +79,7 @@ export function useGrimoireSummoning() {
                 : 'locus';
 
             // 5. 计算目标 CEFR 等级（计算但不注入 prompt，用于实体记录）
-            const levelInLang = player.languageProgress[learningLang]?.level ?? 1;
+            const levelInLang = languageProgress?.[learningLang]?.level ?? 1;
             const targetLevel =
                 levelInLang >= 20 ? 'C1' :
                 levelInLang >= 15 ? 'B2' :
