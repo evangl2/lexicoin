@@ -30,11 +30,11 @@ import { useGrimoireExpiry } from "@/app/hooks/useGrimoireExpiry";
 import { DragLayer } from "@/app/components/ui/canvas/DragLayer";
 import { CanvasControl } from "@/app/components/ui/canvas/CanvasControl";
 import { SynthesisCircle } from "@/app/components/ui/visual/SynthesisCircle";
-import { GrimoireSummoner } from "@/app/components/ui/visual/GrimoireSummoner";
-import { Grimoire } from "@/app/components/ui/visual/Grimoire";
+import { GrimoireSummoner } from "@/app/components/ui/grimoire/GrimoireSummoner";
+import { Grimoire } from "@/app/components/ui/grimoire/Grimoire";
 import { ProgressionHUD } from "@/app/components/ui/shell/ProgressionHUD";
 import { LevelUpOverlay } from "@/app/components/ui/system/LevelUpOverlay";
-import { GrimoireOverlay } from "@/app/components/ui/visual/GrimoireOverlay";
+import { GrimoireOverlay } from "@/app/components/ui/grimoire/GrimoireOverlay";
 const LibraryInterface = lazy(() =>
   import('@/app/components/ui/visual/LibraryInterface').then(m => ({ default: m.LibraryInterface }))
 );
@@ -93,6 +93,8 @@ function InnerApp() {
   // array content actually differs, not just on new array reference from any store update).
   const zoomedCardIds = useGameStore(useShallow(s => s.zoomedCardIds));
   const activeGrimoires = useGameStore(useShallow(s => s.activeGrimoires));
+  const activeGrimoireId = useGameStore(s => s.activeGrimoireId);
+  const fillGrimoireSlot = useGameStore(s => s.fillGrimoireSlot);
 
   // Separate boolean for isZoomed (passed to Dock) — avoids array comparison overhead there
   const isZoomed = zoomedCardIds.length > 0;
@@ -290,6 +292,14 @@ function InnerApp() {
     handleRepositoryDrop(uid, false);
   }, [handleRepositoryDrop]);
 
+  const handleCardEnterDevice = useCallback((uid: string, deviceId?: string) => {
+    data.setCardLocation(uid, 'device');
+    // If we have an active Grimoire and a specific slot ID, fill it
+    if (activeGrimoireId && deviceId) {
+      fillGrimoireSlot(activeGrimoireId, deviceId, uid);
+    }
+  }, [data, activeGrimoireId, fillGrimoireSlot]);
+
   const handleDeviceDropIntoRepository = useCallback((uid: string) => {
     handleRepositoryDrop(uid, true);
   }, [handleRepositoryDrop]);
@@ -348,6 +358,7 @@ function InnerApp() {
                   onDropIntoSlot={handleDropIntoSlot}
                   onDropIntoSummoner={handleDropIntoSummoner}
                   onDropIntoRepository={handleCardDropIntoRepository}
+                  onCardEnterDevice={handleCardEnterDevice}
                   isZoomingRef={isZoomingRef}
                   expandedIdsRef={expandedIdsRef}
                   isPanningRef={isPanningRef}
@@ -436,6 +447,7 @@ function InnerApp() {
                   isHidden={false}
                   externalScale={item.scale}
                   onDropIntoSummoner={handleDropIntoSummoner}
+                  onCardEnterDevice={handleCardEnterDevice}
                   isZoomingRef={isZoomingRef}
                   expandedIdsRef={expandedIdsRef}
                   isPanningRef={isPanningRef}

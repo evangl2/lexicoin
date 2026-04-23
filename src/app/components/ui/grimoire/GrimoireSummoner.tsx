@@ -1,6 +1,5 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { motion, MotionValue } from 'motion/react';
-import { useDrop } from 'react-dnd';
 import { useDrag } from '@use-gesture/react';
 import { X, Wand2, Loader2, Sparkles } from 'lucide-react';
 import { DeviceState } from '@/types/DeviceEntity';
@@ -8,10 +7,7 @@ import { CompactCardVisual } from '../card/CompactCardVisual';
 import { DefaultCardPersona } from '../../persona/default/Card.persona.default';
 import { DEFAULT_LANGUAGE } from '@/types/CardEntity';
 import { useGameStore } from '@store/index';
-import { Language, GrimoireEntity, GrimoireStatus } from '@/types/index';
 import { useGrimoireSummoning } from '@/app/hooks/useGrimoireSummoning';
-import { STAMINA_CONFIG } from '@/config/grimoireConfig';
-import { nanoid } from 'nanoid';
 
 interface GrimoireSummonerProps {
     uid: string;
@@ -29,19 +25,12 @@ interface GrimoireSummonerProps {
     onSummonComplete?: () => void; // Phase 3 trigger
 }
 
-export const GrimoireSummoner: React.FC<GrimoireSummonerProps> = ({
+export const GrimoireSummoner: React.FC<GrimoireSummonerProps> = React.memo(({
     uid, x, y, state, updateState, inputCards, canvasScale, onDragEnd,
-    onCardEnter, onCardEject, mergedVariants = {}, onDropIntoRepository
+    onCardEject, onDropIntoRepository
 }) => {
-    const stamina = useGameStore(s => s.player?.stamina ?? 0);
-    const consumeStamina = useGameStore(s => s.consumeStamina);
-    const spawnGrimoire = useGameStore(s => s.spawnGrimoire);
-    const activePersona = useGameStore(s => s.activePersona);
     const { summon, isSummoning, error: apiError } = useGrimoireSummoning();
     
-    // Drop logic is now handled by elementsFromPoint in Card.tsx 
-    const isOver = false;
-
     // Drag Logic
     const summonerRef = React.useRef<HTMLDivElement | null>(null);
     const dragConfig = React.useMemo(() => ({
@@ -163,7 +152,7 @@ export const GrimoireSummoner: React.FC<GrimoireSummonerProps> = ({
                 >
                     {seedCard ? (
                         <>
-                            <SlottedCard card={seedCard} variants={mergedVariants[seedCard.cardData.uid] || []} />
+                            <SlottedCard card={seedCard} />
                             {!isActuallySummoning && currentStatus === 'IDLE' && (
                                 <button
                                     onClick={(e) => { e.stopPropagation(); handleEject(); }}
@@ -223,7 +212,7 @@ export const GrimoireSummoner: React.FC<GrimoireSummonerProps> = ({
                             px-6 py-2 rounded-full border flex items-center gap-2 transition-all text-xs font-bold relative group/btn
                             ${canSummon 
                                 ? 'bg-white/10 border-white/20 text-white hover:bg-white/20 hover:scale-105 active:scale-95' 
-                                : 'bg-white/5 border-white/5 text-white/20 cursor-not-allowed'}
+                                : 'bg-white/5 border-white/5 text-white/20 cursor-not-allowed shadow-none'}
                         `}
                     >
                         {isActuallySummoning ? (
@@ -233,7 +222,6 @@ export const GrimoireSummoner: React.FC<GrimoireSummonerProps> = ({
                         )}
                         SUMMON (60)
                         
-                        {/* Tooltip to show when disabled */}
                         {!canSummon && !seedCard && (
                             <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 whitespace-nowrap bg-black/80 px-2 py-1 rounded text-[10px] opacity-0 group-hover/btn:opacity-100 pointer-events-none transition-opacity">
                                 Please insert a Seed Card first
@@ -270,10 +258,12 @@ export const GrimoireSummoner: React.FC<GrimoireSummonerProps> = ({
             </div>
         </motion.div>
     );
-};
+});
+
+GrimoireSummoner.displayName = 'GrimoireSummoner';
 
 // Helper Slotted Card Component
-const SlottedCard: React.FC<{ card: any, variants: any[] }> = ({ card, variants }) => {
+const SlottedCard: React.FC<{ card: any }> = ({ card }) => {
     return (
         <CompactCardVisual
             mode="icon"

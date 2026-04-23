@@ -42,6 +42,8 @@ export interface GrimoireActions {
     setActiveGrimoireId: (id: UUID | null) => void;
     /** Place a Sense card into a specific slot of a grimoire */
     updateSlotSense: (grimoireId: UUID, slotId: UUID, senseId: UUID | null) => void;
+    /** Semantic action: Fill a slot and optionally remove from inventory */
+    fillGrimoireSlot: (grimoireId: UUID, slotId: UUID, senseId: UUID, inventoryInstanceId?: UUID) => void;
 }
 
 export const createGrimoireSlice: StateCreator<
@@ -60,22 +62,17 @@ export const createGrimoireSlice: StateCreator<
     spawnGrimoire: (grimoire) => set((state) => ({
         activeGrimoires: [...state.activeGrimoires, grimoire]
     })),
+    updateGrimoire: (id, updates) => set((state) => ({
+        activeGrimoires: state.activeGrimoires.map((g) => 
+            g.id === id ? { ...g, ...updates } : g
+        )
+    })),
 
-    updateGrimoire: (id, updates) => set((state) => {
-        const idx = state.activeGrimoires.findIndex((g) => g.id === id);
-        if (idx === -1) return state;
-        const next = [...state.activeGrimoires];
-        next[idx] = { ...next[idx], ...updates };
-        return { activeGrimoires: next };
-    }),
-
-    updateGrimoireStatus: (id, status) => set((state) => {
-        const idx = state.activeGrimoires.findIndex((g) => g.id === id);
-        if (idx === -1) return state;
-        const next = [...state.activeGrimoires];
-        next[idx] = { ...next[idx], status };
-        return { activeGrimoires: next };
-    }),
+    updateGrimoireStatus: (id, status) => set((state) => ({
+        activeGrimoires: state.activeGrimoires.map((g) => 
+            g.id === id ? { ...g, status } : g
+        )
+    })),
 
     expireGrimoire: (id) => set((state) => {
         const idx = state.activeGrimoires.findIndex((g) => g.id === id);
@@ -87,17 +84,11 @@ export const createGrimoireSlice: StateCreator<
         return { activeGrimoires: next };
     }),
 
-    resolveGrimoire: (id) => {
-        // Final grade calculation and slot locking are handled in useGrimoireInteraction
-        // via updateGrimoire. This action exists for external/direct use only.
-        set((state) => {
-            const idx = state.activeGrimoires.findIndex((g) => g.id === id);
-            if (idx === -1) return state;
-            const next = [...state.activeGrimoires];
-            next[idx] = { ...next[idx], status: 'RESOLVED' as GrimoireStatus };
-            return { activeGrimoires: next };
-        });
-    },
+    resolveGrimoire: (id) => set((state) => ({
+        activeGrimoires: state.activeGrimoires.map((g) => 
+            g.id === id ? { ...g, status: 'RESOLVED' as GrimoireStatus } : g
+        )
+    })),
 
     archiveGrimoire: (id) => set((state) => {
         const grimoire = state.activeGrimoires.find(g => g.id === id);
@@ -117,18 +108,27 @@ export const createGrimoireSlice: StateCreator<
 
     setSummonerStatus: (status) => set({ summonerStatus: status }),
     setActiveGrimoireId: (id) => set({ activeGrimoireId: id }),
-    updateSlotSense: (grimoireId, slotId, senseId) => set((state) => {
-        const idx = state.activeGrimoires.findIndex((g) => g.id === grimoireId);
-        if (idx === -1) return state;
-        const target = state.activeGrimoires[idx];
-        const slotIdx = target.slots.findIndex((s) => s.id === slotId);
-        if (slotIdx === -1) return state;
+    updateSlotSense: (grimoireId, slotId, senseId) => set((state) => ({
+        activeGrimoires: state.activeGrimoires.map((g) => {
+            if (g.id !== grimoireId) return g;
+            
+            const nextSlots = g.slots.map((s) => 
+                s.id === slotId ? { ...s, senseId } : s
+            );
+            
+            return { ...g, slots: nextSlots };
+        })
+    })),
 
-        const nextSlots = [...target.slots];
-        nextSlots[slotIdx] = { ...nextSlots[slotIdx], senseId };
-
-        const next = [...state.activeGrimoires];
-        next[idx] = { ...target, slots: nextSlots };
-        return { activeGrimoires: next };
-    }),
+    fillGrimoireSlot: (grimoireId, slotId, senseId, inventoryInstanceId) => {
+        const state = get();
+        
+        // 1. Update the slot
+        state.updateSlotSense(grimoireId, slotId, senseId);
+        
+        // 2. If it came from inventory, remove it
+        if (inventoryInstanceId) {
+            state.removeInventoryItem(inventoryInstanceId);
+        }
+    },
 });

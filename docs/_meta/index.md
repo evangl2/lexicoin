@@ -17,9 +17,9 @@ Last full pass: 2026-04-20.
 | [file-structure-2026-03.md](../file-structure-2026-03.md) | 2026-04-19 |
 | [genui-architecture.md](../genui-architecture.md) | 2026-04-20 |
 | [InflectionSystem.md](../InflectionSystem.md) | 2026-04-21 |
-| [infrastructure_prd.md](../infrastructure_prd.md) | — |
-| [infrastructure_tdd.md](../infrastructure_tdd.md) | — |
-| [infrastructure_wbs.md](../infrastructure_wbs.md) | — |
+| [infrastructure_prd.md](../infrastructure_prd.md) | 2026-04-22 |
+| [infrastructure_tdd.md](../infrastructure_tdd.md) | 2026-04-22 |
+| [infrastructure_wbs.md](../infrastructure_wbs.md) | 2026-04-22 (🔴 broken — `context/` refs in header, fix proposed) |
 | [LevelingSystem.md](../LevelingSystem.md) | 2026-04-19 |
 | [MergeSplitSystem.md](../MergeSplitSystem.md) | 2026-04-21 (🔴 auto-fixed path Card.tsx) |
 | [MessageBus-maintenance.md](../MessageBus-maintenance.md) | — |
@@ -47,7 +47,6 @@ Last full pass: 2026-04-20.
 |------|-------------|
 | [GDD_Grimoire.md](../grimoire/GDD_Grimoire.md) | — (author-owned) |
 | [WBS_Grimoire.md](../grimoire/WBS_Grimoire.md) | 2026-04-19 |
-| [ActionItems_Grimoire_Test.md](../grimoire/ActionItems_Grimoire_Test.md) | — (author-owned, added 2026-04-20) |
 | [E2E_TestJourney.md](../grimoire/E2E_TestJourney.md) | — (author-owned, added 2026-04-20) |
 
 ## docs/refactor/ (author-owned — Jules refactor agent)
@@ -72,6 +71,8 @@ Last full pass: 2026-04-20.
 | [daily/2026-04-19.md](../feel/daily/2026-04-19.md) | — (author-owned) |
 | [daily/2026-04-20.md](../feel/daily/2026-04-20.md) | — (author-owned, added 2026-04-20) |
 | [daily/2026-04-21.md](../feel/daily/2026-04-21.md) | — (author-owned, added 2026-04-21) |
+| [applier.prompt.md](../feel/applier.prompt.md) | — (author-owned, added 2026-04-22) |
+| [backlog-apply-now.prompt.md](../feel/backlog-apply-now.prompt.md) | — (author-owned, added 2026-04-22) |
 | [principles.md](../feel/principles.md) | — (author-owned) |
 | [questions.md](../feel/questions.md) | — (author-owned) |
 
@@ -90,7 +91,9 @@ Last full pass: 2026-04-20.
 |------|-------------|
 | [backlog.md](../perf/backlog.md) | — (author-owned) |
 | [daily/2026-04-19.md](../perf/daily/2026-04-19.md) | — (author-owned) |
+| [daily/2026-04-20.md](../perf/daily/2026-04-20.md) | — (author-owned, added 2026-04-22) |
 | [daily/2026-04-21.md](../perf/daily/2026-04-21.md) | — (author-owned, added 2026-04-21) |
+| [daily/2026-04-22.md](../perf/daily/2026-04-22.md) | — (author-owned, added 2026-04-22) |
 
 ## docs/params/ (author-owned — parameter console)
 

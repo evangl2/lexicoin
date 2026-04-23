@@ -133,10 +133,10 @@
 
 | 优先级 | 验证点 | 结果 | 备注 |
 |--------|--------|------|------|
-| 🔴 P0 | 卡片能成功“咬合”进入槽位，进度变更为 (1/N) | $\square$ Pass $\square$ Fail $\square$ Block | |
-| 🔴 P0 | 关闭后重新开启，已放入的卡片依然存在 | $\square$ Pass $\square$ Fail $\square$ Block | |
-| 🔴 P0 | **关键设计**：关闭期间时间条正常流逝，未发生暂停 | $\square$ Pass $\square$ Fail $\square$ Block | |
-| ⚪ P2 | 包含生成它的“种子卡”在内，均可以作为合法材料填入槽位 | $\square$ Pass $\square$ Fail $\square$ Skip | |
+| 🔴 P0 | 卡片能成功“咬合”进入槽位，进度变更为 (1/N) | $✔$ Pass $\square$ Fail $\square$ Block | |
+| 🔴 P0 | 关闭后重新开启，已放入的卡片依然存在 | $✔$ Pass $\square$ Fail $\square$ Block | |
+| 🔴 P0 | **关键设计**：关闭期间时间条正常流逝，未发生暂停 | $✔$ Pass $\square$ Fail $\square$ Block | |
+| ⚪ P2 | 包含生成它的“种子卡”在内，均可以作为合法材料填入槽位 | $✔$ Pass $\square$ Fail $\square$ Skip | |
 
 💬 **测试者备注**：___________________________________________________________________
 

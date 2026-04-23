@@ -51,3 +51,14 @@ body {
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
+
+/* Grimoire Drag Interaction Fixes */
+body.is-dragging-card .closed-grimoire,
+body.is-dragging-card .grimoire-slot {
+  pointer-events: none !important;
+}
+
+body.is-dragging-card .closed-grimoire.is-drag-over,
+body.is-dragging-card .grimoire-slot.is-drag-over {
+  pointer-events: auto !important; /* Allow it to be hit? Actually bounding box check doesn't care. */
+}

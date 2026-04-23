@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Book, Sparkles, ArrowLeft, Search, Gift, Check } from 'lucide-react';
 import { useGameStore } from '@/core/store';
 import { DefaultInterfacePersona as InterfacePersona } from '@/app/components/persona/default/Interface.persona.default';
-import { Grimoire } from './Grimoire';
+import { Grimoire } from '@/app/components/ui/grimoire/Grimoire';
 import { useEchoSystem } from '@/app/hooks/useEchoSystem';
 import { useGrimoireReward } from '@/app/hooks/useGrimoireReward';
 import { GrimoireEntity } from '@/types/index';

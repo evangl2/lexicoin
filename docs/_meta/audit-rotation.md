@@ -16,9 +16,9 @@ Tracks which docs have been freshness-audited and when. Pick least-recently-audi
 | dynamic_text_feature.md | 2026-04-20 |
 | genui-architecture.md | 2026-04-20 |
 | InflectionSystem.md | 2026-04-21 |
-| infrastructure_prd.md | — |
-| infrastructure_tdd.md | — |
-| infrastructure_wbs.md | — |
+| infrastructure_prd.md | 2026-04-22 |
+| infrastructure_tdd.md | 2026-04-22 |
+| infrastructure_wbs.md | 2026-04-22 |
 | MergeSplitSystem.md | 2026-04-21 |
 | MessageBus-maintenance.md | — |
 | performance-optimizations.md | — |

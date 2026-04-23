@@ -41,7 +41,8 @@ export function useGrimoireInteraction() {
      * 提交魔典进行评判
      */
     const submit = async () => {
-        if (!grimoire || !activeGrimoireId || submitting) return;
+        const gid = activeGrimoireId;
+        if (!grimoire || !gid || submitting) return;
 
         // 验证：所有槽位必须已填充且未锁定
         const pendingSlots = grimoire.slots.filter(s => !s.locked);
@@ -55,7 +56,7 @@ export function useGrimoireInteraction() {
         setError(null);
 
         // 更改状态为 EVALUATING
-        updateGrimoire(activeGrimoireId, { status: 'EVALUATING' });
+        updateGrimoire(gid, { status: 'EVALUATING' });
 
         try {
             // 准备 AI 评判数据（不含 label —— AI 不应看到 slot 的预设提示）
@@ -100,7 +101,9 @@ export function useGrimoireInteraction() {
             const apiResults = data.data.results; // [{ slotId, grade, commentary }]
             
             // Convert results to Map for O(1) lookup to avoid nested loop (.find inside .map)
-            const resultMap = new Map(apiResults.map((r: any) => [r.slotId, r]));
+            const resultMap = new Map<string, { slotId: string, grade: Grade, commentary: any }>(
+                apiResults.map((r: any) => [r.slotId, r])
+            );
 
             const updatedSlots = grimoire.slots.map(slot => {
                 const result = resultMap.get(slot.id);
@@ -132,7 +135,7 @@ export function useGrimoireInteraction() {
 
             const finalGrade = allPassed ? calculateFinalGrade(updatedSlots, newFCount) : null;
 
-            updateGrimoire(activeGrimoireId, {
+            updateGrimoire(gid, {
                 slots: updatedSlots,
                 status: allPassed ? 'RESOLVED' : 'NEEDS_REVISION',
                 fCount: newFCount,
@@ -143,7 +146,9 @@ export function useGrimoireInteraction() {
             console.error('[Evaluation] Error:', err);
             setError(err.message);
             // 回调到 ACTIVE 状态以便重试
-            updateGrimoire(activeGrimoireId, { status: 'ACTIVE' });
+            if (activeGrimoireId) {
+                updateGrimoire(activeGrimoireId, { status: 'ACTIVE' });
+            }
         } finally {
             setSubmitting(false);
         }

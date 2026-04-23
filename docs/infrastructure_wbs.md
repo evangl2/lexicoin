@@ -1,7 +1,7 @@
 # 游戏基础设施 — WBS 工作分解结构 v1.1
 
 > **团队**：1 人类 + 1 AI · **顺序**：配置 → 类型 → 数据层 → 业务系统 → 集成 → 导出导入
-> **参考文档**：`context/infrastructure_tdd.md` · `context/infrastructure_prd.md`
+> **参考文档**：`docs/infrastructure_tdd.md` · `docs/infrastructure_prd.md`
 >
 > **v1.1 变更**：废除全局等级相关任务；简化 LevelDistributionSampler（移除 cefrUnlocked）；useSynthesis 集成逻辑更新（SenseCollection 本地判断 + 失败不扣耐久 + 三分支处理）；cardInventory 新增 exists / delete 方法。
 
