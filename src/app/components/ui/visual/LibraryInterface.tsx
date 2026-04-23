@@ -12,7 +12,7 @@ export const LibraryInterface: React.FC = () => {
     const viewMode = useGameStore(s => s.viewMode);
     const setViewMode = useGameStore(s => s.setViewMode);
     const libraryGrimoires = useGameStore(s => s.libraryGrimoires);
-    const player = useGameStore(s => s.player);
+    const echoCharges = useGameStore(s => s.player?.echoCharges ?? 0);
 
     const { extractEcho, isExtracting } = useEchoSystem();
     const { claim, isClaiming, rewardResult, resetReward } = useGrimoireReward();
@@ -79,11 +79,11 @@ export const LibraryInterface: React.FC = () => {
                                 <motion.div
                                     key={i}
                                     animate={{
-                                        scale: i < player.echoCharges ? [1, 1.2, 1] : 1,
-                                        opacity: i < player.echoCharges ? 1 : 0.2,
+                                        scale: i < echoCharges ? [1, 1.2, 1] : 1,
+                                        opacity: i < echoCharges ? 1 : 0.2,
                                     }}
-                                    transition={{ repeat: i < player.echoCharges ? Infinity : 0, duration: 2, delay: i * 0.3 }}
-                                    className={`w-3 h-3 rounded-full border ${i < player.echoCharges ? 'bg-[#D4AF37] border-[#D4AF37] shadow-[0_0_10px_#D4AF37]' : 'border-zinc-700'}`}
+                                    transition={{ repeat: i < echoCharges ? Infinity : 0, duration: 2, delay: i * 0.3 }}
+                                    className={`w-3 h-3 rounded-full border ${i < echoCharges ? 'bg-[#D4AF37] border-[#D4AF37] shadow-[0_0_10px_#D4AF37]' : 'border-zinc-700'}`}
                                 />
                             ))}
                         </div>
@@ -115,7 +115,7 @@ export const LibraryInterface: React.FC = () => {
                             <GrimoireCard
                                 key={grimoire.id}
                                 grimoire={grimoire}
-                                echoCharges={player.echoCharges}
+                                echoCharges={echoCharges}
                                 isExtracting={isExtracting}
                                 isClaiming={isClaiming}
                                 onClaim={() => claim(grimoire.id)}
