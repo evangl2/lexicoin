@@ -41,7 +41,7 @@ interface SlotProps<P = object> {
  * 
  * Safely render optional Slot component
  */
-export function Slot<P extends object = object>({
+const SlotInner = function Slot<P extends object = object>({
     slot: SlotComponent,
     props = {} as P,
     fallback = null,
@@ -66,7 +66,9 @@ export function Slot<P extends object = object>({
     }
 
     return element;
-}
+};
+
+export const Slot = React.memo(SlotInner) as typeof SlotInner;
 
 // ==================== SLOT HOOK ====================
 

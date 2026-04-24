@@ -21,7 +21,7 @@ const ArrowIcon = ({ className }: { className?: string }) => (
     </svg>
 );
 
-export const FlavorCarousel: React.FC<FlavorCarouselProps> = ({
+export const FlavorCarousel = React.memo<FlavorCarouselProps>(function FlavorCarousel({
     items,
     persona,
     tokens,
@@ -29,7 +29,7 @@ export const FlavorCarousel: React.FC<FlavorCarouselProps> = ({
     direction,
     onNavigate,
     onContentClick
-}) => {
+}) {
 
     // No internal state - fully controlled
 
@@ -133,4 +133,4 @@ export const FlavorCarousel: React.FC<FlavorCarouselProps> = ({
             )}
         </div>
     );
-};
+});

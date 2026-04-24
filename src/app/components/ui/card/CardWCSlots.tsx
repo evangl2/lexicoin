@@ -7,6 +7,28 @@ import { SelectionOverlay } from '@/app/components/ui/canvas/SelectionOverlay';
 import { tts } from '@/app/utils/audio/tts';
 import type { CardEntity } from '@/types/CardEntity';
 import type { Language } from '@schemas/schemas/SenseEntity.schema';
+import type { TextTier } from '@/utils/textTierUtils';
+
+// ── 稳定 style 引用（防止 TieredText.memo 失效）──────────────────
+const WORD_STYLE_FRONT: React.CSSProperties = {
+  fontFamily: 'var(--card-font-label)',
+  backgroundImage: 'var(--card-gradient-gold-text)',
+  WebkitBackgroundClip: 'text',
+  WebkitTextFillColor: 'transparent',
+  filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.8))',
+  textAlign: 'center',
+  paddingBottom: '2px',
+};
+
+const WORD_STYLE_BACK: React.CSSProperties = {
+  fontFamily: 'var(--card-font-label)',
+  backgroundImage: 'var(--card-gradient-gold-text)',
+  WebkitBackgroundClip: 'text',
+  WebkitTextFillColor: 'transparent',
+  filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.8))',
+  textAlign: 'left',
+  paddingBottom: '2px',
+};
 
 interface CardWCSlotsProps {
   learningData: any;
@@ -14,7 +36,6 @@ interface CardWCSlotsProps {
   currentCardData: CardEntity;
   learningLanguage: Language;
   systemLanguage: Language;
-  isCompactLOD: boolean;
   isExpanded: boolean;
   isFlipped: boolean;
   isOverlayOpen: boolean;
@@ -28,6 +49,9 @@ interface CardWCSlotsProps {
   wcFlavorDirection: number;
   setWcFlavorIndex: (val: number) => void;
   setWcFlavorDirection: (val: number) => void;
+  onFlavorNavigate: (newIndex: number, newDir: number) => void;
+  onFlavorContentClick: () => void;
+  onFlavorIndicatorClick: (idx: number) => void;
   isActive: boolean;
   visualFeedback: 'merge' | 'split' | null;
   bgParallaxX: MotionValue<number>;
@@ -50,7 +74,6 @@ export function getCardWCSlots({
   currentCardData,
   learningLanguage,
   systemLanguage,
-  isCompactLOD,
   isExpanded,
   isFlipped,
   isOverlayOpen,
@@ -64,6 +87,9 @@ export function getCardWCSlots({
   wcFlavorDirection,
   setWcFlavorIndex,
   setWcFlavorDirection,
+  onFlavorNavigate,
+  onFlavorContentClick,
+  onFlavorIndicatorClick,
   isActive,
   visualFeedback,
   bgParallaxX,
@@ -108,24 +134,11 @@ export function getCardWCSlots({
       />
     ),
     word: (
-      <div className={`w-full flex justify-center items-center ${isCompactLOD && !isExpanded && !isFlipped ? 'h-[4rem]' : 'h-[2.75rem]'}`}>
+      <div className="w-full flex justify-center items-center h-[2.75rem]">
         <TieredText
           text={title}
-          tiers={isCompactLOD && !isExpanded && !isFlipped ? [
-            { id: 'compact-xl', fontSize: 48, lineHeight: 1.1, tracking: '0.1em', weight: 700, opacity: 1, label: 'XL' },
-            { id: 'compact-lg', fontSize: 40, lineHeight: 1.1, tracking: '0.1em', weight: 700, opacity: 1, label: 'LG' },
-            { id: 'compact-md', fontSize: 32, lineHeight: 1.1, tracking: '0.1em', weight: 700, opacity: 1, label: 'MD' },
-            { id: 'compact-sm', fontSize: 24, lineHeight: 1.1, tracking: '0.1em', weight: 700, opacity: 0.95, label: 'SM' },
-          ] : CardPersona.tokens.typography.mainWordTiers}
-          style={{
-            fontFamily: 'var(--card-font-label)',
-            backgroundImage: 'var(--card-gradient-gold-text)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-            filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.8))',
-            textAlign: 'center',
-            paddingBottom: '2px',
-          }}
+          tiers={CardPersona.tokens.typography.mainWordTiers}
+          style={WORD_STYLE_FRONT}
         />
       </div>
     ),
@@ -179,15 +192,7 @@ export function getCardWCSlots({
           <TieredText
             text={title}
             tiers={CardPersona.tokens.typography.mainWordTiers}
-            style={{
-              fontFamily: 'var(--card-font-label)',
-              backgroundImage: 'var(--card-gradient-gold-text)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.8))',
-              textAlign: 'left',
-              paddingBottom: '2px',
-            }}
+            style={WORD_STYLE_BACK}
           />
         </div>
       ),
@@ -222,19 +227,20 @@ export function getCardWCSlots({
             border: '2px solid var(--card-color-border-outer)',
             boxShadow: 'var(--card-shadow-def-box)',
             background: 'var(--card-gradient-def-box-overlay), var(--card-color-def-box-bg)',
-            transition: 'border-color 0.3s, box-shadow 0.3s, transform 0.3s',
+            // transform removed: a competing CSS transform transition on the back-face
+            // creates a stacking-context conflict with the card's own scale animation.
+            // Hover feedback is now conveyed through border-color and box-shadow only.
+            transition: 'border-color 0.3s, box-shadow 0.3s',
           }}
           onMouseEnter={(e) => {
             const el = e.currentTarget;
             el.style.borderColor = 'var(--card-color-gold-metallic)';
             el.style.boxShadow = 'inset 0 1px 0 0 rgba(240,208,130,0.2), inset 0 -1px 0 0 rgba(0,0,0,0.5), 0 0 20px rgba(212,175,55,0.3), 0 2px 8px rgba(0,0,0,0.4)';
-            el.style.transform = 'scale(1.01)';
           }}
           onMouseLeave={(e) => {
             const el = e.currentTarget;
             el.style.borderColor = 'var(--card-color-border-outer)';
             el.style.boxShadow = 'var(--card-shadow-def-box)';
-            el.style.transform = 'scale(1)';
           }}
           onClick={(e) => {
             e.stopPropagation();
@@ -326,14 +332,8 @@ export function getCardWCSlots({
             tokens={CardPersona.tokens}
             currentIndex={wcFlavorIndex}
             direction={wcFlavorDirection}
-            onNavigate={(newIndex, newDir) => {
-              setWcFlavorDirection(newDir);
-              setWcFlavorIndex(newIndex);
-            }}
-            onContentClick={() => {
-              const text = wcCurrentFlavorContents[wcFlavorIndex]?.text;
-              if (text) tts.speak(text, learningLanguage);
-            }}
+            onNavigate={onFlavorNavigate}
+            onContentClick={onFlavorContentClick}
           />
         </div>
       ),
@@ -360,19 +360,19 @@ export function getCardWCSlots({
             }}>
               {wcCurrentFlavorContents.map((item, idx) => (
                 <button
-                  key={item.id}
+                  key={`flavor-${item.id || idx}`}
                   onClick={(e) => {
                     e.stopPropagation();
-                    setWcFlavorDirection(idx > wcFlavorIndex ? 1 : -1);
-                    setWcFlavorIndex(idx);
+                    onFlavorIndicatorClick(idx);
                   }}
                   style={{
-                    width: '12px',
+                    // Width swap replaces scaleX transform; avoids a CSS transform
+                    // transition that competes with the card's compositor layer.
+                    width: idx === wcFlavorIndex ? '15px' : '12px',
                     height: '1px',
                     borderRadius: '9999px',
                     opacity: idx === wcFlavorIndex ? 1 : 0.2,
-                    transform: idx === wcFlavorIndex ? 'scaleX(1.25)' : 'scaleX(1)',
-                    transition: 'opacity 0.3s, transform 0.3s',
+                    transition: 'opacity 0.3s, width 0.3s',
                     backgroundColor: 'white',
                     border: 'none',
                     padding: 0,

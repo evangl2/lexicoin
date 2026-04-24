@@ -28,8 +28,6 @@ export interface LexiCardChromeHTMLAttributes {
   'is-over'?: string;
   /** Visual feedback animation type. */
   'visual-feedback'?: 'merge' | 'split' | '';
-  /** LOD toggle. */
-  'layout-mode'?: 'default' | 'compact';
 }
 
 // ── JSX intrinsic elements ────────────────────────────────────────────────────

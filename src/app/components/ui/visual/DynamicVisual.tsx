@@ -8,11 +8,11 @@ interface DynamicVisualProps {
     fallbackElement?: string; // For AlchemyVisual fallback
 }
 
-export const DynamicVisual: React.FC<DynamicVisualProps> = ({
+export const DynamicVisual = React.memo<DynamicVisualProps>(function DynamicVisual({
     code,
     isActive = false,
     fallbackElement = ''
-}) => {
+}) {
     // Memoize compilation to prevent re-running on every render
     const Component = useMemo(() => {
         if (!code) return null;
@@ -96,4 +96,4 @@ export const DynamicVisual: React.FC<DynamicVisualProps> = ({
 
     // Fallback to AlchemyVisual if no code or compilation failed
     return <AlchemyVisual element={fallbackElement} isActive={isActive} />;
-};
+});

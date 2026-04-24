@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useMemo } from 'react';
 import { useGesture } from '@use-gesture/react';
 import { motion, useMotionValue, useSpring, useTransform } from 'motion/react';
 import { useGameStore } from '@store/index';
@@ -332,6 +332,10 @@ export const Canvas: React.FC<CanvasProps> = ({ children, scale, x, y, onDoubleC
 
   const isAnyCardZoomed = useGameStore(s => s.zoomedCardIds.length > 0);
 
+  const scriptNoiseProps = useMemo(() => ({ x: bgX, y: bgY }), [bgX, bgY]);
+  const rotationProps = useMemo(() => ({ rotateSlow, rotateReverse }), [rotateSlow, rotateReverse]);
+  const gridSystemProps = useMemo(() => ({ scale, width: WORLD_W, height: WORLD_H }), [scale]);
+
   return (
     <div
       ref={containerRef}
@@ -347,16 +351,16 @@ export const Canvas: React.FC<CanvasProps> = ({ children, scale, x, y, onDoubleC
       <Slot slot={slots.MetalTexture} />
 
       {/* 3. Parallax Noise — use frozen bgX/bgY to avoid per-frame repaint during pan */}
-      <Slot slot={slots.ScriptNoise} props={{ x: bgX, y: bgY }} />
+      <Slot slot={slots.ScriptNoise} props={scriptNoiseProps} />
 
       {/* 4. Sacred Geometry (Background Lines) */}
       <Slot slot={slots.SacredGeometry} />
 
       {/* 5. Transmutation Circle (Center) */}
-      <Slot slot={slots.TransmutationCircle} props={{ rotateSlow, rotateReverse }} />
+      <Slot slot={slots.TransmutationCircle} props={rotationProps} />
 
       {/* 6. Corner Gears */}
-      <Slot slot={slots.CornerGears} props={{ rotateSlow, rotateReverse }} />
+      <Slot slot={slots.CornerGears} props={rotationProps} />
 
       {/* 7. Edge Runes */}
       <Slot slot={slots.EdgeRunes} />
@@ -384,7 +388,7 @@ export const Canvas: React.FC<CanvasProps> = ({ children, scale, x, y, onDoubleC
         className="absolute origin-center"
       >
         {/* Render the Grid System from slot */}
-        <Slot slot={slots.GridSystem} props={{ scale, width: WORLD_W, height: WORLD_H }} />
+        <Slot slot={slots.GridSystem} props={gridSystemProps} />
 
         {/* Content Layer */}
         <div

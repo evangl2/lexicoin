@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useGameStore } from '@store/index';
 import type { CardEntity } from '@/types/CardEntity';
 import type { Language } from '@schemas/schemas/SenseEntity.schema';
@@ -14,9 +14,9 @@ export const useCardVariants = ({ cardData, variants }: UseCardVariantsProps) =>
     const activeUid = useGameStore(s => s.activeVariants[cardData.uid]) ?? cardData.uid;
     const setActiveVariant = useGameStore(s => s.setActiveVariant);
 
-    const setActiveUid = (variantUid: string) => {
+    const setActiveUid = useCallback((variantUid: string) => {
         setActiveVariant(cardData.uid, variantUid);
-    };
+    }, [setActiveVariant, cardData.uid]);
 
     // ========== Computed: Sorted Variants & Current Data ==========
     // Combine anchor + variants and sort by frequency (High -> Low)

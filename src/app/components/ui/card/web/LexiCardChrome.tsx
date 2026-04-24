@@ -68,8 +68,6 @@ export interface LexiCardChromeProps {
   isFlipped: boolean;
   /** Card is a drop target currently hovered. */
   isOver: boolean;
-  /** LOD switch — compact hides decoration layers via CSS. */
-  layoutMode: 'default' | 'compact';
   /** Visual feedback pulse (merge = white, split = gold). */
   visualFeedback: 'merge' | 'split' | null;
   /** All slot content (front face required, back face optional until first flip). */
@@ -97,7 +95,6 @@ export const LexiCardChrome = React.memo<LexiCardChromeProps>(({
   isExpanded,
   isFlipped,
   isOver,
-  layoutMode,
   visualFeedback,
   slots,
   hostRef,
@@ -140,11 +137,6 @@ export const LexiCardChrome = React.memo<LexiCardChromeProps>(({
     syncBoolAttr(el, 'is-over', isOver);
   }, [isOver]);
 
-  useEffect(() => {
-    const el = innerRef.current;
-    if (!el) return;
-    el.setAttribute('layout-mode', layoutMode);
-  }, [layoutMode]);
 
   useEffect(() => {
     const el = innerRef.current;

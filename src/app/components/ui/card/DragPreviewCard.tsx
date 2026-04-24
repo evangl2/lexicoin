@@ -101,7 +101,6 @@ export const DragPreviewCard: React.FC<DragPreviewCardProps> = ({
           isExpanded={false}
           isFlipped={false}
           isOver={false}
-          layoutMode="default"
           visualFeedback={null}
           slots={getCardWCSlots({
             learningData: commonProps.learningData,
@@ -112,7 +111,6 @@ export const DragPreviewCard: React.FC<DragPreviewCardProps> = ({
             } as any,
             learningLanguage: commonProps.learningLanguage as any,
             systemLanguage: commonProps.systemLanguage as any,
-            isCompactLOD: false,
             isExpanded: false,
             isFlipped: false,
             isOverlayOpen: false,
@@ -126,6 +124,9 @@ export const DragPreviewCard: React.FC<DragPreviewCardProps> = ({
             wcFlavorDirection: 0,
             setWcFlavorIndex: () => {},
             setWcFlavorDirection: () => {},
+            onFlavorNavigate: () => {},
+            onFlavorContentClick: () => {},
+            onFlavorIndicatorClick: () => {},
             isActive: false,
             visualFeedback: null,
             bgParallaxX: zero,

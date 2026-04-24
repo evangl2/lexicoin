@@ -243,9 +243,9 @@ function InnerApp() {
   const handleDragEnd = useCallback((id: string) => {
     draggingIdRef.current = null;
 
-    const draggedItem = allCanvasItems.find((item: any) => item.cardData.rawSense.uid === id);
+    const draggedItem = allCanvasItemsRef.current.find((item: any) => item.cardData.rawSense.uid === id);
     if (draggedItem) {
-      const occupied = allCanvasItems.map((item: any) => ({
+      const occupied = allCanvasItemsRef.current.map((item: any) => ({
         id: item.cardData.rawSense.uid,
         x: item.mx.get(),
         y: item.my.get(),
@@ -255,7 +255,8 @@ function InnerApp() {
     }
 
     data.saveItems(grouping.mergedVariants);
-  }, [data, grouping.mergedVariants, allCanvasItems]);
+  }, [data, grouping.mergedVariants]);
+
 
   const handleDeviceDragEnd = useCallback((uid: string) => {
     // checkDeckCollision(uid, true); // Removed
@@ -304,6 +305,36 @@ function InnerApp() {
     handleRepositoryDrop(uid, true);
   }, [handleRepositoryDrop]);
 
+  // ---- 稳定回调代理（给 Card 的 memo check 用）----
+  // 原始 callback 正常维护 deps（保证逻辑最新），代理引用永不变
+  const _handleDragEndRef = useRef(handleDragEnd);
+  _handleDragEndRef.current = handleDragEnd;
+  const stableHandleDragEnd = useRef((id: string) => _handleDragEndRef.current(id)).current;
+
+  const _handleDropIntoSlotRef = useRef(handleDropIntoSlot);
+  _handleDropIntoSlotRef.current = handleDropIntoSlot;
+  const stableHandleDropIntoSlot = useRef((cardId: string, deviceUid: string, slotId: number) =>
+    _handleDropIntoSlotRef.current(cardId, deviceUid, slotId)
+  ).current;
+
+  const _handleDropIntoSummonerRef = useRef(handleDropIntoSummoner);
+  _handleDropIntoSummonerRef.current = handleDropIntoSummoner;
+  const stableHandleDropIntoSummoner = useRef((cardId: string, deviceUid: string) =>
+    _handleDropIntoSummonerRef.current(cardId, deviceUid)
+  ).current;
+
+  const _handleCardDropIntoRepositoryRef = useRef(handleCardDropIntoRepository);
+  _handleCardDropIntoRepositoryRef.current = handleCardDropIntoRepository;
+  const stableHandleCardDropIntoRepository = useRef((uid: string) =>
+    _handleCardDropIntoRepositoryRef.current(uid)
+  ).current;
+
+  const _handleCardEnterDeviceRef = useRef(handleCardEnterDevice);
+  _handleCardEnterDeviceRef.current = handleCardEnterDevice;
+  const stableHandleCardEnterDevice = useRef((uid: string, deviceId?: string) =>
+    _handleCardEnterDeviceRef.current(uid, deviceId)
+  ).current;
+
   const mappedLearningLang = useMemo(() => mapLanguageCode(learningLang), [learningLang]);
   const mappedSystemLang = useMemo(() => mapLanguageCode(systemLang), [systemLang]);
 
@@ -351,14 +382,14 @@ function InnerApp() {
                   canvasX={camera.x}
                   canvasY={camera.y}
                   onDragStart={handleDragStart}
-                  onDragEnd={handleDragEnd}
+                  onDragEnd={stableHandleDragEnd}
                   updatePosition={handleUpdatePosition}
                   groupFeedback={grouping.groupFeedback}
 
-                  onDropIntoSlot={handleDropIntoSlot}
-                  onDropIntoSummoner={handleDropIntoSummoner}
-                  onDropIntoRepository={handleCardDropIntoRepository}
-                  onCardEnterDevice={handleCardEnterDevice}
+                  onDropIntoSlot={stableHandleDropIntoSlot}
+                  onDropIntoSummoner={stableHandleDropIntoSummoner}
+                  onDropIntoRepository={stableHandleCardDropIntoRepository}
+                  onCardEnterDevice={stableHandleCardEnterDevice}
                   isZoomingRef={isZoomingRef}
                   expandedIdsRef={expandedIdsRef}
                   isPanningRef={isPanningRef}
@@ -379,8 +410,8 @@ function InnerApp() {
                       inputCards={data.items}
                       canvasScale={camera.scale}
                       onDragEnd={handleDeviceDragEnd}
-                      onCardEnter={(cid) => data.setCardLocation(cid, 'device')}
-                      onCardEject={(cid) => data.setCardLocation(cid, 'canvas', { x: device.mx.get() + 80, y: device.my.get() + 50 })}
+                      onCardEnter={(cid: string) => data.setCardLocation(cid, 'device')}
+                      onCardEject={(cid: string) => data.setCardLocation(cid, 'canvas', { x: device.mx.get() + 80, y: device.my.get() + 50 })}
                       mergedVariants={grouping.mergedVariants}
                       onDropIntoRepository={handleDeviceDropIntoRepository}
                     />
@@ -397,8 +428,8 @@ function InnerApp() {
                     inputCards={data.items}
                     canvasScale={camera.scale}
                     onDragEnd={handleDeviceDragEnd}
-                    onCardEnter={(cid) => data.setCardLocation(cid, 'device')}
-                    onCardEject={(cid) => data.setCardLocation(cid, 'canvas', { x: device.mx.get() + 80, y: device.my.get() + 50 })}
+                    onCardEnter={(cid: string) => data.setCardLocation(cid, 'device')}
+                    onCardEject={(cid: string) => data.setCardLocation(cid, 'canvas', { x: device.mx.get() + 80, y: device.my.get() + 50 })}
                     mergedVariants={grouping.mergedVariants}
                     onDropIntoRepository={handleDeviceDropIntoRepository}
                     systemlang={mappedSystemLang}
@@ -446,8 +477,8 @@ function InnerApp() {
                   updatePosition={handleUpdatePosition} // Use stable handler here too
                   isHidden={false}
                   externalScale={item.scale}
-                  onDropIntoSummoner={handleDropIntoSummoner}
-                  onCardEnterDevice={handleCardEnterDevice}
+                  onDropIntoSummoner={stableHandleDropIntoSummoner}
+                  onCardEnterDevice={stableHandleCardEnterDevice}
                   isZoomingRef={isZoomingRef}
                   expandedIdsRef={expandedIdsRef}
                   isPanningRef={isPanningRef}

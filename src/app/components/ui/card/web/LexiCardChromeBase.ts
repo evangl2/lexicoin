@@ -20,7 +20,6 @@ const OBSERVED_ATTRIBUTES = [
   'is-flipped',
   'is-over',
   'visual-feedback',
-  'layout-mode',
 ] as const;
 
 export abstract class LexiCardChromeBase extends HTMLElement {

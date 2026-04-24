@@ -48,6 +48,8 @@
   filter: blur(5px);
   pointer-events: none;
   background: var(--card-gradient-gold-metallic);
+  /* Keeps opacity animation on compositor thread, away from scale spring. */
+  will-change: opacity;
 }
 
 :host(:hover) [part="hover-glow"] {
@@ -92,18 +94,18 @@
   -webkit-font-smoothing: antialiased;
   border-radius: var(--card-radius);
   background: var(--card-color-bg-front);
-  backface-visibility: hidden;
-  -webkit-backface-visibility: hidden;
+  /*
+   * Always visible: the flip is driven by scaleX + opacity (not rotateY),
+   * so backface-visibility: hidden is unnecessary and switching it on
+   * is-active changes forces a compositor-layer recalculation on every hover.
+   */
+  backface-visibility: visible;
+  -webkit-backface-visibility: visible;
   /*
    * opacity / pointer-events are NOT set here — initial values are set
    * imperatively in connectedCallback so Card.tsx's MotionValue subscriptions
    * take exclusive ownership (inline styles beat author stylesheets).
    */
-}
-
-:host([is-active]) [part="front-face"] {
-  backface-visibility: visible;
-  -webkit-backface-visibility: visible;
 }
 
 /* ── Back face ───────────────────────────────────────────────────────────── */
@@ -121,8 +123,13 @@
   border-radius: var(--card-radius);
   background-color: var(--card-color-bg-back);
   border: 2px solid var(--card-color-gold-metallic);
-  backface-visibility: hidden;
-  -webkit-backface-visibility: hidden;
+  /*
+   * Always visible: same rationale as front-face above.
+   * Switching backface-visibility via :host([is-active]) on every hover
+   * causes compositor recalculation; removed in favour of opacity-only control.
+   */
+  backface-visibility: visible;
+  -webkit-backface-visibility: visible;
   /*
    * opacity / pointer-events are NOT set here.
    * Initial state is established imperatively in LexiCardChromeBase.connectedCallback
@@ -134,11 +141,6 @@
    *   back-face:  opacity:0  pointer-events:none
    * (set via element.style in connectedCallback)
    */
-}
-
-:host([is-active]) [part="back-face"] {
-  backface-visibility: visible;
-  -webkit-backface-visibility: visible;
 }
 
 /* ── Border overlays (outer / inner) ─────────────────────────────────────── */
@@ -556,72 +558,6 @@
 
 slot[name="back-overlay"] {
   display: contents;
-}
-
-/* ── Compact LOD ─────────────────────────────────────────────────────────── */
-/*
- * Compact layout mirrors CompactCardVisual 'repository' mode:
- *   - visual: full-bleed watermark (absolute, low opacity, luminosity blend)
- *   - header: level badge pinned top-right (absolute, exits flex flow)
- *   - text: word only, vertically centered (fills flex)
- *   - all decorations hidden
- */
-
-:host([layout-mode="compact"]) [part="back-face"],
-:host([layout-mode="compact"]) [part="background"],
-:host([layout-mode="compact"]) [part="divider"],
-:host([layout-mode="compact"]) [part="border-outer"],
-:host([layout-mode="compact"]) [part="border-inner"],
-:host([layout-mode="compact"]) [part="corners"],
-:host([layout-mode="compact"]) [part="noise-texture"],
-:host([layout-mode="compact"]) [part="glare"],
-:host([layout-mode="compact"]) [part="feedback-overlay"] {
-  display: none;
-}
-
-/* Visual: becomes a full-bleed watermark behind text */
-:host([layout-mode="compact"]) [part="visual"] {
-  position: absolute;
-  inset: 0;
-  height: 100%;
-  padding: 0;
-  transform: none;
-  opacity: 0.4;
-  mix-blend-mode: normal;
-  z-index: 0;
-  pointer-events: none;
-}
-
-/* Header: level badge pinned to top-right, exits flex flow */
-:host([layout-mode="compact"]) [part="header"] {
-  position: absolute;
-  top: 0;
-  right: 0;
-  height: auto;
-  width: auto;
-  padding: 4px 6px;
-  z-index: 30;
-  justify-content: flex-end;
-}
-
-/* Text: fills the remaining flex space, word centered */
-:host([layout-mode="compact"]) [part="text"] {
-  height: 100%;
-  flex: 1;
-  justify-content: center;
-  padding: 0 4px;
-  z-index: 20;
-}
-
-/* Hide pronunciation and system-word; keep only the learning word */
-:host([layout-mode="compact"]) [part="pronunciation-row"] {
-  display: none;
-}
-:host([layout-mode="compact"]) ::slotted([slot="pronunciation"]) {
-  display: none;
-}
-:host([layout-mode="compact"]) ::slotted([slot="system-word"]) {
-  display: none;
 }
 
 /* ── Keyframes ───────────────────────────────────────────────────────────── */

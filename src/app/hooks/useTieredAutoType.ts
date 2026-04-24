@@ -1,4 +1,4 @@
-import { useState, useLayoutEffect, useMemo } from 'react';
+import { useState, useLayoutEffect, useMemo, useRef } from 'react';
 import {
     predictTier,
     TEXT_TIERS,
@@ -30,6 +30,7 @@ export const useTieredAutoType = (
 ) => {
     // State to force re-renders when container resizes
     const [containerWidth, setContainerWidth] = useState<number>(300); // Default guess
+    const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     // 1. Math Prediction (The "80%" Case)
     // We memoize this "Initial Guess" so it only changes when content changes.
@@ -39,6 +40,8 @@ export const useTieredAutoType = (
     }, [text, containerWidth, customTiers]);
 
     const [currentTier, setCurrentTier] = useState<TextTier>(initialTier);
+    const currentTierRef = useRef(currentTier);
+    currentTierRef.current = currentTier;
 
     // Sync state when prediction changes (e.g. text changed)
     useLayoutEffect(() => {
@@ -50,19 +53,22 @@ export const useTieredAutoType = (
         if (!containerRef.current) return;
 
         const observer = new ResizeObserver((entries) => {
-            for (let entry of entries) {
-                // Debounce could be added here if needed, but for now direct update is responsive
-                // Only update if width changed significantly to avoid noise
-                const width = entry.contentRect.width;
-                if (Math.abs(width - containerWidth) > 5) {
-                    setContainerWidth(width);
-                }
-            }
+            const width = entries[entries.length - 1]!.contentRect.width;
+            // Debounce: during canvas zoom the card resizes every frame.
+            // Without this, each frame triggers a synchronous layout reflow
+            // in the "reality check" useLayoutEffect below.
+            if (debounceTimerRef.current !== null) clearTimeout(debounceTimerRef.current);
+            debounceTimerRef.current = setTimeout(() => {
+                setContainerWidth(prev => Math.abs(width - prev) > 5 ? width : prev);
+            }, 100);
         });
 
         observer.observe(containerRef.current);
-        return () => observer.disconnect();
-    }, [containerRef, containerWidth]);
+        return () => {
+            observer.disconnect();
+            if (debounceTimerRef.current !== null) clearTimeout(debounceTimerRef.current);
+        };
+    }, [containerRef]);
 
     // 3. The "Reality Check" (The "20%" Case)
     useLayoutEffect(() => {
@@ -100,7 +106,7 @@ export const useTieredAutoType = (
                 customTiers.reduce((acc, tier, index) => { acc[tier.id] = index; return acc; }, {} as Record<string, number>) : 
                 TIER_INDEX_MAP;
 
-            const currentIndex = activeIndexMap[currentTier.id] ?? 0;
+            const currentIndex = activeIndexMap[currentTierRef.current.id] ?? 0;
             const nextIndex = Math.min(activeTiers.length - 1, currentIndex + jump);
 
             if (nextIndex !== currentIndex) {
@@ -117,7 +123,7 @@ export const useTieredAutoType = (
                 customTiers.reduce((acc, tier, index) => { acc[tier.id] = index; return acc; }, {} as Record<string, number>) : 
                 TIER_INDEX_MAP;
 
-            const currentIndex = activeIndexMap[currentTier.id] ?? 0;
+            const currentIndex = activeIndexMap[currentTierRef.current.id] ?? 0;
             const nextIndex = Math.max(0, currentIndex - 1); // Only step up 1 tier at a time to be safe
 
             if (nextIndex !== currentIndex) {
@@ -125,7 +131,7 @@ export const useTieredAutoType = (
             }
         }
 
-    }, [text, currentTier, containerWidth]); // Re-run whenever text, tier, or size changes
+    }, [text, containerWidth, customTiers]); // currentTier removed — read via ref to prevent oscillation
 
     return currentTier;
 };

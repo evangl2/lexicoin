@@ -131,13 +131,13 @@ export const PersonaProvider: React.FC<PersonaProviderProps> = ({
         setActiveSkinStore(DEFAULT_PERSONA_NAME);
     }, [setActiveSkinStore]);
 
-    const value: PersonaContextValue = {
+    const value = useMemo<PersonaContextValue>(() => ({
         ...mergedPersona,
         activeSkin,
         setSkin,
         availableSkins,
         resetToDefault,
-    };
+    }), [mergedPersona, activeSkin, setSkin, availableSkins, resetToDefault]);
 
     return (
         <PersonaContext.Provider value={value}>

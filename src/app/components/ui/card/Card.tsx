@@ -12,7 +12,6 @@ import type { CardEntity } from '@/types/CardEntity';
 import type { Language } from '@schemas/schemas/SenseEntity.schema';
 
 // --- New Extracted Hooks & Helpers ---
-import { useCardLOD } from '@/app/hooks/useCardLOD';
 import { useCardPhysics } from '@/app/hooks/useCardPhysics';
 import { useCardAnimation } from '@/app/hooks/useCardAnimation';
 import { useCardDrag } from '@/app/hooks/useCardDrag';
@@ -95,9 +94,6 @@ export const Card = React.memo<CardProps>(({
   const mouseX = useMotionValue(0);
   const mouseY = useMotionValue(0);
 
-  // ========== Extracted Logic Hooks ==========
-  const isCompactLOD = useCardLOD(canvasScale);
-  
   const physics = useCardPhysics({
     x, y, mouseX, mouseY, windowWidth, windowHeight, isExpanded, isFlipped
   });
@@ -213,6 +209,27 @@ export const Card = React.memo<CardProps>(({
     [learningData.flavorContents, wcCurrentPersonaName]
   );
 
+  // ---- Stable Flavor Callbacks ----
+  const flavorDataRef = useRef({ contents: wcCurrentFlavorContents, index: wcFlavorIndex });
+  flavorDataRef.current = { contents: wcCurrentFlavorContents, index: wcFlavorIndex };
+
+  const handleFlavorNavigateCb = useCallback((newIndex: number, newDir: number) => {
+    setWcFlavorDirection(newDir);
+    setWcFlavorIndex(newIndex);
+  }, []);
+
+  const handleFlavorContentClickCb = useCallback(() => {
+    const { contents, index } = flavorDataRef.current;
+    const text = contents[index]?.text;
+    if (text) tts.speak(text, learningLanguage);
+  }, [learningLanguage]);
+
+  const handleFlavorIndicatorClickCb = useCallback((idx: number) => {
+    const { index } = flavorDataRef.current;
+    setWcFlavorDirection(idx > index ? 1 : -1);
+    setWcFlavorIndex(idx);
+  }, []);
+
   const handleDefinitionClickCb = useCallback(() => setIsOverlayOpen(true), []);
 
   const handleSelectDefinitionCb = useCallback((item: any) => {
@@ -323,12 +340,16 @@ export const Card = React.memo<CardProps>(({
 
   const slots = useMemo(() => getCardWCSlots({
     learningData, systemData, currentCardData, learningLanguage, systemLanguage,
-    isCompactLOD, isExpanded, isFlipped, isOverlayOpen, selectionItems,
+    isExpanded, isFlipped, isOverlayOpen, selectionItems,
     selectedDefId: activeUid,
     handleDefinitionClick: handleDefinitionClickCb,
     handleSelectDefinition: handleSelectDefinitionCb,
     wcFlavorContainerRef, wcCurrentFlavorContents, wcFlavorIndex, wcFlavorDirection,
-    setWcFlavorIndex, setWcFlavorDirection, isActive, visualFeedback,
+    setWcFlavorIndex, setWcFlavorDirection,
+    onFlavorNavigate: handleFlavorNavigateCb,
+    onFlavorContentClick: handleFlavorContentClickCb,
+    onFlavorIndicatorClick: handleFlavorIndicatorClickCb,
+    isActive, visualFeedback,
     bgParallaxX: physics.bgParallaxX, bgParallaxY: physics.bgParallaxY,
     fgParallaxX: physics.fgParallaxX, fgParallaxY: physics.fgParallaxY,
     backFaceMounted: backFaceMountedRef.current,
@@ -336,9 +357,10 @@ export const Card = React.memo<CardProps>(({
     title, CardPersona,
   }), [
     learningData, systemData, currentCardData, learningLanguage, systemLanguage,
-    isCompactLOD, isExpanded, isFlipped, isOverlayOpen, selectionItems,
+    isExpanded, isFlipped, isOverlayOpen, selectionItems,
     activeUid, handleDefinitionClickCb, handleSelectDefinitionCb,
     wcCurrentFlavorContents, wcFlavorIndex, wcFlavorDirection,
+    handleFlavorNavigateCb, handleFlavorContentClickCb, handleFlavorIndicatorClickCb,
     isActive, visualFeedback, title,
   ]);
 
@@ -391,7 +413,6 @@ export const Card = React.memo<CardProps>(({
         <LexiCardChrome
           persona={(uiTheme as 'default' | 'cyberpunk')}
           isActive={isActive} isExpanded={isExpanded} isFlipped={isFlipped} isOver={isOver}
-          layoutMode={isCompactLOD && !isExpanded && !isFlipped ? 'compact' : 'default'}
           visualFeedback={visualFeedback} hostRef={wcHostRef}
           slots={slots}
         />

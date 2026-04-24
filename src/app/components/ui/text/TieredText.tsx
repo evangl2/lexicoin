@@ -21,14 +21,14 @@ interface TieredTextProps {
     tiers?: TextTier[];
 }
 
-export const TieredText: React.FC<TieredTextProps> = ({
+export const TieredText: React.FC<TieredTextProps> = React.memo(function TieredText({
     text,
     className = '',
     style = {},
     gradient,
     shadow,
     tiers
-}) => {
+}) {
     const containerRef = useRef<HTMLDivElement>(null);
     const tier: TextTier = useTieredAutoType(text, containerRef, tiers);
 
@@ -73,4 +73,4 @@ export const TieredText: React.FC<TieredTextProps> = ({
             </motion.p>
         </div>
     );
-};
+});
