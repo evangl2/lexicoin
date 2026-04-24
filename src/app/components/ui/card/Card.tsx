@@ -8,6 +8,7 @@ import { LexiCardChrome } from '@/app/components/ui/card/web/LexiCardChrome';
 import { cardFocusRegistry } from '@/app/utils/cardFocusRegistry';
 import { tts } from '@/app/utils/audio/tts';
 import { useGameStore } from '@store/index';
+import { useAudio } from '@/app/context/AudioContext';
 import type { CardEntity } from '@/types/CardEntity';
 import type { Language } from '@schemas/schemas/SenseEntity.schema';
 
@@ -79,6 +80,8 @@ export const Card = React.memo<CardProps>(({
   const systemData = currentCardData.displayData[systemLanguage]!;
   const title = learningData.word;
   const uid = cardData.uid;
+
+  const { playSFX } = useAudio();
 
   // ========== Local State ==========
   const [isHovered, setIsHovered] = useState(false);
@@ -360,6 +363,7 @@ export const Card = React.memo<CardProps>(({
       onContextMenu={(e) => {
         e.preventDefault(); e.stopPropagation();
         startAnimation();
+        playSFX('cardFlip');
         if (!isFlipped) { setIsFlipped(true); setIsExpanded(true); } else { setIsFlipped(false); }
       }}
       style={{
@@ -372,6 +376,7 @@ export const Card = React.memo<CardProps>(({
       }}
       onHoverStart={() => {
         if (isFlipped) return;
+        if (!isHoveredRef.current) playSFX('cardHover');
         isHoveredRef.current = true;
         // startTransition defers the re-render as non-urgent so it doesn't compete
         // with the scale spring animation kicking off in the same frame.
