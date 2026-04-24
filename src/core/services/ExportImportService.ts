@@ -44,12 +44,12 @@ class ExportImportService {
             ];
 
             await db.transaction('r', db.tables, async () => {
-                for (const tableName of tablesToExport) {
+                await Promise.all(tablesToExport.map(async (tableName) => {
                     const table = db.table(tableName);
                     if (table) {
                         (payload.tables as any)[tableName] = await table.toArray();
                     }
-                }
+                }));
             });
 
             // Convert to JSON and trigger download
@@ -109,13 +109,13 @@ class ExportImportService {
                     const dbTables = db.tables.filter(t => tableNames.includes(t.name));
                     
                     await db.transaction('rw', dbTables, async () => {
-                        for (const table of dbTables) {
+                        await Promise.all(dbTables.map(async (table) => {
                             await table.clear();
                             const records = (payload.tables as any)[table.name];
                             if (records && records.length > 0) {
                                 await table.bulkAdd(records);
                             }
-                        }
+                        }));
                     });
 
                     // 2. Hydrate Zustand Store
