@@ -8,6 +8,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { messageBus } from '@core/protocol/MessageBus';
 import { useGameStore } from '@store/index';
+import { useAudio } from '@/app/context/AudioContext';
 
 interface LevelUpData {
     language: string;
@@ -17,11 +18,13 @@ interface LevelUpData {
 
 export const LevelUpOverlay: React.FC = () => {
     const [levelData, setLevelData] = useState<LevelUpData | null>(null);
+    const { playSFX } = useAudio();
 
     useEffect(() => {
         // 订阅升级消息
         // subscribe<T> 的 T 必须继承 BaseMessage
         const sub = messageBus.subscribe<any>('LEVEL_UP', (msg) => {
+            playSFX('levelUp');
             setLevelData(msg.payload);
             
             // 3 秒后自动消失

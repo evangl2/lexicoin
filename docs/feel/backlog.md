@@ -1,4 +1,8 @@
 ## Open
+- [🔴] LevelUpOverlay missing audio anchor (2026-04-24)
+- [🟡] RewardCinematicOverlay sequential steps lack auditory staging (2026-04-24)
+- [🟡] SynthesisCircle 'Synthesize' button click lacks responsiveness (2026-04-24)
+- [🟢] Card hover and context menu lack audio polish (2026-04-24)
 - [🟡] LevelUpOverlay radial background pulse feels default
 - [🟢] RewardCinematicOverlay Sparkles icon uses default pulse
 - [🟡] RewardCinematicOverlay Echo Reveal background uses default pulse

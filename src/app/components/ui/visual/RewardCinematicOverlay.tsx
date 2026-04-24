@@ -5,6 +5,7 @@ import { RewardResult } from '@/app/hooks/useGrimoireReward';
 import { CompactCardVisual } from '../card/CompactCardVisual';
 import { DefaultCardPersona } from '../../persona/default/Card.persona.default';
 import { useGameStore } from '@/core/store';
+import { useAudio } from '@/app/context/AudioContext';
 
 interface RewardCinematicOverlayProps {
     result: RewardResult;
@@ -14,12 +15,23 @@ interface RewardCinematicOverlayProps {
 export const RewardCinematicOverlay: React.FC<RewardCinematicOverlayProps> = ({ result, onClose }) => {
     const [step, setStep] = useState<'intro' | 'tally' | 'echo' | 'final'>('intro');
     const learningLang = useGameStore(s => s.player.settings.learningLang);
+    const { playSFX } = useAudio();
 
     useEffect(() => {
+        playSFX('ritualStart');
         // Animation sequence
-        const introTimer = setTimeout(() => setStep('tally'), 1000);
-        const tallyTimer = setTimeout(() => setStep('echo'), 3000);
-        const echoTimer = setTimeout(() => setStep('final'), 5500);
+        const introTimer = setTimeout(() => {
+            playSFX('tallyPop');
+            setStep('tally');
+        }, 1000);
+        const tallyTimer = setTimeout(() => {
+            playSFX('echoReveal');
+            setStep('echo');
+        }, 3000);
+        const echoTimer = setTimeout(() => {
+            playSFX('ritualComplete');
+            setStep('final');
+        }, 5500);
 
         return () => {
             clearTimeout(introTimer);

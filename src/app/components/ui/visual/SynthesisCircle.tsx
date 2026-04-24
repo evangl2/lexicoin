@@ -14,6 +14,7 @@ import { useGameStore } from '@store/index';
 import { MAX_CONCURRENT_SYNTHESES } from '@/config/constants';
 import { levelDistributionSampler } from '@core/services/LevelDistributionSampler';
 import type { Language } from '@/types/index';
+import { useAudio } from '@/app/context/AudioContext';
 
 interface SynthesisCircleProps {
     uid: string;
@@ -39,6 +40,7 @@ export const SynthesisCircle: React.FC<SynthesisCircleProps> = ({
     onSynthesisComplete, systemlang, learninglang
 }) => {
     const { synthesize, state: synthState, card: synthCard, error: synthError } = useSynthesis();
+    const { playSFX } = useAudio();
 
     useResumeProcessing(state.isProcessing, state.slot1_uid, state.slot2_uid, synthesize, systemlang, learninglang);
     const languageLevel = useGameStore(
@@ -141,6 +143,7 @@ export const SynthesisCircle: React.FC<SynthesisCircleProps> = ({
 
     const handleSynthesize = () => {
         if (!canSynthesize) return;
+        playSFX('synthesizeClick');
         updateState(uid, { isProcessing: true, errorMessage: undefined });
         synthesize({
             input_1_id: card1!.cardData.uid,
