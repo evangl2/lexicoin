@@ -22,7 +22,7 @@ interface GrimoireProps {
     isLibraryView?: boolean;
 }
 
-export const Grimoire: React.FC<GrimoireProps> = ({ 
+export const Grimoire: React.FC<GrimoireProps> = React.memo(({ 
     grimoire, 
     x, 
     y, 
@@ -46,10 +46,10 @@ export const Grimoire: React.FC<GrimoireProps> = ({
         isEvaluating
     });
 
-    const handleOpen = () => {
+    const handleOpen = React.useCallback(() => {
         if (!isOpenable) return;
         setActiveGrimoireId(grimoire.id);
-    };
+    }, [isOpenable, setActiveGrimoireId, grimoire.id]);
 
     return (
         <GrimoireVisual
@@ -64,4 +64,4 @@ export const Grimoire: React.FC<GrimoireProps> = ({
             onOpen={handleOpen}
         />
     );
-};
+});

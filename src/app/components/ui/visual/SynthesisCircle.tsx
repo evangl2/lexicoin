@@ -5,7 +5,7 @@ import { useDrag } from '@use-gesture/react';
 import { X, Sparkles, Loader2 } from 'lucide-react';
 import { DeviceState } from '@/types/DeviceEntity';
 import { CompactCardVisual } from '../card/CompactCardVisual';
-import { DefaultCardPersona } from '../../persona/default/Card.persona.default';
+// useCardPersona import removed
 import { DEFAULT_LANGUAGE } from '@/types/CardEntity';
 import type { CardEntity } from '@/types/CardEntity';
 import { useSynthesis } from '@/app/hooks/useSynthesis';
@@ -28,12 +28,12 @@ interface SynthesisCircleProps {
     onCardEject?: (cardUid: string) => void;
     mergedVariants?: Record<string, any[]>; // Added prop
     onDropIntoRepository?: (uid: string) => void;
-    onSynthesisComplete?: (card: CardEntity) => void;
+    onSynthesisComplete?: (card: CardEntity, deviceUid: string) => void;
     systemlang: string;
     learninglang: string;
 }
 
-export const SynthesisCircle: React.FC<SynthesisCircleProps> = ({
+export const SynthesisCircle: React.FC<SynthesisCircleProps> = React.memo(({
     uid, x, y, state, updateState, inputCards, canvasScale, onDragEnd,
     onCardEnter, onCardEject, mergedVariants = {}, onDropIntoRepository,
     onSynthesisComplete, systemlang, learninglang
@@ -118,7 +118,7 @@ export const SynthesisCircle: React.FC<SynthesisCircleProps> = ({
                 isProcessing: false,
                 lastResult: synthCard,
             });
-            onSynthesisComplete?.(synthCard);
+            onSynthesisComplete?.(synthCard, uid);
         }
         if (synthState === 'error') {
             updateState(uid, {
@@ -254,7 +254,7 @@ export const SynthesisCircle: React.FC<SynthesisCircleProps> = ({
             </div>
         </motion.div>
     );
-};
+});
 
 // Slot Component
 interface SlotProps {
@@ -276,7 +276,7 @@ const Slot = React.forwardRef<HTMLDivElement, SlotProps>((props, ref) => {
             data-slot-id={props.slotId}
             data-device-uid={props.deviceUid}
             className={`
-                synthesis-slot w-[120px] h-[120px] rounded-[22px] transition-all duration-300 relative group
+                synthesis-slot w-[120px] h-[120px] rounded-[22px] transition-[background-color,border-color,transform,opacity] duration-300 relative group
                 ${card ? '' : 'border-2'}
                 ${!card ? 'border-white/10 bg-black/20' : ''}
                 [&.is-drag-over]:border-[#D4AF37] [&.is-drag-over]:bg-[#D4AF37]/10
@@ -322,7 +322,6 @@ const SlottedCard: React.FC<{ card: any, variants: any[] }> = ({ card, variants 
             learningData={currentCardData.displayData[DEFAULT_LANGUAGE]!}
             senseInfo={currentCardData.senseInfo}
             visual={currentCardData.visual}
-            persona={DefaultCardPersona}
             isActive={false}
         />
     );

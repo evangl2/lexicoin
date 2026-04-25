@@ -108,6 +108,23 @@ export function useCardAnimation({
     };
   }, [isExpanded, isFlipped, canvasScale, expandedScale, width, height]);
 
+  // Phase 3: Level of Detail (LOD) — Zero-React-Render Path
+  // High-frequency zoom should never trigger React commits.
+  // We use direct DOM manipulation to hide/show details based on scale.
+  useEffect(() => {
+    const el = cardRef.current;
+    if (!el) return;
+
+    const updateLOD = (s: number) => {
+      // Thresholds: < 0.3 (Low), 0.3-0.7 (Medium), > 0.7 (High)
+      el.classList.toggle('lod-low', s < 0.3);
+      el.classList.toggle('lod-medium', s >= 0.3 && s < 0.7);
+    };
+
+    updateLOD(canvasScale.get());
+    return canvasScale.on('change', updateLOD);
+  }, [canvasScale, cardRef]);
+
   const scaleSpring = useSpring(1, CardPersona.physics.springs.scale);
 
   // Update scaleSpring based on mode and canvasScale

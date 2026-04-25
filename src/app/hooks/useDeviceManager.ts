@@ -190,7 +190,7 @@ export const useDeviceManager = () => {
         // For now, saveDevices handles the atomic snapshot.
     }, []);
 
-    return {
+    return useMemo(() => ({
         devices,
         canvasDevices,
         repositoryDevices,
@@ -198,5 +198,5 @@ export const useDeviceManager = () => {
         retrieveDevice,
         updateDeviceState,
         isLoaded
-    };
+    }), [devices, canvasDevices, repositoryDevices, storeDevice, retrieveDevice, updateDeviceState, isLoaded]);
 };

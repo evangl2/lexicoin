@@ -1,4 +1,5 @@
-import { useMemo } from 'react';
+import { useMemo, useRef } from 'react';
+import { useCanvasContext } from '@/app/context/CanvasContext';
 import { useDrag } from '@use-gesture/react';
 import { MotionValue } from 'motion/react';
 import { useGameStore } from '@store/index';
@@ -35,10 +36,8 @@ interface useCardDragParams {
   onDropIntoSummoner?: (cardId: string, deviceUid: string) => void;
   onDropIntoRepository?: (cardId: string) => void;
   onCardEnterDevice?: (cardId: string) => void;
-  isZoomingRef?: React.MutableRefObject<boolean>;
-  expandedIdsRef?: React.MutableRefObject<Set<string>>;
-  isPanningRef?: React.MutableRefObject<boolean>;
   isDraggingRef: React.MutableRefObject<boolean>;
+  draggingIdRef: React.MutableRefObject<string | null>;
 }
 
 /**
@@ -72,11 +71,10 @@ export function useCardDrag({
   onDropIntoSummoner,
   onDropIntoRepository,
   onCardEnterDevice,
-  isZoomingRef,
-  expandedIdsRef,
-  isPanningRef,
   isDraggingRef,
+  draggingIdRef,
 }: useCardDragParams) {
+  const { isZoomingRef, expandedIdsRef, isPanningRef } = useCanvasContext();
   const dragConfig = useMemo(() => ({
     target: cardRef,
     enabled: !isFlipped,
@@ -84,9 +82,21 @@ export function useCardDrag({
     eventOptions: { passive: false }
   }), [cardRef, isFlipped]);
 
+  const targetsCacheRef = useRef<{ el: HTMLElement; rect: DOMRect }[]>([]);
+  const lastHoveredElRef = useRef<HTMLElement | null>(null);
+
   useDrag(({ active, xy: [px, py], delta: [dx, dy], first, last, event }) => {
     if (first) {
+      // READS: Cache all potential drop targets once at drag start BEFORE any DOM writes
+      const allTargets = document.querySelectorAll('.synthesis-slot, .summoner-slot, .grimoire-slot, .closed-grimoire');
+      targetsCacheRef.current = Array.from(allTargets).map(el => ({
+        el: el as HTMLElement,
+        rect: el.getBoundingClientRect()
+      }));
+
+      // WRITES: Update state and styles
       isDraggingRef.current = true;
+      draggingIdRef.current = cardData.uid;
       setVisualFeedback(null);
       scaleSpring.set(1.15);
       if (cardRef.current) {
@@ -129,26 +139,32 @@ export function useCardDrag({
       updatePosition(cardData.uid, finalX, finalY);
 
       const { clientX: cX, clientY: cY } = (event as any).touches ? (event as any).touches[0] : (event as any);
-      document.querySelectorAll('.is-drag-over').forEach(el => el.classList.remove('is-drag-over'));
       
-      const allTargets = document.querySelectorAll('.synthesis-slot, .summoner-slot, .grimoire-slot, .closed-grimoire');
       let hoveredTarget: HTMLElement | null = null;
-      
-      for (const el of Array.from(allTargets)) {
-        const rect = el.getBoundingClientRect();
+      for (const target of targetsCacheRef.current) {
+        const rect = target.rect;
         if (cX >= rect.left && cX <= rect.right && cY >= rect.top && cY <= rect.bottom) {
-          hoveredTarget = el as HTMLElement;
+          hoveredTarget = target.el;
           break;
         }
       }
 
-      if (hoveredTarget) {
-        hoveredTarget.classList.add('is-drag-over');
+      // Update classes only if necessary to avoid DOM thrashing and expensive selector lookups
+      if (lastHoveredElRef.current !== hoveredTarget) {
+        if (lastHoveredElRef.current) lastHoveredElRef.current.classList.remove('is-drag-over');
+        if (hoveredTarget) hoveredTarget.classList.add('is-drag-over');
+        lastHoveredElRef.current = hoveredTarget;
       }
     }
 
     if (last) {
+      // READS: Get drop targets BEFORE any DOM writes/style resets
+      const { clientX, clientY } = (event as any).touches ? (event as any).touches[0] : (event as any);
+      const elements = document.elementsFromPoint(clientX, clientY);
+
+      // WRITES: Reset state and styles
       isDraggingRef.current = false;
+      draggingIdRef.current = null;
       scaleSpring.set(isHoveredRef.current ? 1.05 : 1);
       if (cardRef.current) {
         cardRef.current.style.cursor = isExpanded ? 'zoom-out' : 'grab';
@@ -160,16 +176,17 @@ export function useCardDrag({
       onDragEnd?.(cardData.uid);
       document.body.classList.remove('is-dragging-card');
 
-      document.querySelectorAll('.is-drag-over').forEach(el => el.classList.remove('is-drag-over'));
-
-      const { clientX, clientY } = (event as any).touches ? (event as any).touches[0] : (event as any);
-      const elements = document.elementsFromPoint(clientX, clientY);
+      // Clear drag-over status
+      if (lastHoveredElRef.current) {
+        lastHoveredElRef.current.classList.remove('is-drag-over');
+        lastHoveredElRef.current = null;
+      }
+      
+      // Use elementsFromPoint for primary targets
       const slotElement = elements.find(el => el.classList.contains('synthesis-slot')) as HTMLElement;
-
       if (slotElement) {
         const slotId = parseInt(slotElement.dataset.slotId || '0', 10);
         const deviceUid = slotElement.dataset.deviceUid;
-
         if (slotId && deviceUid && onDropIntoSlot) {
           onDropIntoSlot(cardData.uid, deviceUid, slotId);
         }
@@ -186,44 +203,32 @@ export function useCardDrag({
       const state = useGameStore.getState();
       const activeGrimoireId = state.activeGrimoireId;
       
-      if (activeGrimoireId) {
-        const overlaySlots = document.querySelectorAll('.grimoire-slot');
-        let hitSlotId: string | null = null;
-        
-        for (const el of Array.from(overlaySlots)) {
-          const rect = el.getBoundingClientRect();
-          if (clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom) {
-            hitSlotId = (el as HTMLElement).dataset.slotId || null;
-            break;
+      // Hit testing for Grimoire Slots and Closed Grimoires using cached rects
+      let hitSlotId: string | null = null;
+      let hitGrimoireId: string | null = null;
+
+      for (const target of targetsCacheRef.current) {
+        const rect = target.rect;
+        if (clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom) {
+          if (target.el.classList.contains('grimoire-slot')) {
+            hitSlotId = target.el.dataset.slotId || null;
+          } else if (target.el.classList.contains('closed-grimoire')) {
+            hitGrimoireId = target.el.dataset.grimoireId || null;
           }
-        }
-        
-        if (hitSlotId) {
-          state.updateSlotSense(activeGrimoireId, hitSlotId, cardData.rawSense.uid);
-          onCardEnterDevice?.(cardData.uid);
-          return;
+          if (hitSlotId || hitGrimoireId) break;
         }
       }
 
-      const closedGrimoires = document.querySelectorAll('.closed-grimoire');
-      let hitGrimoireId: string | null = null;
-      
-      for (const el of Array.from(closedGrimoires)) {
-        const rect = el.getBoundingClientRect();
-        if (clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom) {
-          hitGrimoireId = (el as HTMLElement).dataset.grimoireId || null;
-          break;
-        }
-      }
-      
-      if (hitGrimoireId) {
+      if (activeGrimoireId && hitSlotId) {
+        state.updateSlotSense(activeGrimoireId, hitSlotId, cardData.rawSense.uid);
+        onCardEnterDevice?.(cardData.uid);
+      } else if (hitGrimoireId) {
         const targetGrimoire = state.activeGrimoires.find(g => g.id === hitGrimoireId);
         if (targetGrimoire && targetGrimoire.status !== 'EVALUATING' && targetGrimoire.status !== 'SUMMONING') {
           const emptySlot = targetGrimoire.slots.find(s => !s.senseId);
           if (emptySlot) {
             state.updateSlotSense(hitGrimoireId, emptySlot.id, cardData.rawSense.uid);
             onCardEnterDevice?.(cardData.uid);
-            return;
           }
         }
       }
@@ -232,6 +237,9 @@ export function useCardDrag({
       if (repoElement && onDropIntoRepository) {
         onDropIntoRepository(cardData.uid);
       }
+
+      // Clear cache
+      targetsCacheRef.current = [];
     }
   }, dragConfig);
 

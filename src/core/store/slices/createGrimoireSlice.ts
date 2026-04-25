@@ -46,6 +46,8 @@ export interface GrimoireActions {
     fillGrimoireSlot: (grimoireId: UUID, slotId: UUID, senseId: UUID, inventoryInstanceId?: UUID) => void;
     /** Semantic action: Remove a card from a slot (e.g. by dragging it out) */
     unfillGrimoireSlot: (grimoireId: UUID, slotId: UUID) => void;
+    /** DEV: Clear all grimoires from canvas (and return cards to repository) */
+    clearAllGrimoires: () => void;
 }
 
 export const createGrimoireSlice: StateCreator<
@@ -144,5 +146,30 @@ export const createGrimoireSlice: StateCreator<
                 location: 'repository' 
             }, 'GrimoireModule');
         });
+    },
+
+    clearAllGrimoires: () => {
+        const state = get();
+        const activeGrimoires = state.activeGrimoires;
+        const filledSenseIds: UUID[] = [];
+        
+        activeGrimoires.forEach(g => {
+            g.slots.forEach(s => {
+                if (s.senseId) filledSenseIds.push(s.senseId);
+            });
+        });
+
+        if (filledSenseIds.length > 0) {
+            import('../../protocol/MessageBus').then(({ messageBus }) => {
+                filledSenseIds.forEach(uid => {
+                    messageBus.send('CARD_LOCATION_CHANGED', { 
+                        uid, 
+                        location: 'repository' 
+                    }, 'DevConsole');
+                });
+            });
+        }
+
+        set({ activeGrimoires: [], activeGrimoireId: null });
     },
 });

@@ -115,7 +115,6 @@ export const RewardCinematicOverlay: React.FC<RewardCinematicOverlayProps> = ({ 
                                         learningData={result.echo.word[learningLang] as any}
                                         senseInfo={result.echo as any}
                                         visual={typeof result.echo.visual === 'string' ? { status: 'loaded', payload: result.echo.visual } : (result.echo.visual as any || { status: 'idle', payload: '' })}
-                                        persona={DefaultCardPersona}
                                         isActive={true}
                                     />
                                 </div>

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Hexagon } from 'lucide-react';
-import { DefaultCardPersona as CardPersona } from '@/app/components/persona/default/Card.persona.default';
+import { useCardPersona } from '@/app/context/PersonaContext';
 
 interface PropVisualProps {
   title: string;
@@ -15,7 +15,8 @@ export const PropVisual: React.FC<PropVisualProps> = ({
   className = '',
   isHovered = false
 }) => {
-  const { tokens, definitions } = CardPersona;
+  const cardPersona = useCardPersona();
+  const { tokens, definitions } = cardPersona;
 
   return (
     <div 

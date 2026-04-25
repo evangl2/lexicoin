@@ -3,7 +3,7 @@ import { useCardVariants } from '@/app/hooks/useCardVariants';
 import { useDrop } from 'react-dnd';
 import { motion, useMotionValue, MotionValue } from 'motion/react';
 import { useWindowDimensions } from '@/app/hooks/useWindowDimensions';
-import { DefaultCardPersona as CardPersona } from '@/app/components/persona/default/Card.persona.default';
+// CardPersona import removed to use context version
 import { LexiCardChrome } from '@/app/components/ui/card/web/LexiCardChrome';
 import { cardFocusRegistry } from '@/app/utils/cardFocusRegistry';
 import { tts } from '@/app/utils/audio/tts';
@@ -16,6 +16,8 @@ import { useCardPhysics } from '@/app/hooks/useCardPhysics';
 import { useCardAnimation } from '@/app/hooks/useCardAnimation';
 import { useCardDrag } from '@/app/hooks/useCardDrag';
 import { getCardWCSlots } from '@/app/components/ui/card/CardWCSlots';
+import { usePersona } from '@/app/context/PersonaContext';
+import { useCanvasContext } from '@/app/context/CanvasContext';
 
 interface CardProps {
   cardData: CardEntity;
@@ -35,14 +37,12 @@ interface CardProps {
   updatePosition: (id: string, x: number, y: number) => void;
   onDropItem?: (item: any) => void;
   isHidden?: boolean;
-  groupFeedback?: { merge: string[], split: string[], timestamp: number } | null;
+  isMerging?: boolean;
+  isSplitting?: boolean;
   onDropIntoSlot?: (cardId: string, deviceUid: string, slotId: number) => void;
   onDropIntoSummoner?: (cardId: string, deviceUid: string) => void;
   onDropIntoRepository?: (cardId: string) => void;
   onCardEnterDevice?: (cardId: string) => void;
-  expandedIdsRef?: React.MutableRefObject<Set<string>>;
-  isPanningRef?: React.MutableRefObject<boolean>;
-  isZoomingRef?: React.MutableRefObject<boolean>;
 }
 
 export const Card = React.memo<CardProps>(({
@@ -62,37 +62,56 @@ export const Card = React.memo<CardProps>(({
   updatePosition,
   isHidden = false,
   onDropItem,
-  groupFeedback,
+  isMerging = false,
+  isSplitting = false,
   externalScale,
   onDropIntoSlot,
   onDropIntoSummoner,
   onDropIntoRepository,
   onCardEnterDevice,
-  expandedIdsRef,
-  isPanningRef,
-  isZoomingRef,
 }) => {
+  const { expandedIdsRef, isPanningRef, isZoomingRef, draggingIdRef } = useCanvasContext();
   // ========== Variant & Data Logic ==========
+  // ========== 1. Standard React Hooks (Primitives) ==========
+  const [isHovered, setIsHovered] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [isFlipped, setIsFlipped] = useState(false);
+  const [isAnimating, setIsAnimating] = useState(false);
+  const [isOverlayOpen, setIsOverlayOpen] = useState(false);
+  const [visualFeedback, setVisualFeedback] = useState<'merge' | 'split' | null>(null);
+  const [wcFlavorIndex, setWcFlavorIndex] = useState(0);
+  const [wcFlavorDirection, setWcFlavorDirection] = useState(0);
+  const [wcActivePersonaId, setWcActivePersonaId] = useState(0);
+
+  const cardRef = useRef<HTMLDivElement | null>(null);
+  const scaleWrapperRef = useRef<HTMLDivElement | null>(null);
+  const isHoveredRef = useRef(false);
+  const isDraggingRef = useRef(false);
+  const backFaceMountedRef = useRef(false);
+  const wcHostRef = useRef<HTMLElement | null>(null);
+  const wcFlavorContainerRef = useRef<HTMLDivElement>(null);
+
+  const mouseX = useMotionValue(0);
+  const mouseY = useMotionValue(0);
+
+  const { activeSkin: uiTheme, card: CardPersona } = usePersona();
+  const focusCard = useGameStore(s => s.focusCard);
+  const blurCard = useGameStore(s => s.blurCard);
+
+  // Stable Action References
+  const actionsRef = useRef({ focus: focusCard, blur: blurCard });
+  useEffect(() => {
+    actionsRef.current = { focus: focusCard, blur: blurCard };
+  }, [focusCard, blurCard]);
+
+  // ========== 2. Custom Hooks & Derived State ==========
   const { setActiveUid, activeUid, sortedVariants, currentCardData } = useCardVariants({ cardData, variants });
   const learningData = currentCardData.displayData[learningLanguage]!;
   const systemData = currentCardData.displayData[systemLanguage]!;
   const title = learningData.word;
   const uid = cardData.uid;
 
-  // ========== Local State ==========
-  const [isHovered, setIsHovered] = useState(false);
-  const isHoveredRef = useRef(false);
-  const [isExpanded, setIsExpanded] = useState(false);
-  const [isFlipped, setIsFlipped] = useState(false);
-  const [isAnimating, setIsAnimating] = useState(false);
-  const [isOverlayOpen, setIsOverlayOpen] = useState(false);
-  const [visualFeedback, setVisualFeedback] = useState<'merge' | 'split' | null>(null);
-  const isDraggingRef = useRef(false);
-  const cardRef = useRef<HTMLDivElement | null>(null);
-  const scaleWrapperRef = useRef<HTMLDivElement | null>(null);
   const { windowWidth, windowHeight } = useWindowDimensions();
-  const mouseX = useMotionValue(0);
-  const mouseY = useMotionValue(0);
 
   const physics = useCardPhysics({
     x, y, mouseX, mouseY, windowWidth, windowHeight, isExpanded, isFlipped
@@ -118,28 +137,24 @@ export const Card = React.memo<CardProps>(({
     learningLanguage, title, updatePosition, startAnimation,
     setIsExpanded, setVisualFeedback, onDragStart, onDragEnd,
     onDropIntoSlot, onDropIntoSummoner, onDropIntoRepository, onCardEnterDevice,
-    isDraggingRef, isZoomingRef, expandedIdsRef, isPanningRef
+    isDraggingRef, draggingIdRef
   });
-
-  // ========== UI Store & Theme ==========
-  const uiTheme = useGameStore(s => s.uiTheme);
-  const focusCard = useGameStore(s => s.focusCard);
-  const blurCard = useGameStore(s => s.blurCard);
 
   // ========== Focus/Blur Registry ==========
   useEffect(() => {
+    const { focus, blur } = actionsRef.current;
     if (isExpanded || isFlipped) {
       expandedIdsRef?.current?.add(uid);
-      focusCard(uid);
+      focus(uid);
     } else {
       expandedIdsRef?.current?.delete(uid);
-      blurCard(uid);
+      blur(uid);
     }
     return () => {
       expandedIdsRef?.current?.delete(uid);
-      blurCard(uid);
+      blur(uid);
     };
-  }, [isExpanded, isFlipped, uid, focusCard, blurCard, expandedIdsRef]);
+  }, [isExpanded, isFlipped, uid, expandedIdsRef]);
 
   useEffect(() => {
     if (!isExpanded && !isFlipped) {
@@ -185,17 +200,11 @@ export const Card = React.memo<CardProps>(({
 
   // ========== Visual Feedback Effect ==========
   useEffect(() => {
-    if (!groupFeedback) return;
-    if (groupFeedback.merge.includes(uid)) setVisualFeedback('merge');
-    else if (groupFeedback.split.includes(uid)) setVisualFeedback('split');
-  }, [groupFeedback, uid]);
+    if (isMerging) setVisualFeedback('merge');
+    else if (isSplitting) setVisualFeedback('split');
+  }, [isMerging, isSplitting]);
 
   // ========== Web Component Shadow DOM Sync ==========
-  const wcHostRef = useRef<HTMLElement | null>(null);
-  const [wcFlavorIndex, setWcFlavorIndex] = useState(0);
-  const [wcFlavorDirection, setWcFlavorDirection] = useState(0);
-  const [wcActivePersonaId, setWcActivePersonaId] = useState(0);
-  const wcFlavorContainerRef = useRef<HTMLDivElement>(null);
 
   const wcAvailablePersonas = useMemo(() => {
     const personas = Array.from(new Set(learningData.flavorContents.map((item: any) => item.persona)));
@@ -335,7 +344,6 @@ export const Card = React.memo<CardProps>(({
   }, [drop]);
 
   const isActive = (isHovered || isExpanded || isOver || isOverlayOpen) && !isAnimating;
-  const backFaceMountedRef = useRef(false);
   if (isExpanded || isFlipped) backFaceMountedRef.current = true;
 
   const slots = useMemo(() => getCardWCSlots({

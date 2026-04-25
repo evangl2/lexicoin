@@ -439,6 +439,12 @@ export interface CardPersona {
     motion: PersonaMotion;
     slots: CardSlots;
     assets: PersonaAssets;
+    
+    // Implementation-specific properties used in components
+    tokens: any;
+    visuals: any;
+    physics: any;
+    definitions: any;
 }
 
 export interface CanvasPersona {
@@ -449,6 +455,11 @@ export interface CanvasPersona {
     assets: PersonaAssets;
     geometry: CanvasGeometry;
     decorations: CanvasDecorations;
+    
+    // Implementation-specific
+    tokens: any;
+    visuals: any;
+    definitions: any;
 }
 
 export interface InterfacePersona {
@@ -462,6 +473,11 @@ export interface InterfacePersona {
     assets: PersonaAssets;
     dock: DockConfig;
     interfaceLayout: InterfaceLayoutConfig;
+
+    // Implementation-specific
+    tokens: any;
+    visuals: any;
+    definitions: any;
 }
 
 // ==================== FULL PERSONA BUNDLE ====================

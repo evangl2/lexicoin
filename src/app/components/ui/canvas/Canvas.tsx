@@ -3,6 +3,7 @@ import { useGesture } from '@use-gesture/react';
 import { motion, useMotionValue, useSpring, useTransform } from 'motion/react';
 import { useGameStore } from '@store/index';
 import { useCanvasPersona } from '@/app/context/PersonaContext';
+import { useCanvasContext } from '@/app/context/CanvasContext';
 import { Slot } from '@/app/components/persona/slots';
 import { WORLD_W, WORLD_H } from '@/config/canvas';
 import {
@@ -17,12 +18,10 @@ interface CanvasProps {
   x: any;     // MotionValue
   y: any;     // MotionValue
   onDoubleClick?: (e: React.MouseEvent) => void;
-  isZoomingRef?: React.MutableRefObject<boolean>;
-  isPanningRef?: React.MutableRefObject<boolean>;
-  expandedIdsRef?: React.MutableRefObject<Set<string>>;
 }
 
-export const Canvas: React.FC<CanvasProps> = ({ children, scale, x, y, onDoubleClick, isZoomingRef, isPanningRef, expandedIdsRef }) => {
+export const Canvas: React.FC<CanvasProps> = ({ children, scale, x, y, onDoubleClick }) => {
+  const { isZoomingRef, isPanningRef, expandedIdsRef } = useCanvasContext();
   const containerRef = useRef<HTMLDivElement>(null);
   const worldRef = useRef<HTMLDivElement>(null);
   const canvasPersona = useCanvasPersona();
@@ -215,6 +214,8 @@ export const Canvas: React.FC<CanvasProps> = ({ children, scale, x, y, onDoubleC
           // Freeze background elements for pan duration — see isPanningInternalRef comment above.
           isPanningInternalRef.current = true;
           if (isPanningRef) isPanningRef.current = true;
+          // Disable hit-testing for cards during pan to prevent hover storm
+          if (worldRef.current) worldRef.current.style.pointerEvents = 'none';
         }
 
         // Move camera
@@ -231,6 +232,10 @@ export const Canvas: React.FC<CanvasProps> = ({ children, scale, x, y, onDoubleC
           // so gears/noise reflect the new camera position without a jarring jump.
           isPanningInternalRef.current = false;
           if (isPanningRef) isPanningRef.current = false;
+
+          // Re-enable hit-testing
+          if (worldRef.current) worldRef.current.style.pointerEvents = '';
+
           const fx = x.get();
           const fy = y.get();
           rotateSlow.set(fx * CANVAS_PARALLAX_FACTOR);
@@ -330,8 +335,6 @@ export const Canvas: React.FC<CanvasProps> = ({ children, scale, x, y, onDoubleC
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const isAnyCardZoomed = useGameStore(s => s.zoomedCardIds.length > 0);
-
   const scriptNoiseProps = useMemo(() => ({ x: bgX, y: bgY }), [bgX, bgY]);
   const rotationProps = useMemo(() => ({ rotateSlow, rotateReverse }), [rotateSlow, rotateReverse]);
   const gridSystemProps = useMemo(() => ({ scale, width: WORLD_W, height: WORLD_H }), [scale]);
@@ -382,7 +385,7 @@ export const Canvas: React.FC<CanvasProps> = ({ children, scale, x, y, onDoubleC
           height: WORLD_H,
           top: -HALF_H,
           left: -HALF_W,
-          willChange: isAnyCardZoomed ? 'auto' : 'transform',
+          willChange: 'transform',
           contain: 'layout',
         }}
         className="absolute origin-center"

@@ -100,17 +100,25 @@ export const GrimoireVisual: React.FC<GrimoireVisualProps> = React.memo(({
             className={`
                 closed-grimoire
                 w-[130px] h-[180px] rounded-r-xl rounded-l-sm border-2 backdrop-blur-xl flex flex-col items-center justify-between p-4
-                transition-[background-color,border-color,box-shadow,opacity,transform] duration-300 group ${tokens.shadows.book}
+                transition-[background-color,border-color,opacity,transform] duration-300 group
                 relative overflow-hidden
                 ${isOpenable ? 'cursor-pointer' : 'opacity-50 grayscale pointer-events-none'}
                 ${isLibraryView ? 'scale-[0.85]' : ''}
-                ${isOver && canDrop ? `ring-4 ring-amber-400 bg-amber-900/50 scale-[1.1] -translate-y-4 shadow-amber-500/50` : ''}
-                [&.is-drag-over]:ring-4 [&.is-drag-over]:ring-amber-400 [&.is-drag-over]:bg-amber-900/50 [&.is-drag-over]:scale-[1.1] [&.is-drag-over]:-translate-y-4 [&.is-drag-over]:shadow-amber-500/50
+                ${isOver && canDrop ? `ring-4 ring-amber-400 bg-amber-900/50 scale-[1.1] -translate-y-4` : ''}
+                [&.is-drag-over]:ring-4 [&.is-drag-over]:ring-amber-400 [&.is-drag-over]:bg-amber-900/50 [&.is-drag-over]:scale-[1.1] [&.is-drag-over]:-translate-y-4
                 ${tokens.colors.coverBase}
                 ${tokens.colors.status[grimoire.status]}
             `}
             onClick={onOpen}
         >
+            {/* Compositor-friendly Shadows (Box-shadow replacement) */}
+            <div className={`absolute inset-0 rounded-r-xl rounded-l-sm transition-opacity duration-300 pointer-events-none ${tokens.shadows.book}`} />
+            
+            {/* Hover/Drag Glow Shadow */}
+            <div className={`
+                absolute inset-0 rounded-r-xl rounded-l-sm transition-opacity duration-300 pointer-events-none shadow-amber-500/50
+                ${(isOver && canDrop) ? 'opacity-100' : 'opacity-0'}
+            `} />
             {/* Book Spine */}
             <div className={`absolute left-0 top-0 bottom-0 w-4 ${tokens.colors.spineBase} border-r border-white/5 flex flex-col justify-evenly items-center shadow-inner z-10`}>
                 <div className={`w-full h-[2px] ${tokens.colors.spineLines}`} />

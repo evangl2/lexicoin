@@ -117,7 +117,7 @@ const ScrollSelect: React.FC<ScrollSelectProps> = ({ label, options, value, onCh
                 onChange(opt);
                 setIsOpen(false);
               }}
-              className="w-full text-center py-2 text-xs tracking-[0.2em] relative group transition-colors flex items-center justify-center shrink-0"
+              className="w-full text-center py-2 text-xs tracking-[0.2em] relative group transition-colors duration-300 flex items-center justify-center shrink-0"
               style={{
                 color: isSelected ? interfacePersona.palette.colors.textHighlight : interfacePersona.palette.colors.textMuted,
                 height: '32px'
@@ -130,7 +130,7 @@ const ScrollSelect: React.FC<ScrollSelectProps> = ({ label, options, value, onCh
                   style={{ backgroundColor: interfacePersona.palette.colors.accent }}
                 />
               )}
-              <span className={`transition-all duration-300 ${isSelected ? 'scale-110 font-bold' : 'group-hover:text-white/60'}`}>
+              <span className={`transition-[transform,color,font-weight] duration-300 ${isSelected ? 'scale-110 font-bold' : 'group-hover:text-white/60'}`}>
                 {opt}
               </span>
             </button>
@@ -158,15 +158,22 @@ const ScrollSelect: React.FC<ScrollSelectProps> = ({ label, options, value, onCh
         ref={buttonRef}
         onClick={() => setIsOpen(!isOpen)}
         className={`
-            w-full h-[32px] relative overflow-hidden rounded-sm border transition-all duration-300 group shrink-0
+            w-full h-[32px] relative overflow-hidden rounded-sm border transition-[background-color,border-color] duration-300 group shrink-0
             flex items-center justify-between px-3
           `}
         style={{
           backgroundColor: isOpen ? interfacePersona.palette.colors.bgElevated : 'rgba(5,5,5,0.3)',
-          borderColor: isOpen ? interfacePersona.palette.colors.borderBase : interfacePersona.palette.colors.borderFaint,
-          boxShadow: isOpen ? interfacePersona.effects.shadows.glowSoft : 'none'
+          borderColor: isOpen ? interfacePersona.palette.colors.borderBase : interfacePersona.palette.colors.borderFaint
         }}
       >
+        {/* Compositor-friendly Glow (Box-shadow replacement) */}
+        <div 
+          className="absolute inset-0 transition-opacity duration-300 pointer-events-none"
+          style={{ 
+            opacity: isOpen ? 1 : 0,
+            boxShadow: interfacePersona.effects.shadows.glowSoft 
+          }} 
+        />
         {/* Text Value */}
         <span className={`text-[10px] tracking-widest font-bold truncate transition-colors mr-2`}
           style={{ color: isOpen ? interfacePersona.palette.colors.textHighlight : interfacePersona.palette.colors.textSecondary }}
@@ -176,7 +183,7 @@ const ScrollSelect: React.FC<ScrollSelectProps> = ({ label, options, value, onCh
 
         {/* Icon */}
         <div className={`transition-transform duration-300 shrink-0 ${isOpen ? 'rotate-180' : ''}`}
-          style={{ color: isOpen ? interfacePersona.palette.colors.textHighlight : interfacePersona.palette.colors.textSecondary }}>
+          style={{ color: isOpen ? interfacePersona.palette.colors.textHighlight : interfacePersona.palette.colors.textSecondary, position: 'relative', zIndex: 1 }}>
           <ChevronDown size={12} />
         </div>
 
@@ -413,13 +420,15 @@ export const ConfigMenu: React.FC<ConfigMenuProps> = ({
                 <div className="flex items-center gap-4">
                   <button
                     onClick={onClose}
-                    className="group flex items-center justify-center w-8 h-8 rounded-full border hover:shadow-[0_0_10px_#D4AF37] active:scale-95 transition-all"
+                    className="group relative flex items-center justify-center w-8 h-8 rounded-full border active:scale-95 transition-[border-color,background-color,transform] duration-300"
                     style={{
                       borderColor: interfacePersona.palette.colors.borderBase,
                       backgroundColor: interfacePersona.palette.colors.bgBase
                     }}
                   >
-                    <X size={14} className="group-hover:text-[#D4AF37] transition-colors" style={{ color: interfacePersona.palette.colors.textSecondary }} />
+                    <div className="absolute inset-0 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
+                      style={{ boxShadow: `0 0 10px #D4AF37` }} />
+                    <X size={14} className="group-hover:text-[#D4AF37] transition-colors relative z-10" style={{ color: interfacePersona.palette.colors.textSecondary }} />
                   </button>
                 </div>
               </div>

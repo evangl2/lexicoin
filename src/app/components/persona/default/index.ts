@@ -262,6 +262,11 @@ export const DefaultCardPersona: CardPersona = {
             backPattern: LegacyCardPersona.definitions.assets.backPattern,
         },
     },
+    // Implementation-specific properties
+    tokens: LegacyCardPersona.tokens,
+    visuals: LegacyCardPersona.visuals,
+    physics: LegacyCardPersona.physics,
+    definitions: LegacyCardPersona.definitions,
 };
 
 // ==================== CANVAS PERSONA ====================
@@ -305,6 +310,9 @@ export const DefaultCanvasPersona: CanvasPersona = {
     },
     geometry: LegacyCanvasPersona.tokens.geometry,
     decorations: LegacyCanvasPersona.tokens.decorations,
+    tokens: LegacyCanvasPersona.tokens,
+    visuals: LegacyCanvasPersona.visuals,
+    definitions: LegacyCanvasPersona.definitions,
 };
 
 // ==================== INTERFACE PERSONA ====================
@@ -364,6 +372,9 @@ export const DefaultInterfacePersona: InterfacePersona = {
         tabHeight: LegacyInterfacePersona.tokens.layout.tabHeight,
         dockOffset: LegacyInterfacePersona.tokens.layout.dockOffset,
     },
+    tokens: LegacyInterfacePersona.tokens,
+    visuals: LegacyInterfacePersona.visuals,
+    definitions: LegacyInterfacePersona.definitions,
 };
 
 // ==================== FULL PERSONA BUNDLE ====================

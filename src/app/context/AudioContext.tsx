@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useCallback, useMemo } from 'react';
+import { useGameStore } from '@store/index';
 import { tts } from '@/app/utils/audio/tts';
 import type { Language } from '@schemas/schemas/SenseEntity.schema';
 
@@ -20,11 +21,11 @@ export const useAudio = () => {
 
 interface AudioProviderProps {
     children: React.ReactNode;
-    isMuted: boolean;
-    volume: number;
 }
 
-export const AudioProvider: React.FC<AudioProviderProps> = ({ children, isMuted, volume }) => {
+export const AudioProvider: React.FC<AudioProviderProps> = ({ children }) => {
+    const isMuted = useGameStore(s => s.audio.muted);
+    const volume = useGameStore(s => s.audio.volume);
 
     // Wrap speak to respect global mute/volume settings
     const speak = useCallback(async (text: string, language: Language) => {

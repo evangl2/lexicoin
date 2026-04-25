@@ -1,4 +1,4 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { useMotionValue, animate, MotionValue } from "motion/react";
 
 export const useCanvasCamera = () => {
@@ -30,11 +30,11 @@ export const useCanvasCamera = () => {
         animate(scale, targetScale, { type: "spring", stiffness: 100, damping: 20 });
     }, [x, y, scale]);
 
-    return {
+    return useMemo(() => ({
         x,
         y,
         scale,
         centerCamera,
         flyTo
-    };
+    }), [x, y, scale, centerCamera, flyTo]);
 };

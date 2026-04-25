@@ -108,6 +108,7 @@ export const DevConsole: React.FC = () => {
     const [logFilter, setLogFilter] = useState('');
     const setSenses = useGameStore(s => s.setSenses);
     const setFeatureFlag = useGameStore(s => s.setFeatureFlag);
+    const clearAllGrimoires = useGameStore(s => s.clearAllGrimoires);
     const uiTheme = useGameStore(s => s.uiTheme);
     const setUiTheme = useGameStore(s => s.setUiTheme);
     const [messageFilter, setMessageFilter] = useState('');
@@ -567,6 +568,18 @@ export const DevConsole: React.FC = () => {
                                 )}
                                 
                                 <div style={{ height: '24px' }} />
+                                
+                                <button
+                                    className="danger-btn"
+                                    onClick={() => {
+                                        if (confirm('Are you SURE you want to clear all active Grimoires? Cards inside will return to repository.')) {
+                                            clearAllGrimoires();
+                                        }
+                                    }}
+                                    style={{ marginBottom: '12px', background: '#442222', borderColor: '#663333' }}
+                                >
+                                    🧹 Clear All Canvas Grimoires
+                                </button>
 
                                 <button
                                     className="danger-btn"

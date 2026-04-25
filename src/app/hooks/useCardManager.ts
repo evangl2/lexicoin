@@ -401,7 +401,7 @@ export const useCardManager = () => {
         return () => clearTimeout(saveTimerRef.current);
     }, []);
 
-    return {
+    return useMemo(() => ({
         items,
         setItems,
         canvasItems,
@@ -412,5 +412,5 @@ export const useCardManager = () => {
         deleteItem,
         saveItems,
         isLoaded
-    };
+    }), [items, setItems, canvasItems, repositoryItems, storeCard, retrieveCard, setCardLocation, deleteItem, saveItems, isLoaded]);
 };

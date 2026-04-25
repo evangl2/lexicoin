@@ -89,7 +89,7 @@ const PERSONA_TAG = {
 
 // ── Component ────────────────────────────────────────────────────────────────
 
-export const LexiCardChrome = React.memo<LexiCardChromeProps>(({
+const LexiCardChromeInner: React.FC<LexiCardChromeProps> = ({
   persona,
   isActive,
   isExpanded,
@@ -224,7 +224,9 @@ export const LexiCardChrome = React.memo<LexiCardChromeProps>(({
       )}
     </Tag>
   );
-});
+};
+
+export const LexiCardChrome = React.memo(LexiCardChromeInner);
 
 LexiCardChrome.displayName = 'LexiCardChrome';
 

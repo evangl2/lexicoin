@@ -44,7 +44,7 @@ const getLoc = (key: string, lang: string = 'ENGLISH') => {
    return isZh ? (dict[key]?.zh || key) : (dict[key]?.en || key);
 };
 
-export const Dock: React.FC<DockProps> = ({
+export const Dock: React.FC<DockProps> = React.memo(({
    isDeckOpen = false,
    toggleDeck,
    isConfigOpen = false,
@@ -148,8 +148,8 @@ export const Dock: React.FC<DockProps> = ({
    return (
       // Outer Container (Global Bottom Offset: 48px)
       <div
-         className="fixed inset-x-0 z-[500] flex justify-center pointer-events-none select-none transition-all duration-500 ease-out"
-         style={{ bottom: `calc(${interfacePersona.dock.layout.bottomPosition} * ${isZoomed ? 0.5 : 1})` }}
+         className="fixed inset-x-0 bottom-0 z-[500] flex justify-center pointer-events-none select-none transition-[transform,opacity] duration-500 ease-out"
+         style={{ transform: `translateY(calc(-1 * (${interfacePersona.dock.layout.bottomPosition} * ${isZoomed ? 0.5 : 1})))` }}
       >
 
          {/* Deck Repository Overlay */}
@@ -186,7 +186,7 @@ export const Dock: React.FC<DockProps> = ({
 
          {/* Inner Container: Handles Scaling and Layout */}
          <motion.div
-            className="relative flex flex-col items-center justify-end transition-all duration-500 ease-out"
+            className="relative flex flex-col items-center justify-end transition-[transform,opacity,filter] duration-500 ease-out"
             style={{
                scale: finalScale,
                opacity: isZoomed ? 0.4 : 1,
@@ -281,7 +281,7 @@ export const Dock: React.FC<DockProps> = ({
          </motion.div>
       </div>
    );
-};
+});
 
 /* --- The Rune Lock Node --- */
 interface RuneLockNodeProps {
@@ -311,7 +311,7 @@ const RuneLockNode: React.FC<RuneLockNodeProps> = ({ icon: Icon, label, isActive
       >
 
          {/* 1. The Mechanical Lock Mechanism (Rings) */}
-         <div className={`absolute inset-0 pointer-events-none flex items-center justify-center transition-all duration-700`}
+         <div className={`absolute inset-0 pointer-events-none flex items-center justify-center transition-[transform,opacity] duration-700`}
             style={{
                transform: isVisuallyActive ? `scale(${interfacePersona.dock.metrics.activeScale})` : 'scale(1)',
             }}
@@ -320,7 +320,7 @@ const RuneLockNode: React.FC<RuneLockNodeProps> = ({ icon: Icon, label, isActive
             {/* Complex Inner Ring */}
             <div className={`
              absolute rounded-full border-dashed 
-             transition-all duration-1000 
+             transition-[border-color,opacity,transform] duration-1000 
              ${isVisuallyActive ? '' : 'rotate-0 opacity-20'}
          `}
                style={{
@@ -341,7 +341,8 @@ const RuneLockNode: React.FC<RuneLockNodeProps> = ({ icon: Icon, label, isActive
                   inset: '-4px', // Simplified
                   borderColor: interfacePersona.palette.colors.borderFaint,
                   borderWidth: '1px',
-                  animation: isVisuallyActive ? interfacePersona.motion.animations.spinRune : 'none'
+                  animation: isVisuallyActive ? interfacePersona.motion.animations.spinRune : 'none',
+                  transition: 'opacity 1s, transform 1s'
                }}>
                {/* Decorative ticks */}
                {[0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330].map(deg => (
@@ -360,7 +361,7 @@ const RuneLockNode: React.FC<RuneLockNodeProps> = ({ icon: Icon, label, isActive
             <Icon
                size={interfacePersona.dock.metrics.iconSize}
                strokeWidth={isVisuallyActive ? 1.5 : 1}
-               className={`transition-all duration-500`}
+               className={`transition-[color,filter,transform] duration-500`}
                style={{
                   color: isVisuallyActive ? interfacePersona.palette.colors.accent : interfacePersona.palette.colors.textMuted,
                   filter: isVisuallyActive ? `drop-shadow(${interfacePersona.effects.shadows.glow})` : 'none',

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { animate, motionValue } from "motion/react";
 import type { CardEntity } from "@/types/CardEntity";
 import type { CardItem } from "@/app/hooks/useCardManager";
@@ -133,10 +133,24 @@ export const useCardGrouping = ({ items, setItems, learningLang }: UseCardGroupi
             if (!anchor) return; // Should not happen given group creation logic
 
             const variants = group.slice(1);
-
-            // Store Variants
+            // Case A: Anchor was already an Anchor
             if (variants.length > 0) {
-                newMergedVariants[anchor.uid] = variants;
+                // Phase 2: Variant Array Stabilization
+                // Reuse the old array reference if the exact card references haven't changed.
+                // This preserves React.memo(Card) for cards whose variants didn't change.
+                const oldVariants = mergedVariants[anchor.uid];
+                let isIdentical = oldVariants && oldVariants.length === variants.length;
+                if (isIdentical) {
+                    for (let i = 0; i < variants.length; i++) {
+                        // Compare by reference: if card data was updated (e.g. durability),
+                        // it will be a new object reference from allCards.
+                        if (variants[i] !== oldVariants![i]) {
+                            isIdentical = false;
+                            break;
+                        }
+                    }
+                }
+                newMergedVariants[anchor.uid] = isIdentical ? oldVariants! : variants;
             }
 
             // Determine Anchor Position & Location
@@ -368,11 +382,12 @@ export const useCardGrouping = ({ items, setItems, learningLang }: UseCardGroupi
             for (const key of newKeys) {
                 const ov = oldV[key];
                 const nv = newV[key];
-                if (!ov || !nv) return true; // Should exist if keys match
+                if (!ov || !nv) return true;
+                if (ov === nv) continue; // Reference identical (stabilized)
                 if (ov.length !== nv.length) return true;
-                // Check UIDs of variants
+                // Check references of individual cards
                 for (let i = 0; i < nv.length; i++) {
-                    if (nv[i]?.uid !== ov[i]?.uid) return true;
+                    if (nv[i] !== ov[i]) return true;
                 }
             }
             return false;
@@ -404,9 +419,9 @@ export const useCardGrouping = ({ items, setItems, learningLang }: UseCardGroupi
 
     }, [learningLang, items.length]); // Dependencies: Language change or Count change
 
-    return {
+    return useMemo(() => ({
         mergedVariants,
         exitingItems,
         groupFeedback // Expose feedback events
-    };
+    }), [mergedVariants, exitingItems, groupFeedback]);
 };

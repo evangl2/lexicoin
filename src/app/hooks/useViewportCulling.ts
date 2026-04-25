@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useCanvasContext } from '@/app/context/CanvasContext';
 import type { RefObject } from 'react';
 import type { MotionValue } from 'motion/react';
 import { GRID_CELL_W, GRID_CELL_H } from './useGridSnap';
@@ -27,10 +28,8 @@ export function useViewportCulling(
   cameraX: MotionValue<number>,
   cameraY: MotionValue<number>,
   cameraScale: MotionValue<number>,
-  expandedIdsRef: RefObject<Set<string>>,
-  draggingIdRef: RefObject<string | null>,
-  isZoomingRef?: RefObject<boolean>,
 ): Set<string> {
+  const { expandedIdsRef, draggingIdRef, isZoomingRef } = useCanvasContext();
   const [visibleIds, setVisibleIds] = useState<Set<string>>(
     () => new Set(items.map(i => i.uid)),
   );

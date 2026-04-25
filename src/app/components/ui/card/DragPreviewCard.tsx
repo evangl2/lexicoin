@@ -92,7 +92,6 @@ export const DragPreviewCard: React.FC<DragPreviewCardProps> = ({
           learningData={commonProps.learningData}
           senseInfo={commonProps.senseInfo as any}
           visual={commonProps.visual as any}
-          persona={commonProps.persona}
         />
       ) : (
         <LexiCardChrome

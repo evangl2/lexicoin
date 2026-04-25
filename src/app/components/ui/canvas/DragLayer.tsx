@@ -3,7 +3,7 @@ import { useDragLayer } from 'react-dnd';
 import { DragPreviewCard } from "@/app/components/ui/card/DragPreviewCard";
 import { PropVisual } from "@/app/components/ui/visual/PropVisual";
 import { DeviceVisual } from "@/app/components/ui/visual/DeviceVisual"; // Added
-import { DefaultCardPersona as CardPersona } from '@/app/components/persona/default/Card.persona.default';
+import { useCardPersona } from '@/app/context/PersonaContext';
 
 interface DragLayerProps {
     systemLang: string;
@@ -12,6 +12,7 @@ interface DragLayerProps {
 }
 
 export const DragLayer: React.FC<DragLayerProps> = ({ systemLang, learningLang, getLoc }) => {
+    const cardPersona = useCardPersona();
     const {
         isDragging,
         item,
@@ -93,7 +94,7 @@ export const DragLayer: React.FC<DragLayerProps> = ({ systemLang, learningLang, 
                         layoutMode={'compact'} // FORCE COMPACT MODE
                         cardMode={itemCardMode} // Pass specific mode (repo/icon/word)
                         visualPayload={visualPayload}
-                        persona={CardPersona}
+                        persona={cardPersona}
                     />
                 )}
             </div>

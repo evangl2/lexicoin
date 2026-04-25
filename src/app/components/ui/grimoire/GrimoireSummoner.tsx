@@ -305,7 +305,6 @@ const SlottedCard: React.FC<{ card: any }> = ({ card }) => {
             learningData={card.cardData.displayData[DEFAULT_LANGUAGE]!}
             senseInfo={card.cardData.senseInfo}
             visual={card.cardData.visual}
-            persona={DefaultCardPersona}
             isActive={false}
         />
     );

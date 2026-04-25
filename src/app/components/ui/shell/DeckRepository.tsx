@@ -4,8 +4,6 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useDrag, useDrop } from 'react-dnd';
 import { getEmptyImage } from 'react-dnd-html5-backend';
 import { Box, ArrowDownAZ, ArrowUpAZ, SlidersHorizontal, Library, Hexagon, LayoutGrid, Image as ImageIcon, AlignJustify, CircuitBoard } from 'lucide-react';
-import { DefaultCardPersona as CardPersona } from '@/app/components/persona/default/Card.persona.default';
-import { DefaultInterfacePersona as InterfacePersona } from '@/app/components/persona/default/Interface.persona.default';
 import { CompactCardVisual, CompactMode } from '@/app/components/ui/card/CompactCardVisual';
 import { PropVisual } from '@/app/components/ui/visual/PropVisual';
 import { DeviceVisual } from '@/app/components/ui/visual/DeviceVisual';
@@ -13,6 +11,7 @@ import { DeviceItem } from '@/app/hooks/useDeviceManager';
 import type { CardItem } from '@/app/hooks/useCardManager';
 import type { Language } from '@schemas/schemas/SenseEntity.schema';
 import { mapLanguageCode } from '@/app/utils/localization';
+import { useCardPersona, useInterfacePersona } from '@/app/context/PersonaContext';
 import { useCardVariants } from '@/app/hooks/useCardVariants';
 import type { CardEntity } from '@/types/CardEntity';
 
@@ -72,16 +71,19 @@ const RepoModeButton: React.FC<{ isActive: boolean; onClick: () => void; icon: R
     </button>
 );
 
-const EmptyState: React.FC<{ systemLanguage?: string, label?: string }> = ({ systemLanguage, label }) => (
-    <div className="w-full h-full flex flex-col items-center justify-center gap-2"
-        style={{ color: InterfacePersona.tokens.colors.borderBase }}>
-        <div className="w-12 h-12 rounded-full border flex items-center justify-center"
-            style={{ borderColor: InterfacePersona.tokens.colors.borderFaint }}>
-            <Box className="opacity-20" />
+const EmptyState: React.FC<{ systemLanguage?: string, label?: string }> = ({ systemLanguage, label }) => {
+    const interfacePersona = useInterfacePersona();
+    return (
+        <div className="w-full h-full flex flex-col items-center justify-center gap-2"
+            style={{ color: interfacePersona.tokens.colors.borderBase }}>
+            <div className="w-12 h-12 rounded-full border flex items-center justify-center"
+                style={{ borderColor: interfacePersona.tokens.colors.borderFaint }}>
+                <Box className="opacity-20" />
+            </div>
+            <span className="text-xs tracking-[0.2em] uppercase font-serif">{label || getLoc('Empty Vessel', systemLanguage)}</span>
         </div>
-        <span className="text-xs tracking-[0.2em] uppercase font-serif">{label || getLoc('Empty Vessel', systemLanguage)}</span>
-    </div>
-);
+    );
+};
 
 interface RepoTabButtonProps {
     isActive: boolean;
@@ -220,6 +222,7 @@ interface RepoCardProps {
 }
 
 const RepoCard: React.FC<RepoCardProps> = ({ item, langCode, mode, onRetrieve, variants = [] }) => {
+    const cardPersona = useCardPersona();
     // Determine sizing based on mode
     let width = 125;
     let height = 175;
@@ -277,8 +280,8 @@ const RepoCard: React.FC<RepoCardProps> = ({ item, langCode, mode, onRetrieve, v
                 style={{
                     width: '100%',
                     height: '100%',
-                    boxShadow: mode === 'word' ? 'none' : CardPersona.tokens.shadows.base,
-                    borderRadius: mode === 'word' ? '4px' : CardPersona.tokens.layout.radius,
+                    boxShadow: mode === 'word' ? 'none' : cardPersona.tokens.shadows.base,
+                    borderRadius: mode === 'word' ? '4px' : cardPersona.tokens.layout.radius,
                 }}
             >
                 <CompactCardVisual
@@ -286,7 +289,6 @@ const RepoCard: React.FC<RepoCardProps> = ({ item, langCode, mode, onRetrieve, v
                     learningData={currentCardData.displayData[langCode]!}
                     senseInfo={currentCardData.senseInfo}
                     visual={currentCardData.visual}
-                    persona={CardPersona}
                     isActive={false}
                 />
 
@@ -311,6 +313,8 @@ export const DeckRepository: React.FC<DeckRepositoryProps> = ({
     learningLanguage = 'ENGLISH',
     mergedVariants = {}
 }) => {
+    const cardPersona = useCardPersona();
+    const interfacePersona = useInterfacePersona();
     const scrollContainerRef = useRef<HTMLDivElement>(null);
     const [activeTab, setActiveTab] = useState<RepoTab>('words');
     const [sortKey, setSortKey] = useState<SortKey>('word');
@@ -422,24 +426,24 @@ export const DeckRepository: React.FC<DeckRepositoryProps> = ({
                     className="absolute bottom-0 left-1/2 -translate-x-1/2 z-40"
                     id="deck-repository-drop-zone"
                     style={{
-                        width: InterfacePersona.tokens.layout.menuWidth,
-                        height: InterfacePersona.tokens.layout.menuHeight,
-                        fontFamily: InterfacePersona.tokens.typography.label.family
+                        width: interfacePersona.tokens.layout.menuWidth,
+                        height: interfacePersona.tokens.layout.menuHeight,
+                        fontFamily: interfacePersona.tokens.typography.label.family
                     }}
                 >
                     {/* Glass Panel */}
                     <div className="w-full h-full backdrop-blur-xl border rounded-2xl overflow-hidden flex flex-row relative"
                         style={{
-                            backgroundColor: InterfacePersona.tokens.colors.bgGlass,
-                            borderColor: InterfacePersona.tokens.colors.borderBase,
-                            boxShadow: InterfacePersona.tokens.shadows.panel
+                            backgroundColor: interfacePersona.tokens.colors.bgGlass,
+                            borderColor: interfacePersona.tokens.colors.borderBase,
+                            boxShadow: interfacePersona.tokens.shadows.panel
                         }}>
 
                         {/* --- NEW SIDEBAR NAVIGATION --- */}
                         <div className="w-16 h-full flex flex-col items-center py-4 gap-4 border-r relative z-20"
                             style={{
-                                backgroundColor: InterfacePersona.tokens.colors.bgDeep,
-                                borderColor: InterfacePersona.tokens.colors.borderBase
+                                backgroundColor: interfacePersona.tokens.colors.bgDeep,
+                                borderColor: interfacePersona.tokens.colors.borderBase
                             }}>
 
                             {/* Decorative Top Line */}
@@ -479,26 +483,26 @@ export const DeckRepository: React.FC<DeckRepositoryProps> = ({
                             {/* Header */}
                             <div className="relative shrink-0 flex items-center justify-between px-6 z-20 overflow-hidden border-b shadow-2xl"
                                 style={{
-                                    height: InterfacePersona.tokens.layout.tabHeight,
-                                    backgroundColor: InterfacePersona.tokens.colors.bgDeep,
-                                    borderColor: InterfacePersona.tokens.colors.borderBase
+                                    height: interfacePersona.tokens.layout.tabHeight,
+                                    backgroundColor: interfacePersona.tokens.colors.bgDeep,
+                                    borderColor: interfacePersona.tokens.colors.borderBase
                                 }}>
 
-                                <InterfacePersona.visuals.BackgroundVisuals />
-                                <InterfacePersona.visuals.AlchemyGeometricOverlay />
-                                <InterfacePersona.visuals.SymmetryLines />
+                                <interfacePersona.visuals.BackgroundVisuals />
+                                <interfacePersona.visuals.AlchemyGeometricOverlay />
+                                <interfacePersona.visuals.SymmetryLines />
 
                                 {/* Horizontal Guides */}
-                                <div className="absolute top-0 left-0 right-0 h-[1px]" style={{ backgroundColor: InterfacePersona.tokens.colors.borderFaint }} />
-                                <div className="absolute bottom-0 left-0 right-0 h-[1px]" style={{ backgroundColor: InterfacePersona.tokens.colors.borderFaint }} />
+                                <div className="absolute top-0 left-0 right-0 h-[1px]" style={{ backgroundColor: interfacePersona.tokens.colors.borderFaint }} />
+                                <div className="absolute bottom-0 left-0 right-0 h-[1px]" style={{ backgroundColor: interfacePersona.tokens.colors.borderFaint }} />
 
                                 {/* Content Title */}
                                 <div className="relative z-10 flex items-center gap-2">
-                                    <Box size={14} style={{ color: InterfacePersona.tokens.colors.highlight }} />
+                                    <Box size={14} style={{ color: interfacePersona.tokens.colors.highlight }} />
                                     <span className="text-[10px] tracking-[0.2em] font-bold uppercase"
                                         style={{
-                                            fontFamily: InterfacePersona.tokens.typography.label.family,
-                                            color: InterfacePersona.tokens.colors.highlight
+                                            fontFamily: interfacePersona.tokens.typography.label.family,
+                                            color: interfacePersona.tokens.colors.highlight
                                         }}>
                                         {activeTab === 'words'
                                             ? getLoc('REPOSITORY', systemLanguage)
@@ -538,19 +542,19 @@ export const DeckRepository: React.FC<DeckRepositoryProps> = ({
                                         <div className="flex items-center gap-0 backdrop-blur-sm rounded-sm border overflow-hidden group/sort transition-colors"
                                             style={{
                                                 backgroundColor: 'rgba(0,0,0,0.4)',
-                                                borderColor: InterfacePersona.tokens.colors.borderFaint,
+                                                borderColor: interfacePersona.tokens.colors.borderFaint,
                                                 boxShadow: '0 0 10px rgba(0,0,0,0.5)'
                                             }}>
                                             <div className="relative flex items-center gap-2 px-3 py-1.5 transition-colors border-r"
-                                                style={{ borderColor: InterfacePersona.tokens.colors.borderFaint }}>
-                                                <SlidersHorizontal size={12} className="group-hover/sort:text-[#D4AF37] transition-colors" style={{ color: InterfacePersona.tokens.colors.textLabel }} />
+                                                style={{ borderColor: interfacePersona.tokens.colors.borderFaint }}>
+                                                <SlidersHorizontal size={12} className="group-hover/sort:text-[#D4AF37] transition-colors" style={{ color: interfacePersona.tokens.colors.textLabel }} />
                                                 <select
                                                     className="bg-transparent text-[10px] font-bold uppercase tracking-wider outline-none cursor-pointer border-none p-0 w-24 appearance-none relative z-10 transition-colors"
                                                     value={sortKey}
                                                     onChange={(e) => setSortKey(e.target.value as SortKey)}
                                                     style={{
-                                                        fontFamily: InterfacePersona.tokens.typography.label.family,
-                                                        color: InterfacePersona.tokens.colors.textLabel
+                                                        fontFamily: interfacePersona.tokens.typography.label.family,
+                                                        color: interfacePersona.tokens.colors.textLabel
                                                     }}
                                                 >
                                                     <option className="bg-[#1a1a1a]" value="word">{getLoc('By Name', systemLanguage)}</option>
@@ -564,7 +568,7 @@ export const DeckRepository: React.FC<DeckRepositoryProps> = ({
                                                 onClick={toggleSortDir}
                                                 className="w-8 h-full flex items-center justify-center transition-all"
                                                 title="Toggle Order"
-                                                style={{ color: InterfacePersona.tokens.colors.textLabel }}
+                                                style={{ color: interfacePersona.tokens.colors.textLabel }}
                                             >
                                                 {sortDir === 'asc' ? <ArrowDownAZ size={14} /> : <ArrowUpAZ size={14} />}
                                             </button>
@@ -594,14 +598,14 @@ export const DeckRepository: React.FC<DeckRepositoryProps> = ({
                                 {/* Background Textures Layer */}
                                 <div className="fixed inset-0 pointer-events-none z-[-1] opacity-10 mix-blend-screen"
                                     style={{
-                                        backgroundImage: CardPersona.definitions.assets.backPattern,
+                                        backgroundImage: cardPersona.definitions?.assets?.backPattern || cardPersona.assets?.textures?.backPattern,
                                         backgroundSize: "200px 100px",
                                         backgroundRepeat: "repeat"
                                     }}
                                 />
                                 <div className="fixed inset-0 pointer-events-none z-[-1] opacity-20"
                                     style={{
-                                        background: InterfacePersona.definitions.gradients.goldRadialSubtle
+                                        background: interfacePersona.definitions.gradients.goldRadialSubtle
                                     }}
                                 />
 
@@ -684,10 +688,10 @@ export const DeckRepository: React.FC<DeckRepositoryProps> = ({
                             </div>
                         </div>
 
-                        <InterfacePersona.visuals.DecorativeCorners />
+                        <interfacePersona.visuals.DecorativeCorners />
 
                         {/* Inner Bevel */}
-                        <div className="absolute inset-0 border rounded-2xl pointer-events-none" style={{ borderColor: InterfacePersona.tokens.colors.borderFaint }} />
+                        <div className="absolute inset-0 border rounded-2xl pointer-events-none" style={{ borderColor: interfacePersona.tokens.colors.borderFaint }} />
                     </div>
                 </motion.div>
             )}

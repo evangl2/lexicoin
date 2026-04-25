@@ -111,7 +111,6 @@ export const GrimoireSlotVisual: React.FC<GrimoireSlotVisualProps> = React.memo(
                                     status: 'loaded',
                                     payload: sense.visual
                                 }}
-                                persona={DefaultCardPersona}
                             />
                         </div>
                     ) : (

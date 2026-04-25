@@ -67,7 +67,7 @@ interface PersonaProviderProps {
     initialSkin?: string;
 }
 
-export const PersonaProvider: React.FC<PersonaProviderProps> = ({
+export const PersonaProvider = React.memo<PersonaProviderProps>(({
     children,
     initialSkin = DEFAULT_PERSONA_NAME
 }) => {
@@ -144,7 +144,7 @@ export const PersonaProvider: React.FC<PersonaProviderProps> = ({
             {children}
         </PersonaContext.Provider>
     );
-};
+});
 
 // ==================== HOOKS ====================
 

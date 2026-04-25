@@ -53,11 +53,23 @@ export const useTextFit = (
         const textEl = textRef.current;
         if (!container || !textEl) return;
 
+        const containerWidth = container.clientWidth;
+        const containerHeight = container.clientHeight;
+
         // CRITICAL FIX: If container has no dimension (e.g. hidden or initializing inside AnimatePresence),
         // abort fitting. Returning "false" in checkFit would cause binary search to collapse to minFontSize.
         // Instead, we just do nothing and wait for ResizeObserver to fire when valid dimensions exist.
-        if (container.clientHeight === 0 || container.clientWidth === 0) {
+        if (containerHeight === 0 || containerWidth === 0) {
             return;
+        }
+
+        // Cache lineHeight once if maxLines is used, as it's unlikely to change proportionally 
+        // in a way that breaks this fit logic during the binary search.
+        let cachedLineHeight = 0;
+        if (maxLines) {
+            cachedLineHeight = parseFloat(window.getComputedStyle(textEl).lineHeight || '0');
+            // If lineHeight is 'normal' or 0, fallback to a reasonable estimate based on font size
+            // but for now we'll assume it's defined in the persona.
         }
 
         let min = minFontSize;
@@ -65,10 +77,6 @@ export const useTextFit = (
 
         // Helper to check if text fits
         const checkFit = (size: number) => {
-            // Safety check: if container has no dimensions, we can't fit anything.
-            // This happens during mount/unmount or animation frames.
-            if (container.clientWidth === 0 || container.clientHeight === 0) return false;
-
             textEl.style.fontSize = `${size}px`;
 
             // Apply custom style resolution (e.g. dynamic line-height)
@@ -78,29 +86,23 @@ export const useTextFit = (
             }
 
             // Revert to container overflow check.
-            // If the container's scrollHeight is greater than its clientHeight,
-            // it means the text content inside is pushing the boundaries.
             // We use a small buffer (1px) to avoid rounding jitter.
-            const hasVerticalOverflow = container.scrollHeight > (container.clientHeight + 1);
-            const hasHorizontalOverflow = container.scrollWidth > (container.clientWidth + 1);
+            const hasVerticalOverflow = textEl.scrollHeight > (containerHeight + 1);
+            const hasHorizontalOverflow = textEl.scrollWidth > (containerWidth + 1);
 
             if (hasVerticalOverflow || hasHorizontalOverflow) return false;
 
             // VISUAL SAFETY CHECK:
             // Even if it technically "fits" in the box, ascenders/descenders might be clipped
             // by overflow:hidden if the fit is too tight.
-            // Reduced safety buffer to avoid false positives on small screens or tight fits.
-            const textRect = textEl.getBoundingClientRect();
-            // Note: clientHeight doesn't include borders, which is what we want.
-            const safetyBuffer = 0; // Was 3, setting to 0 to trust scrollHeight/clientWidth checks more
-            if (textRect.height > (container.clientHeight - safetyBuffer)) return false;
+            const textHeight = textEl.offsetHeight;
+            const safetyBuffer = 0;
+            if (textHeight > (containerHeight - safetyBuffer)) return false;
 
             // If maxLines is set, check approximate line count.
-            if (maxLines) {
-                // Use computed line height for best accuracy
-                const lineHeight = parseFloat(window.getComputedStyle(textEl).lineHeight || '1');
-                const textHeight = textEl.scrollHeight;
-                const lines = textHeight / lineHeight;
+            if (maxLines && cachedLineHeight > 0) {
+                const currentScrollHeight = textEl.scrollHeight;
+                const lines = currentScrollHeight / cachedLineHeight;
 
                 // Use a small buffer (0.1) for float comparison
                 if (lines > maxLines + 0.1) return false;

@@ -3,6 +3,7 @@ import { motion } from 'motion/react';
 import type { LanguageDisplayData, SenseInfo, VisualData } from '@/types/CardEntity';
 import { DynamicVisual } from '@/app/components/ui/visual/DynamicVisual';
 import { TieredText } from '@/app/components/ui/text/TieredText';
+import { useCardPersona } from '@/app/context/PersonaContext';
 
 /**
  * CompactMode variants:
@@ -17,7 +18,6 @@ export interface CompactCardVisualProps {
     learningData: LanguageDisplayData;
     senseInfo: SenseInfo;
     visual: VisualData;
-    persona: any;
     isActive?: boolean;
 }
 
@@ -28,14 +28,14 @@ const COMPACT_TIERS = [
     { id: 'compact-sm', fontSize: 16, lineHeight: 1.25, tracking: '0em', weight: 500, opacity: 0.9, label: 'SM' },
 ];
 
-export const CompactCardVisual: React.FC<CompactCardVisualProps> = React.memo(({
+const CompactCardVisualInner: React.FC<CompactCardVisualProps> = ({
     mode,
     learningData,
     senseInfo,
     visual,
-    persona: Persona,
     isActive = false,
 }) => {
+    const Persona = useCardPersona();
     const { word, level } = learningData;
     const { durability, ontology } = senseInfo;
 
@@ -201,6 +201,8 @@ export const CompactCardVisual: React.FC<CompactCardVisualProps> = React.memo(({
             )}
         </div>
     );
-});
+};
+
+export const CompactCardVisual = React.memo(CompactCardVisualInner);
 
 CompactCardVisual.displayName = 'CompactCardVisual';

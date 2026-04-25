@@ -166,6 +166,8 @@ const grandMechanismSVG = encodeURIComponent(`
 
 export const DefaultCanvasPersona = {
   id: 'dark-alchemy',
+  definitions,
+  visuals: {},
   tokens: {
     colors: colors,
     assets: {
