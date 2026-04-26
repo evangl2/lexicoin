@@ -8,7 +8,7 @@ import type { CardEntity } from '@app-types/CardEntity';
 import { autoPollExhausted } from './useVisualPoll';
 import { useGameStore } from '@store/index';
 import { MAX_CONCURRENT_SYNTHESES } from '@/config/constants';
-import { SYNTHESIS_LONG_STATE_DELAY_MS } from '@/config/timing';
+import { SYNTHESIS_LONG_STATE_DELAY_MS, SYNTHESIS_POLL_DELAYS_MS, SYNTHESIS_HARD_TIMEOUT_MS } from '@/config/timing';
 
 /**
  * Poll sense_visuals once. Returns true if visual was found and broadcast.
@@ -72,7 +72,7 @@ const sleep = (ms: number) => new Promise<void>(r => setTimeout(r, ms));
  * Stops early if visual found. Marks autoPollExhausted when all 3 fail.
  */
 async function runAutoPollChain(senseUid: string, visualId: string): Promise<void> {
-  const delays = [25_000, 25_000, 50_000];
+  const delays = SYNTHESIS_POLL_DELAYS_MS;
   logger.info(`[AutoPoll] Chain started for ${senseUid} id=${visualId}, delays=${delays.join('/')}ms`, undefined, 'useSynthesis');
   for (let i = 0; i < delays.length; i++) {
     await sleep(delays[i]!);
@@ -164,7 +164,7 @@ export function useSynthesis(): UseSynthesisResult {
     const raceTimeout = new Promise<never>((_, reject) => {
       hardTimeoutId = setTimeout(() => {
         reject(Object.assign(new Error('Synthesis timed out (90s)'), { name: 'AbortError' }));
-      }, 90_000);
+      }, SYNTHESIS_HARD_TIMEOUT_MS);
     });
 
     try {

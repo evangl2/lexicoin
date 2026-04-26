@@ -15,3 +15,9 @@ export const SYNTHESIS_POLL_DELAYS_MS = [25_000, 25_000, 50_000] as const;
 
 /** Hard ceiling on a single synthesis attempt; frees the circle if the edge function hangs */
 export const SYNTHESIS_HARD_TIMEOUT_MS = 90_000;
+
+export const CARD_ANIMATION_LOCKOUT_MS = 600;
+
+export const TEXT_FIT_DEBOUNCE_MS = 100;
+
+export const LEVEL_UP_DURATION_MS = 3500;

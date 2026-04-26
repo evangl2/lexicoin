@@ -5,6 +5,7 @@ import { RewardResult } from '@/app/hooks/useGrimoireReward';
 import { CompactCardVisual } from '../card/CompactCardVisual';
 import { DefaultCardPersona } from '../../persona/default/Card.persona.default';
 import { useGameStore } from '@/core/store';
+import { REWARD_CINEMATIC } from '@/config/timing';
 
 interface RewardCinematicOverlayProps {
     result: RewardResult;
@@ -17,9 +18,9 @@ export const RewardCinematicOverlay: React.FC<RewardCinematicOverlayProps> = ({ 
 
     useEffect(() => {
         // Animation sequence
-        const introTimer = setTimeout(() => setStep('tally'), 1000);
-        const tallyTimer = setTimeout(() => setStep('echo'), 3000);
-        const echoTimer = setTimeout(() => setStep('final'), 5500);
+        const introTimer = setTimeout(() => setStep('tally'), REWARD_CINEMATIC.INTRO_MS);
+        const tallyTimer = setTimeout(() => setStep('echo'), REWARD_CINEMATIC.TALLY_MS);
+        const echoTimer = setTimeout(() => setStep('final'), REWARD_CINEMATIC.ECHO_MS);
 
         return () => {
             clearTimeout(introTimer);

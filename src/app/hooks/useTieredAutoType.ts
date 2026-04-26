@@ -5,6 +5,7 @@ import {
     TIER_INDEX_MAP,
     TextTier
 } from '@/utils/textTierUtils';
+import { TEXT_FIT_DEBOUNCE_MS } from '@/config/timing';
 
 // ============================================================================
 // HOOK
@@ -72,7 +73,7 @@ export const useTieredAutoType = (
                         setCheckNonce(c => c + 1);
                     }
                 }
-            }, 100);
+            }, TEXT_FIT_DEBOUNCE_MS);
         });
 
         observer.observe(containerRef.current);
