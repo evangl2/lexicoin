@@ -116,7 +116,7 @@ export const DevConsole: React.FC = () => {
     const [isPaused, setIsPaused] = useState(false);
     const [isRefetching, setIsRefetching] = useState(false);
     const [refetchResult, setRefetchResult] = useState<string | null>(null);
-    const player = useGameStore(s => s.player);
+    const learningLang = useGameStore(s => s.player?.settings?.learningLang || 'en');
     const updateLanguageProgress = useGameStore(s => s.updateLanguageProgress);
     const regenerateStamina = useGameStore(s => s.regenerateStamina);
     const updatePlayer = useGameStore(s => s.updatePlayer);
@@ -631,8 +631,14 @@ export const DevConsole: React.FC = () => {
                                     <button onClick={() => regenerateStamina(1000)}>Refill Max</button>
                                 </div>
                                 <div className="cheat-presets">
-                                    <button onClick={() => updatePlayer({ stamina: Math.max(0, player.stamina - 10) })}>-10</button>
-                                    <button onClick={() => updatePlayer({ stamina: Math.min(player.maxStamina, player.stamina + 10) })}>+10</button>
+                                    <button onClick={() => {
+                                        const player = useGameStore.getState().player;
+                                        updatePlayer({ stamina: Math.max(0, player.stamina - 10) });
+                                    }}>-10</button>
+                                    <button onClick={() => {
+                                        const player = useGameStore.getState().player;
+                                        updatePlayer({ stamina: Math.min(player.maxStamina, player.stamina + 10) });
+                                    }}>+10</button>
                                     <button onClick={() => updatePlayer({ stamina: 0 })}>Empty</button>
                                 </div>
                             </section>
@@ -641,7 +647,7 @@ export const DevConsole: React.FC = () => {
                                 <h4>🆙 Progression Control</h4>
                                 <div className="cheat-row">
                                     <div className="lang-target">
-                                        Target: <strong>{player.settings.learningLang}</strong>
+                                        Target: <strong>{learningLang}</strong>
                                     </div>
                                     <input 
                                         type="number" 
@@ -650,15 +656,16 @@ export const DevConsole: React.FC = () => {
                                         className="cheat-input"
                                         placeholder="Level"
                                     />
-                                    <button onClick={() => updateLanguageProgress(player.settings.learningLang, { level: cheatLevel })}>Set Level</button>
+                                    <button onClick={() => updateLanguageProgress(learningLang, { level: cheatLevel })}>Set Level</button>
                                 </div>
                                 <div className="cheat-presets">
                                     <button onClick={() => {
-                                        const currentXP = player.languageProgress[player.settings.learningLang]?.xp || 0;
-                                        updateLanguageProgress(player.settings.learningLang, { xp: currentXP + 100 });
+                                        const player = useGameStore.getState().player;
+                                        const currentXP = player.languageProgress[learningLang]?.xp || 0;
+                                        updateLanguageProgress(learningLang, { xp: currentXP + 100 });
                                     }}>Add 100 XP</button>
                                     <button onClick={() => {
-                                        updateLanguageProgress(player.settings.learningLang, { level: 1, xp: 0 });
+                                        updateLanguageProgress(learningLang, { level: 1, xp: 0 });
                                     }}>Reset Progress</button>
                                 </div>
                             </section>
