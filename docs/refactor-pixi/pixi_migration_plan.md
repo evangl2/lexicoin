@@ -7,15 +7,19 @@
 
 ## 架构总览
 
+PixiJS 是 Lexicoin 全部**高视觉 / 高交互 / 低文字**区域的渲染平台：Canvas 世界（Phase 0-11）、Dock、Library、DeckRepository 卡片网格（各自独立后续 Phase 迁入）。DOM 层仅负责富文本内容（InspectOverlay、ConfigMenu、NotificationSystem、DevConsole）。
+
 ```
-┌─ PixiJS Canvas Layer ──────────────────────────────────┐
+┌─ PixiJS Canvas Layer (position:fixed inset-0 z-0) ─────┐
 │  Camera (pixi-viewport) · 背景 · 卡片 Sprite · 设备   │
 │  GSAP 动画 · 拖拽 · 碰撞检测 · 粒子特效               │
+│  未来：Dock · Library · DeckRepository 卡片网格        │
 └────────────────────────────────────────────────────────┘
               ↕ uid 连结（通过 Zustand Store）
-┌─ DOM Inspect Overlay ──────────────────────────────────┐
-│  LexiCardChrome · 富文本 · Framer Motion UI 动画       │
-│  点击画布卡片后弹出，浮层形式，画布仍可见于背后        │
+┌─ DOM Overlay（position:fixed, z-index > 0）────────────┐
+│  InspectOverlay · LexiCardChrome · 富文本              │
+│  ConfigMenu · NotificationSystem · DevConsole          │
+│  Dock / HUD（暂留 DOM，后续 Phase 迁入 PixiJS）        │
 └────────────────────────────────────────────────────────┘
 ```
 
@@ -23,16 +27,18 @@
 
 ## Phase 0 · 基础设施 + Feature Flag
 
-**做什么：** 安装 PixiJS v8 + GSAP，建立 `usePixiCanvas` feature flag，在 App 顶层条件渲染两套 Canvas（旧 DOM Canvas / 新 PixiJS Canvas）。PixiJS 应用实例完成初始化，渲染一个纯色背景矩形。
+**做什么：** 安装 PixiJS v8 + GSAP，建立 `usePixiCanvas` feature flag，在 GameShell 层插入全屏 PixiJS canvas，旧 SceneManager 区域 `display:none` 隐藏不卸载。PixiJS 应用实例完成初始化，渲染 Persona `bgVoid` 背景色。
 
 **关键决定：**
-- Feature flag 默认 `false`（旧系统），开发者工具可手动切换到 `true`
-- PixiJS Application 挂载到独立 `<canvas>` 元素，与旧 DOM Canvas 互斥显示
-- 建立 `src/pixi/` 目录作为所有 PixiJS 代码的根
+- Feature flag `usePixiCanvas` 默认 **true**（PixiJS 为默认体验）；DevConsole Cheat tab 提供切换开关
+- 旧系统（SceneManager + Canvas.tsx）保持挂载，`usePixiCanvas=true` 时 `display:none`，`false` 时恢复显示，**始终不卸载**
+- PixiJS Application 在 **GameShell 层**挂载；`<canvas>` 为 `position:fixed inset-0 z-index:0`；Dock / HUD 等 DOM 元素凭现有 z-index 自然浮于上方
+- PixiJS Application 配置：`preference:'webgl'`，`antialias`（玩家选项，从 `featureFlags.antialiasEnabled` 读取，切换需 reinit 重建 renderer），`resolution:Math.min(devicePixelRatio,2)`，`autoDensity:true`，`powerPreference:'high-performance'`，`backgroundAlpha:0`，`preserveDrawingBuffer:false`，`hello:false`
+- 建立 `src/pixi/` 目录；集成 PixiJS Stats（dev-only）
 
-**验证：** 切换 flag → 看到纯色 PixiJS 背景（无卡片）；切回 → 旧系统完全正常。
+**验证：** 默认打开看到 PixiJS 背景色；DevConsole 切 flag=false → 旧系统完全正常；切回 → PixiJS 恢复。
 
-**旧系统状态：** 完全不动，flag=false 时照常运行。
+**旧系统状态：** 挂载但隐藏，flag=false 时完整显示。
 
 ---
 
@@ -42,8 +48,10 @@
 
 **关键决定：**
 - `pixi-viewport` 作为 PixiJS Stage 的根容器，所有游戏对象挂在其下
-- Camera 边界参数来自现有 `WORLD_W / WORLD_H` 和 `CANVAS_OVERSCROLL` 配置
-- 建立 `usePixiApp()` React hook 供后续阶段访问 PixiJS 实例
+- Camera 真相唯一来源为 pixi-viewport；React 侧读取坐标在事件触发时调用 `viewport.toScreen()` 一次性读取，不维护 MotionValue 镜像
+- Camera 边界参数来自现有 `WORLD_W / WORLD_H` 和 `CANVAS_OVERSCROLL` 配置；初始位置为世界中心 `(WORLD_W/2, WORLD_H/2)`
+- Zoom 惯性用 pixi-viewport `decelerate` 插件替代原 rAF 循环；保留离散 / 连续轮检测移植（影响触控板手感）
+- 建立 `usePixiApp()` React hook：**模块单例**实现（`src/pixi/core/app.ts` 导出 `getPixiApp()`，hook 为薄封装）；PixiJS 内部模块直接 `import { getPixiApp }` 无需经过 React
 
 **验证：** PixiJS 画布可以用鼠标拖拽平移、滚轮缩放，边界正确 clamp，触控板连续缩放流畅。
 
