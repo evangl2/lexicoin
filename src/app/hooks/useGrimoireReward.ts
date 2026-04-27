@@ -19,9 +19,9 @@ export function useGrimoireReward() {
     const activeGrimoires = useGameStore(s => s.activeGrimoires);
     const libraryGrimoires = useGameStore(s => s.libraryGrimoires);
     const claimGrimoireReward = useGameStore(s => s.claimGrimoireReward);
-    const settings = useGameStore(s => s.player?.settings);
 
     const claim = useCallback(async (grimoireId: UUID) => {
+        const settings = useGameStore.getState().player?.settings;
         const grimoire =
             activeGrimoires.find(g => g.id === grimoireId) ||
             libraryGrimoires.find(g => g.id === grimoireId);

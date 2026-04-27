@@ -9,9 +9,9 @@ export const useEchoSystem = () => {
     const [isExtracting, setIsExtracting] = useState(false);
     const consumeEchoCharge = useGameStore(s => s.consumeEchoCharge);
     const addNotification = useGameStore(s => s.addNotification);
-    const settings = useGameStore(s => s.player?.settings);
 
     const extractEcho = useCallback(async (grimoire: GrimoireEntity) => {
+        const settings = useGameStore.getState().player?.settings;
         if (isExtracting) return;
 
         setIsExtracting(true);
