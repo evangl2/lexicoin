@@ -80,7 +80,6 @@ const CardVisual: React.FC<MemoizedCardVisualProps> = ({
   // Visual Parts from Persona
   const Background = Persona.visuals.Background;
   const TextureOverlay = Persona.visuals.TextureOverlay;
-  const Corners = Persona.visuals.Corners;
   const Frame = Persona.visuals.Frame;
   const DurabilityBar = Persona.visuals.DurabilityBar;
 
@@ -93,7 +92,7 @@ const CardVisual: React.FC<MemoizedCardVisualProps> = ({
       <div
         ref={bgRef}
         className="absolute inset-[-20%] z-0"
-        style={{ background: 'var(--card-color-bg-deep)', opacity: 0.8 }}
+        style={{ background: 'var(--card-color-bg-deep)' }}
       >
         {Background ? (
           <Background />
@@ -120,12 +119,7 @@ const CardVisual: React.FC<MemoizedCardVisualProps> = ({
         <DynamicVisual code={visualPayload} isActive={isActive} fallbackElement={fallbackWord} />
       </div>
 
-      {/* 4. Corners Decoration (Slotted) */}
-      {Corners && (
-        <div className="absolute inset-0 z-30 pointer-events-none">
-          <Corners />
-        </div>
-      )}
+      {/* 4. Corners Decoration (Removed per user request) */}
 
       {/* 5. Frame Layer (Slotted) */}
       {Frame && (

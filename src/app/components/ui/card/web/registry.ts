@@ -19,6 +19,8 @@
 
 import { LexiCardChromeDefault }   from './LexiCardChromeDefault';
 import { LexiCardChromeCyberpunk } from './LexiCardChromeCyberpunk';
+import { LexiCompactCardDefault }   from './LexiCompactCardDefault';
+import { LexiCompactCardCyberpunk } from './LexiCompactCardCyberpunk';
 
 export function ensurePersonaRegistered(personaId: string): void {
   switch (personaId) {
@@ -41,6 +43,31 @@ export function ensurePersonaRegistered(personaId: string): void {
       );
       if (!customElements.get('lexi-card-chrome-default')) {
         customElements.define('lexi-card-chrome-default', LexiCardChromeDefault);
+      }
+  }
+}
+
+export function ensureCompactCardRegistered(personaId: string): void {
+  switch (personaId) {
+    case 'default':
+      if (!customElements.get('lexi-compact-card-default')) {
+        customElements.define('lexi-compact-card-default', LexiCompactCardDefault);
+      }
+      break;
+
+    case 'cyberpunk':
+      if (!customElements.get('lexi-compact-card-cyberpunk')) {
+        customElements.define('lexi-compact-card-cyberpunk', LexiCompactCardCyberpunk);
+      }
+      break;
+
+    default:
+      console.warn(
+        `[LexiCompactCard] Unknown persona "${personaId}" — registration skipped.` +
+        ' Falling back to lexi-compact-card-default.',
+      );
+      if (!customElements.get('lexi-compact-card-default')) {
+        customElements.define('lexi-compact-card-default', LexiCompactCardDefault);
       }
   }
 }

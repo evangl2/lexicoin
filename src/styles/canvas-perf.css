@@ -1,0 +1,93 @@
+/* ============================================================================
+   CANVAS ZOOM PERFORMANCE
+   canvas-zooming class is toggled imperatively by Canvas.tsx markZoomStart/End.
+   Zero React re-renders — pure DOM classList + CSS engine propagation.
+   ============================================================================ */
+
+.canvas-zooming {
+  /* Idea 4: Prevent any layout/paint changes from leaking out of the world container.
+     Safe because world has explicit WORLD_W/H. */
+  contain: strict !important;
+}
+
+.canvas-card.card-3d {
+  transform-style: preserve-3d;
+}
+
+/* During zoom: collapse every IDLE card's 3D context into the world layer.
+   `!important` is required to beat the inline `transformStyle: preserve-3d`
+   set by useCardAnimation's applyDemoted. */
+.canvas-zooming .canvas-card.card-3d {
+  transform-style: flat !important;
+}
+.canvas-zooming .canvas-card.card-expanded.card-3d {
+  transform-style: preserve-3d !important;
+}
+
+/* Grimoire books: backdrop-blur-xl forces a GPU blur pass per book layer. */
+.canvas-zooming .closed-grimoire {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* ============================================================================
+   IDLE CARD LAYER COLLAPSE
+   Goal: idle cards must be GPU compositor layers (textures) during zoom.
+   This prevents the browser from re-rasterizing complex SVGs on every frame. */
+.canvas-zooming .canvas-card:not(.card-expanded) {
+  /* Force GPU layer promotion. Scaling becomes a simple texture operation. */
+  will-change: transform !important;
+  /* Isolate card from rest of DOM for layout/paint. 
+     Use 'content' (layout paint style) instead of 'strict' (adds size) 
+     to prevent elements without explicit CSS width/height from collapsing. */
+  contain: content !important;
+  /* Flatten 3D contexts to simplify composition. */
+  transform-style: flat !important;
+  /* Disable expensive effects that force software fallback or heavy re-paints. */
+  mix-blend-mode: normal !important;
+  filter: none !important;
+  backdrop-filter: none !important;
+  isolation: auto !important;
+}
+
+/* For card-3d elements that have explicit width/height passed via React,
+   we can use strict containment for maximum optimization. */
+.canvas-zooming .canvas-card.card-3d:not(.card-expanded) {
+  contain: strict !important;
+}
+
+/* Scale wrapper is where useCardAnimation writes scale + (sometimes) translateZ(0).
+   Force-clear all promotion hints; the scale value itself is fine to keep. */
+.canvas-zooming .canvas-card:not(.card-expanded) > .card-scale-wrapper {
+  will-change: transform !important;
+  isolation: auto !important;
+  contain: content !important;
+}
+
+/* Idea 2: Internal Layer Squashing
+   Ensure each card is EXACTLY ONE GPU layer. Flatten any internal isolation or 
+   promotion hints inside the Shadow DOM to reduce total compositor layers. */
+.canvas-zooming lexi-card-chrome-default::part(front-face),
+.canvas-zooming lexi-card-chrome-default::part(back-face),
+.canvas-zooming lexi-card-chrome-cyberpunk::part(front-face),
+.canvas-zooming lexi-card-chrome-cyberpunk::part(back-face) {
+  isolation: auto !important;
+  will-change: auto !important;
+}
+
+.canvas-zooming lexi-card-chrome-default:not([is-expanded]):not([is-flipped])::part(hover-glow),
+.canvas-zooming lexi-card-chrome-default:not([is-expanded]):not([is-flipped])::part(noise-texture),
+.canvas-zooming lexi-card-chrome-default:not([is-expanded]):not([is-flipped])::part(glare),
+.canvas-zooming lexi-card-chrome-cyberpunk:not([is-expanded]):not([is-flipped])::part(hover-glow),
+.canvas-zooming lexi-compact-card-default::part(hover-glow),
+.canvas-zooming lexi-compact-card-cyberpunk::part(hover-glow) {
+  display: none !important;
+}
+
+.canvas-zooming lexi-card-chrome-default:not([is-expanded]):not([is-flipped])::part(front-face),
+.canvas-zooming lexi-card-chrome-cyberpunk:not([is-expanded]):not([is-flipped])::part(front-face),
+.canvas-zooming lexi-card-chrome-default:not([is-expanded]):not([is-flipped])::part(back-face),
+.canvas-zooming lexi-card-chrome-cyberpunk:not([is-expanded]):not([is-flipped])::part(back-face) {
+  isolation: auto !important;
+  will-change: auto !important;
+}

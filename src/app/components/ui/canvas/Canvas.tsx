@@ -70,7 +70,13 @@ export const Canvas: React.FC<CanvasProps> = ({ children, scale, x, y, onDoubleC
     if (isZoomingRef) isZoomingRef.current = true;
     // 1. 禁用卡片层 hit-test — 缩放期间无需计算子元素指针碰撞
     // 注意：作用于 world div 而非 container，container 需要保持接收 wheel 事件
-    if (worldRef.current) worldRef.current.style.pointerEvents = 'none';
+    if (worldRef.current) {
+      worldRef.current.style.pointerEvents = 'none';
+      worldRef.current.style.willChange = 'transform';
+      // canvas-zooming: collapses card 3D contexts + disables grimoire backdrop-blur.
+      // Reduces GPU compositor layers from O(n_hovered) to 1 during zoom.
+      worldRef.current.classList.add('canvas-zooming');
+    }
   };
 
   const markZoomEnd = () => {
@@ -78,9 +84,13 @@ export const Canvas: React.FC<CanvasProps> = ({ children, scale, x, y, onDoubleC
     zoomEndTimerRef.current = setTimeout(() => {
       isZoomingInternalRef.current = false;
       if (isZoomingRef) isZoomingRef.current = false;
-      // 还原卡片层 pointer-events
-      if (worldRef.current) worldRef.current.style.pointerEvents = '';
-      // Re-emit scale so Card LOD subscribers fire once after zoom settles
+      // 还原卡片层 pointer-events 和 will-change
+      if (worldRef.current) {
+        worldRef.current.style.pointerEvents = '';
+        worldRef.current.style.willChange = 'auto';
+        worldRef.current.classList.remove('canvas-zooming');
+      }
+      // Re-emit scale so viewport culling fires one final pass after zoom settles.
       scale.set(scale.get());
     }, CANVAS_ZOOM_END_DEBOUNCE_MS);
   };
@@ -215,7 +225,10 @@ export const Canvas: React.FC<CanvasProps> = ({ children, scale, x, y, onDoubleC
           isPanningInternalRef.current = true;
           if (isPanningRef) isPanningRef.current = true;
           // Disable hit-testing for cards during pan to prevent hover storm
-          if (worldRef.current) worldRef.current.style.pointerEvents = 'none';
+          if (worldRef.current) {
+            worldRef.current.style.pointerEvents = 'none';
+            worldRef.current.style.willChange = 'transform';
+          }
         }
 
         // Move camera
@@ -233,8 +246,11 @@ export const Canvas: React.FC<CanvasProps> = ({ children, scale, x, y, onDoubleC
           isPanningInternalRef.current = false;
           if (isPanningRef) isPanningRef.current = false;
 
-          // Re-enable hit-testing
-          if (worldRef.current) worldRef.current.style.pointerEvents = '';
+          // Re-enable hit-testing and clear will-change
+          if (worldRef.current) {
+            worldRef.current.style.pointerEvents = '';
+            worldRef.current.style.willChange = 'auto';
+          }
 
           const fx = x.get();
           const fy = y.get();
@@ -385,7 +401,6 @@ export const Canvas: React.FC<CanvasProps> = ({ children, scale, x, y, onDoubleC
           height: WORLD_H,
           top: -HALF_H,
           left: -HALF_W,
-          willChange: 'transform',
           contain: 'layout',
         }}
         className="absolute origin-center"

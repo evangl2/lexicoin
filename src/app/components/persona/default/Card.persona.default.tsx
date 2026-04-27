@@ -33,7 +33,7 @@ const definitions = {
   },
   assets: {
     noiseTexture: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.7' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`,
-    deepPattern: `url("data:image/svg+xml,%3Csvg width='120' height='60' viewBox='0 0 120 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' stroke='%23A08855' stroke-width='0.8'%3E%3C!-- Salt --%3E%3Cg transform='translate(15,20)'%3E%3Ccircle cx='0' cy='0' r='6'/%3E%3Cpath d='M-6 0h12'/%3E%3C/g%3E%3C!-- Sulfur --%3E%3Cg transform='translate(45,20)'%3E%3Cpath d='M0 -6l5 10h-10z'/%3E%3Cpath d='M0 4v8M-4 8h8'/%3E%3C/g%3E%3C!-- Mercury --%3E%3Cg transform='translate(75,20)'%3E%3Cpath d='M-4 -8a4 4 0 0 0 8 0'/%3E%3Ccircle cx='0' cy='-3' r='4'/%3E%3Cpath d='M0 1v8M-4 5h8'/%3E%3C/g%3E%3C!-- Fire --%3E%3Cg transform='translate(105,20)'%3E%3Cpath d='M0 -6l6 10h-12z'/%3E%3C/g%3E%3C!-- Water --%3E%3Cg transform='translate(15,45)'%3E%3Cpath d='M0 6l-6 -10h12z'/%3E%3C/g%3E%3C!-- Earth --%3E%3Cg transform='translate(45,45)'%3E%3Cpath d='M0 6l-6 -10h12z'/%3E%3Cpath d='M-6 -2h12'/%3E%3C/g%3E%3C!-- Gold --%3E%3Cg transform='translate(75,45)'%3E%3Ccircle cx='0' cy='0' r='6'/%3E%3Ccircle cx='0' cy='0' r='1' fill='%23A08855'/%3E%3C/g%3E%3C!-- Lead --%3E%3Cg transform='translate(105,45)'%3E%3Cpath d='M0 -6v12M-4 2h8'/%3E%3Cpath d='M0 -6a3 3 0 0 1 3 -3'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+    deepPattern: `url("data:image/svg+xml,%3Csvg width='240' height='120' viewBox='0 0 240 120' xmlns='http://www.w3.org/2000/svg'%3E%3Cdefs%3E%3Cfilter id='mysticGlow'%3E%3CfeGaussianBlur stdDeviation='0.3' result='blur'/%3E%3CfeMerge%3E%3CfeMergeNode in='blur'/%3E%3CfeMergeNode in='SourceGraphic'/%3E%3C/feMerge%3E%3C/filter%3E%3C/defs%3E%3Cg fill='none' stroke='%23A08855' stroke-width='0.7' opacity='0.8' filter='url(%23mysticGlow)'%3E%3C!-- Row 1 (Y=20) --%3E%3Cg transform='translate(15,20)'%3E%3Ccircle cx='0' cy='0' r='5.5'/%3E%3Cpath d='M-5.5 0h11'/%3E%3Cpath d='M-2 -2l4 4M2 -2l-4 4' stroke-width='0.4'/%3E%3C/g%3E%3C!-- Salt --%3E%3Cg transform='translate(45,20)'%3E%3Cpath d='M0 -7l6 10h-12z'/%3E%3Cpath d='M0 3v6M-4 6h8'/%3E%3Ccircle cx='0' cy='6' r='1' fill='%23A08855'/%3E%3C/g%3E%3C!-- Sulfur --%3E%3Cg transform='translate(75,20)'%3E%3Cpath d='M-4 -8c0 0 0 4 4 4s4 -4 4 -4'/%3E%3Ccircle cx='0' cy='-3' r='4'/%3E%3Cpath d='M0 1v8M-3 5h6M-2 8h4'/%3E%3C/g%3E%3C!-- Mercury --%3E%3Cg transform='translate(105,20)'%3E%3Cpath d='M0 -7l7 11h-14z'/%3E%3Ccircle cx='0' cy='-1' r='1.5' fill='%23A08855'/%3E%3C/g%3E%3C!-- Fire --%3E%3Cg transform='translate(135,20)'%3E%3Cpath d='M0 -7l7 11h-14z'/%3E%3Cpath d='M-7 -2h14'/%3E%3Cpath d='M-2 -4h4' stroke-width='0.4'/%3E%3C/g%3E%3C!-- Air --%3E%3Cg transform='translate(165,20)'%3E%3Cpath d='M0 7l-7 -11h14z'/%3E%3Ccircle cx='0' cy='0' r='2'/%3E%3C/g%3E%3C!-- Water --%3E%3Cg transform='translate(195,20)'%3E%3Cpath d='M0 7l-7 -11h14z'/%3E%3Cpath d='M-7 -2h14'/%3E%3Cpath d='M-2 -5h4' stroke-width='0.4'/%3E%3C/g%3E%3C!-- Earth --%3E%3Cg transform='translate(225,20)'%3E%3Ccircle cx='0' cy='0' r='6'/%3E%3Ccircle cx='0' cy='0' r='1.5' fill='%23A08855'/%3E%3Ccircle cx='0' cy='0' r='3.5' stroke-dasharray='1 2'/%3E%3C/g%3E%3C!-- Gold --%3E%3C!-- Row 2 (Y=60) --%3E%3Cg transform='translate(15,60)'%3E%3Cpath d='M-3 -7v14M-3 3h6'/%3E%3Cpath d='M-3 -7a4 4 0 0 1 4 -4'/%3E%3Ccircle cx='1' cy='-11' r='1.2' fill='%23A08855'/%3E%3C/g%3E%3C!-- Lead --%3E%3Cg transform='translate(45,60)'%3E%3Ccircle cx='0' cy='-2' r='5'/%3E%3Cpath d='M0 3v8M-4 7h8'/%3E%3Cpath d='M-2 11h4' stroke-width='0.4'/%3E%3C/g%3E%3C!-- Copper --%3E%3Cg transform='translate(75,60)'%3E%3Ccircle cx='0' cy='2' r='5'/%3E%3Cpath d='M4 -3l6 -6M5 -9h4v4'/%3E%3Ccircle cx='0' cy='2' r='1.5' opacity='0.5'/%3E%3C/g%3E%3C!-- Iron --%3E%3Cg transform='translate(105,60)'%3E%3Cpath d='M3 -7a7 7 0 1 0 0 14a6 6 0 0 1 0 -14'/%3E%3Ccircle cx='2' cy='0' r='1'/%3E%3C/g%3E%3C!-- Silver --%3E%3Cg transform='translate(135,60)'%3E%3Cpath d='M-4 -4l8 0l-8 8l8 0'/%3E%3Ccircle cx='0' cy='0' r='2.5'/%3E%3Cpath d='M0 -2.5v-3' stroke-width='0.4'/%3E%3C/g%3E%3C!-- Tin --%3E%3Cg transform='translate(165,60)'%3E%3Ccircle cx='0' cy='2' r='5'/%3E%3Cpath d='M0 -3v-7M-4 -7h8'/%3E%3Ccircle cx='0' cy='-10' r='1' fill='%23A08855'/%3E%3C/g%3E%3C!-- Antimony --%3E%3Cg transform='translate(195,60)'%3E%3Cpath d='M-5 -5l10 10M5 -5l-10 10'/%3E%3Ccircle cx='0' cy='0' r='3.5'/%3E%3Ccircle cx='0' cy='-5' r='1'/%3E%3Ccircle cx='0' cy='5' r='1'/%3E%3C/g%3E%3C!-- Arsenic --%3E%3Cg transform='translate(225,60)'%3E%3Cpath d='M-4 -6c0 0 0 4 4 4s4 -4 4 -4v8c0 0 0 4 -4 4s-4 -4 -4 -4z'/%3E%3Ccircle cx='0' cy='0' r='1.5' fill='%23A08855'/%3E%3C/g%3E%3C!-- Bismuth --%3E%3C!-- Row 3 (Y=100) --%3E%3Cg transform='translate(15,100)'%3E%3Cpath d='M-5 -5l10 10M5 -5l-10 10'/%3E%3Ccircle cx='0' cy='0' r='3.5'/%3E%3Cpath d='M0 -6v12M-6 0h12' stroke-width='0.3' opacity='0.4'/%3E%3C/g%3E%3Cg transform='translate(45,100)'%3E%3Cpath d='M-6 0h12M0 -6v12' stroke-dasharray='2 1'/%3E%3Ccircle cx='0' cy='0' r='5'/%3E%3C/g%3E%3Cg transform='translate(75,100)'%3E%3Ccircle cx='0' cy='0' r='6'/%3E%3Cpath d='M-4 -4l8 8M4 -4l-8 8'/%3E%3Ccircle cx='0' cy='0' r='2' fill='%23A08855'/%3E%3C/g%3E%3Cg transform='translate(105,100)'%3E%3Ccircle cx='0' cy='0' r='5'/%3E%3Cpath d='M-5 0a5 5 0 0 1 10 0'/%3E%3Ccircle cx='0' cy='0' r='1' fill='%23A08855'/%3E%3C/g%3E%3Cg transform='translate(135,100)'%3E%3Cpath d='M-5 -5h10v10h-10z' transform='rotate(45)'/%3E%3Ccircle cx='0' cy='0' r='1.5'/%3E%3C/g%3E%3Cg transform='translate(165,100)'%3E%3Cpath d='M-6 4l6 -8l6 8z'/%3E%3Cpath d='M0 -4v8' stroke-width='0.4'/%3E%3C/g%3E%3Cg transform='translate(195,100)'%3E%3Cpath d='M-4 0a4 4 0 1 0 8 0a4 4 0 1 0 -8 0' stroke-dasharray='1 1'/%3E%3Ccircle cx='0' cy='0' r='0.5' fill='%23A08855'/%3E%3C/g%3E%3Cg transform='translate(225,100)'%3E%3Cpath d='M-5 0h10M0 -5v10'/%3E%3Ccircle cx='-5' cy='0' r='1'/%3E%3Ccircle cx='5' cy='0' r='1'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
     backPattern: `url("data:image/svg+xml,%3Csvg width='120' height='60' viewBox='0 0 120 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' stroke='%23C0A062' stroke-width='0.5' opacity='0.3'%3E%3C!-- Salt --%3E%3Cg transform='translate(15,20)'%3E%3Ccircle cx='0' cy='0' r='6'/%3E%3Cpath d='M-6 0h12'/%3E%3C/g%3E%3C!-- Sulfur --%3E%3Cg transform='translate(45,20)'%3E%3Cpath d='M0 -6l5 10h-10z'/%3E%3Cpath d='M0 4v8M-4 8h8'/%3E%3C/g%3E%3C!-- Mercury --%3E%3Cg transform='translate(75,20)'%3E%3Cpath d='M-4 -8a4 4 0 0 0 8 0'/%3E%3Ccircle cx='0' cy='-3' r='4'/%3E%3Cpath d='M0 1v8M-4 5h8'/%3E%3C/g%3E%3C!-- Fire --%3E%3Cg transform='translate(105,20)'%3E%3Cpath d='M0 -6l6 10h-12z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
   }
 };
@@ -158,7 +158,7 @@ const tokens = {
 // Reusable visual elements that consume the tokens above.
 
 const HermeticBackground = React.memo(() => (
-  <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-[0.08] overflow-hidden z-0 mix-blend-overlay">
+  <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-[0.1] overflow-hidden z-0">
     <svg viewBox="0 0 400 600" className="w-full h-full" preserveAspectRatio="xMidYMid slice">
       <defs>
         <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -183,6 +183,17 @@ const HermeticBackground = React.memo(() => (
       </g>
     </svg>
   </div>
+));
+
+const RepeatingSymbolBackground = React.memo(() => (
+  <div
+    className="absolute inset-0 opacity-[0.15] pointer-events-none"
+    style={{
+      backgroundImage: definitions.assets.deepPattern,
+      backgroundSize: '280px 140px',
+      backgroundPosition: '-8px 0'
+    }}
+  />
 ));
 
 const CORNER_INDICES = [0, 1, 2, 3];
@@ -269,7 +280,7 @@ export const DefaultCardPersona = {
   definitions,
   tokens,
   visuals: {
-    Background: HermeticBackground,
+    Background: RepeatingSymbolBackground,
     Corners: AlchemicalCorners,
     Frame: CrucibleFrame,
     Divider: null,

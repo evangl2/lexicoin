@@ -1,0 +1,284 @@
+/* =============================================================================
+   compact-base.css — Shared skeleton for ALL lexi-compact-card personas
+   Three modes: repository | icon | word
+   ============================================================================= */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+/* ── Host ─────────────────────────────────────────────────────────────────── */
+
+:host {
+  display: block;
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  user-select: none;
+  background-color: var(--card-color-bg-front);
+  border-radius: var(--card-radius);
+  /* Default inset border (repository / icon modes) */
+  box-shadow: inset 0 0 0 var(--card-border-thin) var(--card-color-border-outer);
+}
+
+/* Word mode: different shape + border style */
+:host([mode="word"]) {
+  border-radius: 6px;
+  box-shadow: none;
+  border: var(--card-border-thin) solid var(--card-color-border-subtle);
+}
+
+/* ── Layout wrappers ──────────────────────────────────────────────────────── */
+/* Default: repository layout visible (avoids flash of empty content).
+   Other modes are hidden until the mode attribute arrives.               */
+
+[part="layout-repo"] {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 8px;
+  isolation: isolate;
+}
+
+[part="layout-icon"],
+[part="layout-word"] {
+  position: absolute;
+  inset: 0;
+  display: none;
+}
+
+:host([mode="icon"]) [part="layout-repo"] { display: none; }
+:host([mode="icon"]) [part="layout-icon"] {
+  display: flex;
+  flex-direction: column;
+  isolation: isolate;
+}
+
+:host([mode="word"]) [part="layout-repo"] { display: none; }
+:host([mode="word"]) [part="layout-word"] {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  isolation: isolate;
+}
+
+/* ── Background ───────────────────────────────────────────────────────────── */
+
+[part="background"] {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+/* ── Repository: visual watermark ─────────────────────────────────────────── */
+/* Two-layer structure mirrors original React: outer clips, inner scales.      */
+
+[part="visual-watermark"] {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  opacity: 0.4;
+  mix-blend-mode: normal;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+[part="visual-watermark-inner"] {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform: scale(1.05) translateY(-5%);
+}
+
+::slotted([slot="visual-repo"]) {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* ── Repository: header (level badge) ────────────────────────────────────── */
+
+[part="repo-header"] {
+  position: relative;
+  z-index: 30;
+  display: flex;
+  justify-content: flex-end;
+  align-items: flex-start;
+  width: 100%;
+}
+
+::slotted([slot="level"]) {
+  display: contents;
+}
+
+/* ── Repository: word center ──────────────────────────────────────────────── */
+
+[part="word-area-repo"] {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  z-index: 20;
+  pointer-events: none;
+  width: 100%;
+  padding: 0 4px;
+}
+
+::slotted([slot="word-repo"]) {
+  width: 100%;
+  display: flex;
+}
+
+/* ── Repository: footer (ontology + durability) ───────────────────────────── */
+
+[part="repo-footer"] {
+  position: relative;
+  z-index: 20;
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+
+[part="ontology-badge"] {
+  display: flex;
+  justify-content: flex-start;
+}
+
+::slotted([slot="ontology"]) {
+  font-size: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 9999px;
+  border: 1px solid var(--card-color-border-subtle);
+  background-color: var(--card-color-bg-deep);
+  color: var(--card-color-text-secondary);
+  font-family: var(--card-font-label);
+  white-space: nowrap;
+}
+
+/* ── Repository: durability bar ───────────────────────────────────────────── */
+
+[part="repo-durability"] {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  padding-bottom: 1px;
+  transform: scaleY(1.5);
+  transform-origin: bottom;
+  opacity: 0.9;
+}
+
+/* ── Shared: durability fill (all three modes) ────────────────────────────── */
+
+[part="durability-fill"] {
+  height: 2px;
+  width: var(--_durability, 100%);
+  background: var(--card-gradient-gold-metallic);
+  box-shadow: 0 0 8px var(--card-color-gold-bright), 0 0 4px var(--card-color-gold-metallic);
+  transition: width 0.5s ease-out;
+}
+
+/* ── Icon: visual (centered, scale-125) ──────────────────────────────────── */
+
+[part="icon-visual"] {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+}
+
+::slotted([slot="visual-icon"]) {
+  display: block;
+  width: 100%;
+  height: 100%;
+  transform: scale(1.25);
+}
+
+/* ── Icon: durability bar (absolute bottom) ───────────────────────────────── */
+
+[part="icon-durability"] {
+  position: absolute;
+  bottom: 4px;
+  left: 4px;
+  right: 4px;
+  z-index: 20;
+  transform: scaleY(1.5);
+  transform-origin: bottom;
+  opacity: 0.8;
+}
+
+/* ── Word: text area ──────────────────────────────────────────────────────── */
+
+[part="word-area-word"] {
+  position: relative;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 8px 4px;
+  width: 100%;
+  height: 100%;
+}
+
+::slotted([slot="word-word"]) {
+  width: 100%;
+  display: flex;
+}
+
+/* ── Word: durability underline (absolute bottom, group-hover opacity) ─────── */
+
+[part="word-durability"] {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  z-index: 30;
+  opacity: 0.8;
+  transition: opacity 0.2s;
+}
+
+:host(:hover) [part="word-durability"] {
+  opacity: 1;
+}
+
+[part="word-durability"] [part="durability-fill"] {
+  height: 100%;
+}
+
+/* ── Active indicator (gold pulse ring, all modes) ───────────────────────── */
+
+[part="active-indicator"] {
+  display: none;
+  position: absolute;
+  inset: 0;
+  z-index: 60;
+  pointer-events: none;
+  border: 2px solid var(--card-color-gold-metallic);
+  border-radius: inherit;
+  box-shadow: 0 0 15px var(--card-color-gold-metallic), inset 0 0 5px var(--card-color-gold-metallic);
+  animation: compact-active-pulse 1s ease-in-out infinite;
+}
+
+:host([is-active]) [part="active-indicator"] {
+  display: block;
+}
+
+@keyframes compact-active-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.5; }
+}

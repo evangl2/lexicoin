@@ -1,0 +1,64 @@
+<!-- Cyberpunk persona shadow template for compact card.
+     Same DOM structure as compact-default; persona differences are in CSS only. -->
+
+<!-- ═════════════════════ REPOSITORY LAYOUT ═════════════════════ -->
+<div part="layout-repo">
+
+  <!-- Layer 0: Cyberpunk radial glow (CSS background in compact-cyberpunk.css) -->
+  <div part="background"></div>
+
+  <!-- Layer 0: Visual watermark (DynamicVisual, absolute, opacity-40) -->
+  <div part="visual-watermark">
+    <slot name="visual-repo"></slot>
+  </div>
+
+  <!-- Header: level badge (top-right) -->
+  <div part="repo-header">
+    <slot name="level"></slot>
+  </div>
+
+  <!-- Center: word text -->
+  <div part="word-area-repo">
+    <slot name="word-repo"></slot>
+  </div>
+
+  <!-- Footer: ontology badge + durability bar -->
+  <div part="repo-footer">
+    <div part="ontology-badge">
+      <slot name="ontology"></slot>
+    </div>
+    <div part="repo-durability">
+      <div part="durability-fill"></div>
+    </div>
+  </div>
+
+</div><!-- /layout-repo -->
+
+<!-- ═════════════════════ ICON LAYOUT ═════════════════════ -->
+<div part="layout-icon">
+
+  <div part="icon-visual">
+    <slot name="visual-icon"></slot>
+  </div>
+
+  <div part="icon-durability">
+    <div part="durability-fill"></div>
+  </div>
+
+</div><!-- /layout-icon -->
+
+<!-- ═════════════════════ WORD LAYOUT ═════════════════════ -->
+<div part="layout-word">
+
+  <div part="word-area-word">
+    <slot name="word-word"></slot>
+  </div>
+
+  <div part="word-durability">
+    <div part="durability-fill"></div>
+  </div>
+
+</div><!-- /layout-word -->
+
+<!-- ═════════════════════ ACTIVE INDICATOR ═════════════════════ -->
+<div part="active-indicator"></div>

@@ -1,8 +1,8 @@
 /**
  * GrimoireVisual.tsx
- * 
+ *
  * 职责：纯渲染魔典书本外观。
- * 支持：Persona 皮肤系统 & LOD 性能优化。
+ * 支持：Persona 皮肤系统。
  */
 
 import React, { useState, useEffect } from 'react';
@@ -10,7 +10,6 @@ import { motion, MotionValue } from 'motion/react';
 import { GrimoireEntity, GrimoireStatus } from '@/types/index';
 import { Book, CheckCircle2, Lock, MousePointer2 } from 'lucide-react';
 import { getGrimoirePersona } from '@/app/components/persona/grimoire';
-import { useGrimoireLOD } from '@/app/hooks/useGrimoireLOD';
 
 interface GrimoireVisualProps {
     grimoire: GrimoireEntity;
@@ -79,7 +78,6 @@ export const GrimoireVisual: React.FC<GrimoireVisualProps> = React.memo(({
     onOpen
 }) => {
     const persona = getGrimoirePersona(grimoire.personaId);
-    const lod = useGrimoireLOD(canvasScale);
     const isOpenable = grimoire.status !== 'SUMMONING' && !isLibraryView;
     const { tokens, visuals } = persona;
 
@@ -127,69 +125,56 @@ export const GrimoireVisual: React.FC<GrimoireVisualProps> = React.memo(({
                 <div className={`w-full h-[2px] ${tokens.colors.spineLines}`} />
             </div>
 
-            {/* Cover Decoration (LOD Dependent) */}
-            {lod !== 'low' && <visuals.CoverDecoration status={grimoire.status} />}
+            <visuals.CoverDecoration status={grimoire.status} />
 
             {/* Content Container (shifted right for spine) */}
             <div className="pl-4 w-full h-full flex flex-col items-center justify-between relative z-20">
-                {/* Header: Persona Label (Only High LOD) */}
-                {lod === 'high' && (
-                    <div className="flex items-center gap-1 w-full opacity-60">
-                        <div className={`w-1.5 h-1.5 rounded-full bg-white`} />
-                        <span className="text-[8px] font-bold tracking-widest uppercase" style={{ fontFamily: tokens.typography.titleFamily }}>
-                            {persona.identity.name}
-                        </span>
-                    </div>
-                )}
+                <div className="flex items-center gap-1 w-full opacity-60">
+                    <div className={`w-1.5 h-1.5 rounded-full bg-white`} />
+                    <span className="text-[8px] font-bold tracking-widest uppercase" style={{ fontFamily: tokens.typography.titleFamily }}>
+                        {persona.identity.name}
+                    </span>
+                </div>
 
                 {/* Icon / Body */}
                 <div className="flex-1 flex flex-col items-center justify-center gap-2">
-                    <Book className="text-white/40" size={lod === 'low' ? 40 : 32} />
-                    {lod !== 'low' && (
-                        <div className="flex flex-col items-center">
-                            <span className="text-[10px] font-bold text-white/80 line-clamp-1" style={{ fontFamily: tokens.typography.titleFamily }}>
-                                {grimoire.theme.title.system}
-                            </span>
-                            <span className="text-[8px] text-white/40 uppercase tracking-tighter">
-                                {grimoire.slots.filter(s => s.senseId !== null).length} / {grimoire.slots.length}
-                            </span>
+                    <Book className="text-white/40" size={32} />
+                    <div className="flex flex-col items-center">
+                        <span className="text-[10px] font-bold text-white/80 line-clamp-1" style={{ fontFamily: tokens.typography.titleFamily }}>
+                            {grimoire.theme.title.system}
+                        </span>
+                        <span className="text-[8px] text-white/40 uppercase tracking-tighter">
+                            {grimoire.slots.filter(s => s.senseId !== null).length} / {grimoire.slots.length}
+                        </span>
+                    </div>
+                </div>
+
+                <div className="w-full flex justify-center pt-2 border-t border-white/10 relative">
+                    {grimoire.status === 'RESOLVED' ? (
+                        <CheckCircle2 size={16} className="text-emerald-400" />
+                    ) : grimoire.status === 'SUMMONING' ? (
+                        <div className="w-4 h-4 rounded-full border border-amber-400 border-t-transparent animate-spin" />
+                    ) : (grimoire.status === 'ACTIVE' || grimoire.status === 'EVALUATING' || grimoire.status === 'NEEDS_REVISION') && !isLibraryView ? (
+                        <GrimoireTimer
+                            expiresAt={grimoire.expiresAt}
+                            createdAt={grimoire.createdAt}
+                            color={grimoire.status === 'NEEDS_REVISION' ? '#f97316' : '#22d3ee'}
+                        />
+                    ) : (
+                        <div className="flex flex-col items-center gap-1 group-hover:hidden">
+                            <Lock size={12} className="text-white/20" />
+                        </div>
+                    )}
+
+                    {isOpenable && (
+                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-white/5 rounded-b-lg">
+                            <MousePointer2 size={14} className="text-white/60 animate-bounce" />
                         </div>
                     )}
                 </div>
-
-                {/* Footer: Status / Timer (LOD Dependent) */}
-                {lod !== 'low' && (
-                    <div className="w-full flex justify-center pt-2 border-t border-white/10 relative">
-                        {grimoire.status === 'RESOLVED' ? (
-                            <CheckCircle2 size={16} className="text-emerald-400" />
-                        ) : grimoire.status === 'SUMMONING' ? (
-                            <div className="w-4 h-4 rounded-full border border-amber-400 border-t-transparent animate-spin" />
-                        ) : (grimoire.status === 'ACTIVE' || grimoire.status === 'EVALUATING' || grimoire.status === 'NEEDS_REVISION') && !isLibraryView ? (
-                            <GrimoireTimer 
-                                expiresAt={grimoire.expiresAt} 
-                                createdAt={grimoire.createdAt} 
-                                color={grimoire.status === 'NEEDS_REVISION' ? '#f97316' : '#22d3ee'} 
-                            />
-                        ) : (
-                            <div className="flex flex-col items-center gap-1 group-hover:hidden">
-                                <Lock size={12} className="text-white/20" />
-                            </div>
-                        )}
-
-                        {/* Hover Interaction Hint (Only High LOD) */}
-                        {lod === 'high' && isOpenable && (
-                            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-white/5 rounded-b-lg">
-                                <MousePointer2 size={14} className="text-white/60 animate-bounce" />
-                            </div>
-                        )}
-                    </div>
-                )}
             </div>
 
-            {/* Decorative Glow / Texture */}
-            {lod === 'high' && (
-                <div className={`absolute inset-0 opacity-20 blur-xl pointer-events-none z-0 bg-[url('https://www.transparenttextures.com/patterns/black-leather.png')] mix-blend-overlay`} />
-            )}
+            <div className={`absolute inset-0 opacity-20 blur-xl pointer-events-none z-0 bg-[url('https://www.transparenttextures.com/patterns/black-leather.png')] mix-blend-overlay`} />
         </motion.div>
     );
 });

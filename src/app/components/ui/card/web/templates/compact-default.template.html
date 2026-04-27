@@ -1,0 +1,70 @@
+<!-- Default (Alchemy) persona shadow template for compact card.
+     Loaded via Vite ?raw import. Three mode layouts are all present;
+     CSS :host([mode="..."]) selectors show only the active one.       -->
+
+<!-- ═════════════════════ REPOSITORY LAYOUT ═════════════════════ -->
+<div part="layout-repo">
+
+  <!-- Layer 0: RepeatingSymbolBackground (CSS background-image in compact-default.css) -->
+  <div part="background"></div>
+
+  <!-- Layer 0: Visual watermark (DynamicVisual, absolute, opacity-40) -->
+  <div part="visual-watermark">
+    <slot name="visual-repo"></slot>
+  </div>
+
+  <!-- Header: level badge (top-right) -->
+  <div part="repo-header">
+    <slot name="level"></slot>
+  </div>
+
+  <!-- Center: word text -->
+  <div part="word-area-repo">
+    <slot name="word-repo"></slot>
+  </div>
+
+  <!-- Footer: ontology badge + durability bar -->
+  <div part="repo-footer">
+    <div part="ontology-badge">
+      <slot name="ontology"></slot>
+    </div>
+    <div part="repo-durability">
+      <div part="durability-fill"></div>
+    </div>
+  </div>
+
+</div><!-- /layout-repo -->
+
+<!-- ═════════════════════ ICON LAYOUT ═════════════════════ -->
+<div part="layout-icon">
+
+  <!-- Centered DynamicVisual (scale-125 via ::slotted CSS) -->
+  <div part="icon-visual">
+    <slot name="visual-icon"></slot>
+  </div>
+
+  <!-- Durability bar (absolute bottom) -->
+  <div part="icon-durability">
+    <div part="durability-fill"></div>
+  </div>
+
+</div><!-- /layout-icon -->
+
+<!-- ═════════════════════ WORD LAYOUT ═════════════════════ -->
+<div part="layout-word">
+
+  <!-- Centered word text -->
+  <div part="word-area-word">
+    <slot name="word-word"></slot>
+  </div>
+
+  <!-- Durability underline (absolute bottom, hover brightens) -->
+  <div part="word-durability">
+    <div part="durability-fill"></div>
+  </div>
+
+</div><!-- /layout-word -->
+
+<!-- ═════════════════════ ACTIVE INDICATOR ═════════════════════ -->
+<!-- Gold pulse ring — CSS :host([is-active]) toggles display -->
+<div part="active-indicator"></div>

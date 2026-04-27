@@ -137,7 +137,6 @@ const LexiCardChromeInner: React.FC<LexiCardChromeProps> = ({
     syncBoolAttr(el, 'is-over', isOver);
   }, [isOver]);
 
-
   useEffect(() => {
     const el = innerRef.current;
     if (!el) return;

@@ -1,0 +1,13 @@
+/* =============================================================================
+   compact-default.css — Default (Alchemy) persona styles for compact card
+   Assumes compact-base.css is applied first via adoptedStyleSheets[0].
+   ============================================================================= */
+
+/* ── Background: RepeatingSymbolBackground (alchemical symbol tiling) ─────── */
+
+:host([mode="repository"]) [part="background"] {
+  background-image: var(--card-texture-deep-pattern);
+  background-size: 280px 140px;
+  background-position: -8px 0;
+  opacity: 0.15;
+}

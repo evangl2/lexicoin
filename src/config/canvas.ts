@@ -11,11 +11,6 @@ export const WORLD_W = 9600;
 /** 世界总高度（像素） */
 export const WORLD_H = 6000;
 
-// ── Card LOD ─────────────────────────────────────────────────────────────────
-/** Zoom thresholds for switching cards to CompactCardVisual (hysteresis pair) */
-export const CARD_LOD = { ENTER: 0.32, EXIT: 0.38 } as const;
-export type CardLod = typeof CARD_LOD;
-
 // ── Card scale ───────────────────────────────────────────────────────────────
 /** Card scale multipliers for hover and drag states */
 export const CARD_SCALE = { HOVER: 1.05, DRAG: 1.15 } as const;

@@ -369,7 +369,7 @@ export const Card = React.memo<CardProps>(({
     activeUid, handleDefinitionClickCb, handleSelectDefinitionCb,
     wcCurrentFlavorContents, wcFlavorIndex, wcFlavorDirection,
     handleFlavorNavigateCb, handleFlavorContentClickCb, handleFlavorIndicatorClickCb,
-    isActive, visualFeedback, title,
+    isActive, visualFeedback, title, CardPersona,
   ]);
 
   const targetShadow = isExpanded ? CardPersona.tokens.shadows.expanded 
@@ -394,7 +394,7 @@ export const Card = React.memo<CardProps>(({
       }}
       style={{
         width, height, opacity: isHidden ? 0 : 1, boxShadow: targetShadow,
-        transition: 'box-shadow 0.3s ease-out', transformStyle: 'preserve-3d',
+        transition: 'box-shadow 0.3s ease-out',
         cursor: isFlipped ? 'default' : (isExpanded ? 'zoom-out' : 'grab'),
         position: 'absolute', left: '50%', top: '50%',
         marginLeft: -width / 2, marginTop: -height / 2,
@@ -415,9 +415,9 @@ export const Card = React.memo<CardProps>(({
         startTransition(() => setIsHovered(false));
         if (!isExpanded && !isDraggingRef.current) animation.scaleSpring.set(1);
       }}
-      className="canvas-card select-none group relative transition-colors duration-300"
+      className={`canvas-card card-3d${isExpanded || isFlipped ? ' card-expanded' : ''} select-none group relative transition-colors duration-300`}
     >
-      <div ref={scaleWrapperRef} style={{ width: '100%', height: '100%', transformOrigin: 'center center' }}>
+      <div ref={scaleWrapperRef} className="card-scale-wrapper" style={{ width: '100%', height: '100%', transformOrigin: 'center center' }}>
         <LexiCardChrome
           persona={(uiTheme as 'default' | 'cyberpunk')}
           isActive={isActive} isExpanded={isExpanded} isFlipped={isFlipped} isOver={isOver}

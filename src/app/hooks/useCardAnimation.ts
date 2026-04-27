@@ -108,23 +108,6 @@ export function useCardAnimation({
     };
   }, [isExpanded, isFlipped, canvasScale, expandedScale, width, height]);
 
-  // Phase 3: Level of Detail (LOD) — Zero-React-Render Path
-  // High-frequency zoom should never trigger React commits.
-  // We use direct DOM manipulation to hide/show details based on scale.
-  useEffect(() => {
-    const el = cardRef.current;
-    if (!el) return;
-
-    const updateLOD = (s: number) => {
-      // Thresholds: < 0.3 (Low), 0.3-0.7 (Medium), > 0.7 (High)
-      el.classList.toggle('lod-low', s < 0.3);
-      el.classList.toggle('lod-medium', s >= 0.3 && s < 0.7);
-    };
-
-    updateLOD(canvasScale.get());
-    return canvasScale.on('change', updateLOD);
-  }, [canvasScale, cardRef]);
-
   const scaleSpring = useSpring(1, CardPersona.physics.springs.scale);
 
   // Update scaleSpring based on mode and canvasScale
@@ -168,7 +151,19 @@ export function useCardAnimation({
     const el = cardRef.current;
     if (!el) return;
     const apply = () => {
-      el.style.transform = `translateX(${displayX.get()}px) translateY(${displayY.get()}px) rotateX(${displayRotateX.get()}deg) rotateY(${displayRotateY.get()}deg) rotateZ(${displayRotateZ.get()}deg)`;
+      const tx = displayX.get();
+      const ty = displayY.get();
+      const rx = displayRotateX.get();
+      const ry = displayRotateY.get();
+      const rz = displayRotateZ.get();
+      // 3D-form rotateX/rotateY forces "trivial 3d transform" GPU layer promotion
+      // even at 0deg — confirmed via DevTools Layers panel. Drop them when idle
+      // so cards share the world's compositor layer (instead of 1 layer per card).
+      if (Math.abs(rx) < 0.05 && Math.abs(ry) < 0.05) {
+        el.style.transform = `translate(${tx}px, ${ty}px) rotate(${rz}deg)`;
+      } else {
+        el.style.transform = `translate(${tx}px, ${ty}px) rotateX(${rx}deg) rotateY(${ry}deg) rotateZ(${rz}deg)`;
+      }
     };
     let pending = false;
     const scheduleApply = () => {
@@ -202,51 +197,79 @@ export function useCardAnimation({
     const wrapper = scaleWrapperRef.current;
     const card = cardRef.current;
     if (!wrapper || !card) return;
-    const scaleSource = externalScale ?? scaleSpring;
+    // Visual scale (what the wrapper actually scales by) — keep using externalScale.
+    const visualScale = externalScale ?? scaleSpring;
+    // Promotion hysteresis MUST track per-card hover/expand state only.
+    // Using externalScale (item.scale managed by useCardManager) caused every card
+    // to potentially promote on item-scale spring overshoot, AND prevented hover
+    // from triggering demote — leaking will-change:transform inline indefinitely
+    // on every card that was ever briefly above 1.05.
+    const promotionSource = scaleSpring;
 
-    // Hysteresis prevents layer promotion/demotion oscillation near the threshold.
-    // Promote when scale crosses 1.05 upward; demote only when it falls below 0.97.
     const PROMOTE_AT = 1.05;
     const DEMOTE_AT = 0.97;
-    let promoted = scaleSource.get() > PROMOTE_AT;
+    let promoted = promotionSource.get() > PROMOTE_AT;
 
-    const applyPromoted = (v: number) => {
+    const applyPromoted = () => {
       card.style.transformStyle = 'flat';
       card.style.willChange = 'transform';
       wrapper.style.transformStyle = 'preserve-3d';
-      wrapper.style.transform = `scale(${v}) translateZ(0)`;
+      wrapper.style.transform = `scale(${visualScale.get()}) translateZ(0)`;
     };
-    const applyDemoted = (v: number) => {
+    const applyDemoted = () => {
       card.style.transformStyle = 'preserve-3d';
       card.style.willChange = 'auto';
       wrapper.style.transformStyle = '';
-      wrapper.style.transform = `scale(${v})`;
+      wrapper.style.transform = `scale(${visualScale.get()})`;
     };
 
-    const sync = (v: number) => {
-      if (!promoted && v > PROMOTE_AT) {
+    const sync = () => {
+      const v = promotionSource.get();
+      const vel = Math.abs(promotionSource.getVelocity());
+      if (!promoted && v > PROMOTE_AT && vel > 0.1) {
         promoted = true;
-        applyPromoted(v);
+        applyPromoted();
       } else if (promoted && v < DEMOTE_AT) {
         promoted = false;
-        applyDemoted(v);
-      } else {
-        wrapper.style.transform = promoted ? `scale(${v}) translateZ(0)` : `scale(${v})`;
+        applyDemoted();
+      } else if (promoted && v < PROMOTE_AT && vel < 0.05) {
+        promoted = false;
+        applyDemoted();
       }
     };
-    promoted ? applyPromoted(scaleSource.get()) : applyDemoted(scaleSource.get());
-    const unsub = scaleSource.on('change', sync);
+    // Visual updates run independently — wrapper's scale value follows externalScale
+    // even when no promotion transition occurs.
+    const visualSync = () => {
+      const v = visualScale.get();
+      wrapper.style.transform = promoted ? `scale(${v}) translateZ(0)` : `scale(${v})`;
+    };
 
-    // Single-RAF rerasterize: demote layer for one frame then re-promote with fresh pixels.
-    // Double-RAF removed — it caused a visible 2-frame (~33ms) stutter on settle.
-    const forceRerasterize = (v: number) => {
-      if (!card.isConnected || !wrapper.isConnected) return;
-      card.style.willChange = 'auto';
-      wrapper.style.transform = `scale(${v})`;
+    promoted ? applyPromoted() : applyDemoted();
+    const unsubPromotion = promotionSource.on('change', sync);
+    const unsubVisual = visualScale === promotionSource
+      ? () => {}
+      : visualScale.on('change', visualSync);
+    const unsub = () => { unsubPromotion(); unsubVisual(); };
+
+    // Demote to CPU rendering when scale settles: GPU compositing layers rasterize at the
+    // element's natural CSS size and GPU-scale the result, causing blur at high scale values.
+    // Removing translateZ(0) lets the browser render at the correct effective resolution.
+    // The next animation (collapse) will re-promote via sync → applyPromoted; scale-down
+    // compositing does not blur (shrinking a higher-res texture is always sharp).
+    const forceRerasterize = () => {
+      if (!card.isConnected || !wrapper.isConnected || !promoted) return;
+      promoted = false;
+      applyDemoted();
+
+      // REDRAW PULSE: Briefly toggle a style property to force a high-res re-rasterization.
+      // This is especially effective for stubborn layers like scroll containers.
       requestAnimationFrame(() => {
-        if (!card.isConnected || !wrapper.isConnected) return;
-        card.style.willChange = 'transform';
-        wrapper.style.transform = `scale(${v}) translateZ(0)`;
+        if (!wrapper.isConnected) return;
+        wrapper.style.opacity = '0.9999';
+        requestAnimationFrame(() => {
+          if (!wrapper.isConnected) return;
+          wrapper.style.opacity = '1';
+        });
       });
     };
 
@@ -256,12 +279,12 @@ export function useCardAnimation({
         if (scaleSettleRaf !== null) { cancelAnimationFrame(scaleSettleRaf); scaleSettleRaf = null; }
         return;
       }
-      if (Math.abs(scaleSource.getVelocity()) < 0.5) {
+      if (Math.abs(visualScale.getVelocity()) < 0.5) {
         if (scaleSettleRaf === null) {
           scaleSettleRaf = requestAnimationFrame(() => {
             scaleSettleRaf = null;
-            if (Math.abs(scaleSource.getVelocity()) < 0.5 && scaleSource.get() > PROMOTE_AT) {
-              forceRerasterize(scaleSource.get());
+            if (Math.abs(visualScale.getVelocity()) < 0.5 && visualScale.get() > PROMOTE_AT) {
+              forceRerasterize();
             }
           });
         }
@@ -269,12 +292,12 @@ export function useCardAnimation({
         if (scaleSettleRaf !== null) { cancelAnimationFrame(scaleSettleRaf); scaleSettleRaf = null; }
       }
     };
-    const unsubScale = scaleSource.on('change', onScaleChange);
+    const unsubScale = visualScale.on('change', onScaleChange);
 
     const onFlipChange = (v: number) => {
       const atRest = v < 0.01 || v > 0.99;
-      if (atRest && Math.abs(flipSpring.getVelocity()) < 0.5 && scaleSource.get() > PROMOTE_AT) {
-        forceRerasterize(scaleSource.get());
+      if (atRest && Math.abs(flipSpring.getVelocity()) < 0.5 && visualScale.get() > PROMOTE_AT) {
+        forceRerasterize();
       }
     };
     const unsubFlip = flipSpring.on('change', onFlipChange);
