@@ -1,50 +1,36 @@
 import { useEffect, useRef } from 'react'
-import { initPixiApp, destroyPixiApp, getPixiApp, reinitPixiApp } from '@/pixi/core/app'
+import { initPixiApp, destroyPixiApp } from '@/pixi/core/app'
 import { initResizeHandler } from '@/pixi/core/resize'
 import { initPixiStats, destroyPixiStats } from '@/pixi/core/stats'
-import { useGameStore } from '@store/index'
+
+// antialias 由 localStorage 控制，切换需 reload（无法在同一 canvas 上重建 WebGL context）
+function readAntialias(): boolean {
+  const stored = localStorage.getItem('pixi-antialias')
+  return stored !== null ? stored === 'true' : true
+}
 
 export function PixiRoot() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const antialiasEnabled = useGameStore(s => s.featureFlags.antialiasEnabled)
-  const cleanupResizeRef = useRef<(() => void) | null>(null)
-  const mountedRef = useRef(false)
 
-  // 初始化（仅 mount 时）
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
 
+    const antialias = readAntialias()
     let cancelled = false
-    initPixiApp(canvas, antialiasEnabled).then(app => {
+
+    initPixiApp(canvas, antialias).then(app => {
       if (cancelled) { destroyPixiApp(); return }
-      cleanupResizeRef.current = initResizeHandler(app)
+      initResizeHandler(app)
       initPixiStats(app)
-      mountedRef.current = true
     })
 
     return () => {
       cancelled = true
-      mountedRef.current = false
-      cleanupResizeRef.current?.()
-      cleanupResizeRef.current = null
       destroyPixiStats()
       destroyPixiApp()
     }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // antialias 切换（DevConsole 改变设置时 reinit renderer）
-  useEffect(() => {
-    if (!mountedRef.current) return
-    const canvas = canvasRef.current
-    if (!canvas || !getPixiApp()) return
-    cleanupResizeRef.current?.()
-    destroyPixiStats()
-    reinitPixiApp(canvas, antialiasEnabled).then(newApp => {
-      cleanupResizeRef.current = initResizeHandler(newApp)
-      initPixiStats(newApp)
-    })
-  }, [antialiasEnabled])
+  }, [])
 
   return (
     <canvas

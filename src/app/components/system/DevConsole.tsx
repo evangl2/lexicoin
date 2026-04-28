@@ -108,7 +108,6 @@ export const DevConsole: React.FC = () => {
     const [logFilter, setLogFilter] = useState('');
     const setSenses = useGameStore(s => s.setSenses);
     const setFeatureFlag = useGameStore(s => s.setFeatureFlag);
-    const featureFlags = useGameStore(s => s.featureFlags);
     const clearAllGrimoires = useGameStore(s => s.clearAllGrimoires);
     const uiTheme = useGameStore(s => s.uiTheme);
     const setUiTheme = useGameStore(s => s.setUiTheme);
@@ -667,8 +666,12 @@ export const DevConsole: React.FC = () => {
                             <section className="cheat-section">
                                 <h4>🖼 PixiJS Renderer</h4>
                                 <div className="cheat-presets">
-                                    <button onClick={() => setFeatureFlag('antialiasEnabled', !featureFlags.antialiasEnabled)}>
-                                        Antialias: {featureFlags.antialiasEnabled ? 'ON' : 'OFF'}
+                                    <button onClick={() => {
+                                        const cur = localStorage.getItem('pixi-antialias') !== 'false'
+                                        localStorage.setItem('pixi-antialias', String(!cur))
+                                        window.location.reload()
+                                    }}>
+                                        Antialias: {localStorage.getItem('pixi-antialias') !== 'false' ? 'ON' : 'OFF'}
                                     </button>
                                 </div>
                             </section>

@@ -25,11 +25,12 @@ export async function initPixiApp(
   return app
 }
 
-export function destroyPixiApp(): void {
+// PixiJS v8 的 destroy() 是 async，必须 await 否则 WebGL context 未释放就重建会导致 GPU crash
+export async function destroyPixiApp(): Promise<void> {
   _cleanupResize?.()
   _cleanupResize = null
   // Stage D: destroyCamera() 将在此处插入
-  _app?.destroy(false, { children: true })
+  await _app?.destroy(false, { children: true })
   _app = null
 }
 
@@ -37,7 +38,7 @@ export async function reinitPixiApp(
   canvas: HTMLCanvasElement,
   antialias: boolean
 ): Promise<Application> {
-  destroyPixiApp()
+  await destroyPixiApp()
   return initPixiApp(canvas, antialias)
   // Stage K TODO: reinit 后纹理缓存重建（当前无纹理，安全）
 }

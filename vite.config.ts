@@ -25,6 +25,18 @@ export default defineConfig({
         port: 5173,
         host: true,
     },
+    optimizeDeps: {
+        // pixi.js 排除预打包以保全 shader 字符串；其 CJS 传递依赖单独 include 做 CJS→ESM 转换
+        exclude: ['pixi.js'],
+        include: [
+            'eventemitter3',
+            'parse-svg-path',
+            '@pixi/colord',
+            '@xmldom/xmldom',
+            'gifuct-js',
+            'ismobilejs',
+        ],
+    },
     build: {
         rollupOptions: {
             output: {
