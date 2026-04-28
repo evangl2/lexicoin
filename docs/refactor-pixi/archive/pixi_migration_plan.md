@@ -61,14 +61,20 @@ PixiJS 是 Lexicoin 全部**高视觉 / 高交互 / 低文字**区域的渲染�
 
 ## Phase 2 · Persona Bridge + 画布背景层
 
-**做什么：** 将 Persona 数据（颜色、纹理 URL、几何 token）从 React Context 导出为纯 JS 模块级响应式状态，使 PixiJS 代码可以在 React 之外读取。将现有背景元素（TransmutationCircle、CornerGears、ScriptNoise、SacredGeometry 等）迁移为 PixiJS Sprite，由 GSAP 驱动旋转/视差动画。
+**做什么：** 新建纯 JS 模块 `persona-bridge.ts`，React 侧监听 Persona 变化并同步写入，PixiJS 侧直接 import 读取。建立 `BackgroundSystem`（Persona 驱动的背景场景管理器），每个 Persona 有独立的 PixiJS 背景实现；实现画布世界的背景层（全部为**占位符**，美术上未定稿，代码注释说明）和世界网格。
 
 **关键决定：**
-- Persona bridge：新建 `pixiPersonaStore`（纯 JS 模块），React 侧监听 Persona 变化并同步写入；PixiJS 侧直接 import 读取
-- 背景 Sprite 的纹理来自现有 SVG data URI，通过 `PIXI.Assets.load()` 加载
-- GSAP Ticker 替代 MotionValue 驱动背景旋转（`rotateSlow` / `rotateReverse`）
+- Persona Bridge：纯 JS 模块事件系统（`persona-bridge.ts`），React 侧新增零渲染组件 `PixiPersonaBridge`，监听 PersonaContext 变化写入 bridge；PixiJS 侧订阅 bridge 的 `onPersonaChange` 事件
+- 背景架构：`IBackground` 接口 + `BackgroundSystem`；Persona 切换时**立即销毁旧背景、创建新背景**（瞬间切换，无过渡动画，TODO 注释标注未来可扩展）
+- 背景动画：**时间驱动**（GSAP 持续旋转），不再与 camera 位置绑定，无 animation gate；所有动画标注为占位符
+- 删除：`TransmutationCircle`（在画布后面，无视觉价值）、`MetalTexture`（SVG filter 过重，整层删除）
+- ScriptNoise → PixiJS `TilingSprite` + viewport 位置驱动的 tilePosition 视差
+- VoidAtmosphere / Vignette / SacredGeometry：PixiJS 技术重新设计（不还原 CSS 原版）
+- GridSystem（J2）：世界坐标系内 Figma 风格点阵网格（两级），缩放驱动不透明度；同时渲染世界边界视觉提示（"悬崖感"）
+- Cyberpunk Persona：PixiJS 简易占位实现（不同配色），目的是验证 Persona 热拔插机制
+- 每个 Persona 提供完全不同的 PixiJS 背景实现
 
-**验证：** PixiJS 画布有完整的背景动画（齿轮旋转、符文背景视差），平移时视差正确偏移，缩放时不出现背景撕裂。
+**验证：** PixiJS 画布显示背景层（暗色神秘氛围）；环境旋转动画平滑；ScriptNoise 随平移有轻微视差；Figma 风格网格随缩放淡入；世界边界可见；DevConsole 切换 Persona → 背景立即切换为不同配色实现；切回 → 恢复。
 
 **旧系统状态：** 不受影响。旧 DOM 背景仍由 MotionValue 驱动。
 
@@ -76,29 +82,41 @@ PixiJS 是 Lexicoin 全部**高视觉 / 高交互 / 低文字**区域的渲染�
 
 ## Phase 3 · 卡片 Sprite（占位色块，位置正确）
 
-**做什么：** 从 Zustand Store 读取所有画布卡片数据，为每张卡片创建 PixiJS `Container`，位置对应卡片的世界坐标（x, y）。卡片渲染为带圆角的彩色矩形（占位），尺寸与真实卡片一致。实现视口裁剪：只为视口内的卡片创建 Container，离开视口时销毁。
+**做什么：** 新建 `PixiCardBridge`（零渲染 React 组件）读取 `useCardManager` + `useCardGrouping`，写入纯 JS 模块 `card-bridge.ts`；`CardSystem` 订阅 bridge，为每个 Anchor 卡创建 PixiJS `Container`，位置对应卡片世界坐标（坐标系需偏移：旧系统原点在中心，pixi-viewport 原点在左上角）。卡片渲染为**无圆角矩形占位色块**（Persona primary 色），建立两级 LOD 系统和 Variant Stack 视觉。
 
 **关键决定：**
-- 卡片 Container 的 `name` 属性存储 `uid`，用于后续事件处理
-- 视口裁剪直接利用 `pixi-viewport` 的 `cull()` 支持，替代现有 `useViewportCulling`
-- Variant Stack：同一 Anchor 的变体卡以 Sprite 叠放（z-offset），最上层为 Anchor
+- **数据桥**：`PixiCardBridge` 组件（与 `PixiPersonaBridge` 同模式），不读 Zustand 而读 `useCardManager` + `useCardGrouping` hook
+- **Culling**：全部 Container 常驻内存，视口外设 `visible=false`（100-150 张规模无性能压力）；用 `viewport.getVisibleBounds()` + `VIEWPORT_CULL_MARGIN` 判断
+- **坐标系转换**：`pixiX = card.x + WORLD_W/2`，`pixiY = card.y + WORLD_H/2`（old-system 原点中心 → pixi 原点左上角）
+- **Variant Stack**：每个 Anchor Container 内，变体卡以右下偏移 (+4px/层) 叠在 Anchor 之下，最多显示 2 层偏移（视觉最多 3 层）；有变体时右上角显示 `×N` 角标（N = 含 Anchor 的总层数）
+- **LOD**：每个 Container 有 `nearLod`（full 250×350）和 `farLod`（60% 尺寸 150×210）两个子容器；`viewport.scale < 0.25` 时切远景；viewport 'zoomed' 事件驱动
+- **颜色**：统一 Persona primary 色（alpha 0.7），Phase 8 真实视觉时替换
+- **Container.label** 存储 uid，`eventMode = 'none'`（Phase 4 启用）
+- 只处理 `location='canvas'` 的 Anchor 卡，Variant 卡不单独渲染
+- 语言切换时 Merge/Split System（Phase 9）负责动画；Phase 3 静默重建 Stack
+- Alchemist 卡片最终视觉方向：**金属符文板**（深色金属质感、浮雕边框、符文刻印），Phase 8 实现，此处代码注释说明
 
-**验证：** PixiJS 画布显示正确数量的色块，位置与旧系统卡片位置对应，平移/缩放时色块随 camera 移动，边缘卡片超出视口后正确被 cull。
+**验证：** PixiJS 画布显示正确数量色块；位置与旧系统卡片对应；Variant Stack 有层叠偏移和角标；缩放过 0.25 阈值时色块大小切换；平移到边缘视口外色块不渲染；旧系统（flag=false）完全正常。
 
 **旧系统状态：** 不受影响。
 
 ---
 
-## Phase 4 · Hover 交互
+## Phase 4 · Hover 交互 + 卡片文字层（HTMLText）
 
-**做什么：** 为卡片 Container 启用 `interactive = true`，实现 `pointerover / pointerout` 事件。Hover 时用 GSAP spring 驱动 scale 放大（1.08x），Hover 结束回弹。Hover 期间显示 PixiJS HTMLText 展示卡片单词（支持 RTL 和渐变色）。
+**做什么：** 为卡片 Container 启用 `eventMode='static'`，实现 `pointerover / pointerout` 事件。HTMLText（单词 + 词性）作为**永久**文字层加入 nearLOD Container（Phase 8 替换真实视觉时调整位置）。Hover 时卡片微微左上浮动（GSAP elastic spring），并触发 Persona 专属边缘发光特效（Default/Alchemist = 炼金呼吸发光；Cyberpunk = 青色占位）。
 
 **关键决定：**
-- GSAP 的 `elastic` 或自定义 spring ease 替代 Framer Motion `useSpring`
-- HTMLText 字号按 `word.length` 分 3 档预设，不做 DOM 测量
-- Hover 时卡片 `zIndex` 属性提升，离开后恢复
+- HTMLText 是卡片的**永久组成部分**，始终显示，不是 hover-only；Phase 8 叠加 Sprite 后构成完整卡片
+- Hover 动效：位移（-4px X，-6px Y），GSAP `elastic.out(1, 0.5)`，无 scale 放大
+- farLOD（scale < 0.25）下：只发光，无位移（卡片太小）
+- 发光：`GlowFilter`（新增依赖 `pixi-filters`），GSAP 驱动呼吸脉动
+- `ICardHoverEffect` 接口（与 `IBackground` 一致）：每个 Persona 独立实现，代码注释占位
+- `_containers Map` 升级为 `_metas Map<string, CardMeta>`（携带 baseX/Y、hoverOffset、effect）
+- HTMLText 支持 RTL（`<span dir=rtl>`），字号按 word.length 三档预设
+- `worldContainer.sortableChildren = true`，hover 时 zIndex=1
 
-**验证：** 鼠标悬停在色块上，有弹性缩放动画，显示卡片单词文字（含中文/阿拉伯文字测试）。
+**验证：** nearLOD 下卡片显示单词文字，hover 微微左上浮 + 边缘呼吸发光；farLOD 下 hover 只发光；DevConsole 切换 Persona → 发光颜色/风格立即变化。
 
 **旧系统状态：** 不受影响。
 
@@ -106,15 +124,17 @@ PixiJS 是 Lexicoin 全部**高视觉 / 高交互 / 低文字**区域的渲染�
 
 ## Phase 5 · DOM 检视态（Inspect Overlay）
 
-**做什么：** 点击 PixiJS 卡片时，获取卡片屏幕坐标，通过 Zustand 写入 `inspectedCardUid` + 原始屏幕位置。新建全局 React 组件 `<InspectOverlay>`，监听此状态，用 Framer Motion 从卡片原始位置动画展开到屏幕浮层（画布仍可见于背后）。浮层内渲染现有 `LexiCardChrome` + 全部富文本内容（不修改这些组件）。点击浮层外部关闭。
+**做什么：** 点击 PixiJS 卡片时，`viewport.toScreen()` 计算卡片屏幕坐标，写入 Zustand `inspectedCard`。新建 `<InspectOverlay>` React 组件，用 Framer Motion 从卡片原始屏幕矩形展开到屏幕中央（~72% 屏高，保持比例）。浮层内使用 `LexiCardChrome` 渲染卡片内容，支持右键翻面。PixiJS 卡片保持可见（浮层浮于上方）。
 
 **关键决定：**
-- `InspectOverlay` 是新建组件，不修改现有 `Card.tsx` / `LexiCardChrome.tsx`
-- 展开动画：从 `(originX, originY, scale=0.3)` 到屏幕中心 `(centerX, centerY, scale=1)`
-- 卡片翻转（isFlipped）在检视态内用现有 CSS 3D 翻转，不需要 PixiJS 处理
-- 关闭时 PixiJS 卡片 Sprite 淡入恢复
+- `InspectOverlay` 新建组件，直接用 `LexiCardChrome`，不复用 `Card.tsx`（Phase 11 后再评估提取）
+- `SelectionOverlay` 重新设计为 **Variant 导航**（同 word 不同 sense 的 Stack 切换），UI 为底部圆点 + 左右箭头 + 计数
+- PixiJS 卡片在 Overlay 打开时**保持可见**（backdrop 半透明，画布可见于背后）
+- 关闭方式：点击 Backdrop + ESC 键
+- 坐标通过 Zustand `inspectedCard: { uid, screenX, screenY, screenW, screenH }` 传递
+- 点击检测：`pointerdown/up` + 8px 距离判断（提前兼容 Phase 6 拖拽阈值逻辑）
 
-**验证：** 点击 PixiJS 色块 → 浮层从色块位置展开，显示完整卡片内容，可翻转，点击外部关闭，画布可见于背后并可平移。
+**验证：** 点击 PixiJS 色块 → 浮层从色块位置展开，显示完整卡片内容，可翻转；Variant Stack → 底部导航可切换 sense；点击 backdrop / ESC 关闭，收缩回原位。
 
 **旧系统状态：** 不受影响。
 
@@ -122,16 +142,18 @@ PixiJS 是 Lexicoin 全部**高视觉 / 高交互 / 低文字**区域的渲染�
 
 ## Phase 6 · 卡片拖拽（PixiJS Pointer Events）
 
-**做什么：** 实现 `pointerdown / pointermove / pointerup` 拖拽，拖拽期间禁用 pixi-viewport 的 pan。拖拽时卡片跟随指针，scale 略微放大并降低 opacity。拖拽结束时将新坐标写回 Zustand（触发 Dexie 持久化）。废弃 `DragLayer.tsx`（不再需要单独的 drag preview）。
+**做什么：** 实现 Stage-level `pointermove / pointerup` 全局拖拽。Container `pointerdown` 合并 Phase 5 click 检测逻辑（共用同一函数，8px 阈值区分点击与拖拽）。拖拽期间 `viewport.plugins.pause('drag')` 防止画布跟随平移。实现 Edge Pan（屏幕边缘 80px 触发，Ticker 驱动）。拖拽结束通过 `card-bridge.ts` 回调写回 `useCardManager` → Dexie 持久化。
 
 **关键决定：**
-- 拖拽开始时临时暂停 viewport drag 插件，拖拽结束恢复
-- 拖拽坐标转换：屏幕坐标 → `viewport.toWorld()` → 卡片世界坐标
-- `react-dnd` 卡片拖拽部分在此阶段废弃
+- 拖拽触发阈值：移动 ≥ 8px（与 Phase 5 click 阈值共用，天然区分）
+- 无残影，卡片直接跟手（scale=1.05，alpha=0.85 为视觉提示）
+- Edge Pan 实现（G1）：Ticker 驱动，速度随靠近边缘渐增；edge pan 期间同步更新卡片世界坐标
+- 位置写回：`card-bridge.ts` 追加 `registerUpdatePosition` 回调桥，PixiJS 侧不 import React
+- `DragLayer.tsx` 标注 deprecated（不删除，Phase 11 清理）；`react-dnd` 路径在 flag=true 时因 Card 被 hidden 而自然不触发
 
-**验证：** 可以拖拽 PixiJS 色块，放手后停在新位置，刷新页面后位置持久化。拖拽时画布不会同时平移。
+**验证：** 拖拽 PixiJS 色块，放手停在新位置，刷新持久化；移动 < 8px 触发 InspectOverlay；拖至边缘时画布 edge pan；旧系统（flag=false）react-dnd 完全正常。
 
-**旧系统状态：** 不受影响（旧系统 flag=false 时仍用 react-dnd）。
+**旧系统状态：** 不受影响（flag=false 时 Card 正常显示，react-dnd 正常工作）。
 
 ---
 
