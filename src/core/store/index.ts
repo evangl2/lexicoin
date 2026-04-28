@@ -286,6 +286,10 @@ export const useGameStore = create<GameStore>()(
                 zoomedCardIds: state.zoomedCardIds.filter(id => id !== uid)
             })),
 
+            // Camera Intent State
+            cameraFocusTarget: undefined,
+            setCameraFocusTarget: (targetId) => set({ cameraFocusTarget: targetId }),
+
             // Synthesis Queue (runtime only, not persisted)
             activeSynthesisCount: 0,
             incrementSynthesisCount: () => set((state) => ({

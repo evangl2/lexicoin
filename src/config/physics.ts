@@ -22,8 +22,8 @@ export const ZOOM_MIN_FLOOR = 0.08;
 export const CANVAS_ZOOM_END_DEBOUNCE_MS = 150;
 
 // ── Pan ───────────────────────────────────────────────────────────────────────
-/** Extra pixels of pan allowed beyond world edges (asymmetric: X wider for landscape cards) */
-export const CANVAS_OVERSCROLL = { X: 300, Y: 150 } as const;
+/** Extra pixels of pan allowed beyond world edges (Increased 3x for elastic feel) */
+export const CANVAS_OVERSCROLL = { X: 900, Y: 450 } as const;
 export type CanvasOverscroll = typeof CANVAS_OVERSCROLL;
 
 // ── Culling ───────────────────────────────────────────────────────────────────

@@ -39,7 +39,8 @@
       "Bash(del \"A:\\\\lexicoin\\\\lexicoin\\\\supabase\\\\functions\\\\evaluate-grimoire\\\\lib\\\\personaDictionary.ts\")",
       "Bash(del \"A:\\\\lexicoin\\\\lexicoin\\\\supabase\\\\functions\\\\synthesize-sense\\\\lib\\\\PersonaDictionary.ts\")",
       "Bash(pnpm tsc *)",
-      "Bash(git -C \"A:/lexicoin/lexicoin\" log --since=\"yesterday\" --name-status --format=\"%H %s\")"
+      "Bash(git -C \"A:/lexicoin/lexicoin\" log --since=\"yesterday\" --name-status --format=\"%H %s\")",
+      "Bash(git mv *)"
     ]
   }
 }

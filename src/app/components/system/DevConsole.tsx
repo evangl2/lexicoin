@@ -30,7 +30,7 @@ import type { VisualEntry } from '@schemas/schemas/SenseEntity.schema';
 import type { BaseMessage } from '@app-types/protocol';
 import './DevConsole.css';
 
-type TabType = 'messages' | 'state' | 'telemetry' | 'inject' | 'logs' | 'system' | 'cheat';
+type TabType = 'messages' | 'state' | 'telemetry' | 'inject' | 'logs' | 'system' | 'cheat' | 'debug';
 
 const StateInspector: React.FC = () => {
     // Get all store state - moved here to prevent re-renders in main console
@@ -325,11 +325,10 @@ export const DevConsole: React.FC = () => {
                     ⚠️ System
                 </button>
                 <button
-                    className={activeTab === 'cheat' ? 'active' : ''}
-                    onClick={() => setActiveTab('cheat')}
-                    style={{ color: '#ffcc00' }}
+                    className={activeTab === 'debug' ? 'active' : ''}
+                    onClick={() => setActiveTab('debug')}
                 >
-                    ✨ Cheat
+                    🛠️ Debug
                 </button>
             </div>
 
@@ -682,6 +681,64 @@ export const DevConsole: React.FC = () => {
                                     <button onClick={() => updatePlayer({ echoCharges: 10 })}>Set 10 Echo Charges</button>
                                     <button disabled style={{ opacity: 0.5 }}>Unlock All Archetypes (Coming Soon)</button>
                                 </div>
+                            </section>
+                        </div>
+                    </div>
+                )}
+                {/* Debug Tab */}
+                {activeTab === 'debug' && (
+                    <div className="tab-content">
+                        <div className="debug-panel">
+                            <h4>🛠️ PixiJS Debug System</h4>
+                            <p className="debug-description">
+                                Toggle real-time visual aids and telemetry overlays.
+                            </p>
+                            
+                            <div className="debug-options">
+                                <label className="debug-toggle">
+                                    <input 
+                                        type="checkbox" 
+                                        defaultChecked={localStorage.getItem('LEXI_DEBUG_VISUALS') === 'true'}
+                                        onChange={(e) => {
+                                            const val = e.target.checked;
+                                            localStorage.setItem('LEXI_DEBUG_VISUALS', String(val));
+                                            // Directly interact with DebugSystem
+                                            const { worldSystem } = require('@/pixi/systems/WorldSystem');
+                                            const { DebugSystem } = require('@/pixi/systems/DebugSystem');
+                                            if (worldSystem.viewport) {
+                                                DebugSystem.setVisualsEnabled(worldSystem.contentLayer!, val);
+                                            }
+                                        }}
+                                    />
+                                    <span>World Visuals (Grid & Reference)</span>
+                                </label>
+
+                                <label className="debug-toggle">
+                                    <input 
+                                        type="checkbox" 
+                                        defaultChecked={localStorage.getItem('LEXI_DEBUG_HUD') === 'true'}
+                                        onChange={(e) => {
+                                            const val = e.target.checked;
+                                            localStorage.setItem('LEXI_DEBUG_HUD', String(val));
+                                            const { DebugSystem } = require('@/pixi/systems/DebugSystem');
+                                            const { getPixiApp } = require('@/pixi/core/app');
+                                            const app = getPixiApp();
+                                            if (app) {
+                                                DebugSystem.setHUDEnabled(app.stage, val);
+                                            }
+                                        }}
+                                    />
+                                    <span>Camera HUD (LOD & Pos)</span>
+                                </label>
+                            </div>
+
+                            <section className="debug-section" style={{ marginTop: '24px' }}>
+                                <h4>📊 Performance Tips</h4>
+                                <ul style={{ fontSize: '12px', opacity: 0.7, paddingLeft: '16px' }}>
+                                    <li>Visuals use Graphics strokes; keep off during screen recording.</li>
+                                    <li>HUD updates on ticker, optimized to skip when hidden.</li>
+                                    <li>Settings persist in LocalStorage across refreshes.</li>
+                                </ul>
                             </section>
                         </div>
                     </div>

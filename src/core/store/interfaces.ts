@@ -104,6 +104,10 @@ export interface GameStore extends ConfigState, CardState, ProgressionState, Gri
     zoomedCardIds: string[];
     focusCard: (uid: string) => void;
     blurCard: (uid: string) => void;
+    
+    // Camera Intent State
+    cameraFocusTarget?: string;
+    setCameraFocusTarget: (targetId?: string) => void;
 
     // Synthesis Queue (runtime only, not persisted)
     // Tracks the number of in-flight synthesis jobs globally.

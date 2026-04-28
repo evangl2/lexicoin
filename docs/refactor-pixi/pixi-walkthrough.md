@@ -56,6 +56,10 @@
 
 如果本 Stage 新增了模块文件，在对应区块补充说明。如果本 Stage 的某些旧占位注释（`// Stage X: ...将在此处插入`）被实际代码替换了，更新相关描述。
 
+**第五步：溯源更新 (Back-updating)**
+
+如果本 Stage 的实施过程中，对之前 Stage 已经建立的模块或逻辑进行了重大修改（例如 Stage D 扩展了 Stage B 建立的 `resize.ts`），**必须**同步回到对应的旧 Stage 小节中修正其功能描述。确保文档不仅是历史记录，更是对当前代码状态的准确映射。
+
 ### 写作原则
 
 - **写决策，不写步骤。** "选择 pixi-viewport 而非自实现 Camera，因为它对 pixi v8 有官方支持"比"安装了 pixi-viewport"更有价值。
@@ -88,18 +92,18 @@
 
 ---
 
-## 当前状态（Stage C 完成后）
+## 当前状态（Stage D 完成后）
 
 ```
 浏览器打开 localhost:5173
 → 模块初始化（Dexie、Zustand、services）
 → PixiJS Application 初始化（WebGL 渲染器）
-→ 全屏深色背景（#0a0a0f）
-→ 右上角 pixi-stats overlay（仅 dev）
-→ 右下角 DevConsole（可切 Persona / 查看 store / Cheat）
+→ 画布支持高性能平移、缩放（pixi-viewport）
+→ 实现了高级摄像机物理：前瞻 (Lead the View)、重心偏移 (Peeking)、边缘滚动、弹性回弹与渐进式阻力
+→ 右下角 DevConsole：新增 🛠️ Debug 标签页，可动态开关网格、辅助线和 Camera HUD
 ```
 
-游戏数据已在 IndexedDB 中，但画布上什么都没有——这是预期状态，等待后续 Stage 把内容接进来。
+游戏数据已在本地环境中，画布已具备完整的“高级物理”交互能力，等待 Stage E 将 Persona 视觉层接入。
 
 ---
 
@@ -163,10 +167,9 @@ main.tsx → App.tsx → app/App.tsx
 ```
 src/pixi/
 ├── config.ts              # buildPixiConfig() — WebGL renderer 配置工厂
-├── core/
-│   ├── app.ts             # Application 模块单例（getPixiApp / initPixiApp / destroyPixiApp）
-│   ├── resize.ts          # window resize → renderer.resize()
-│   └── stats.ts           # pixi-stats dev overlay（仅 DEV 模式）
+├── src/pixi/core/app.ts             # Application 模块单例（getPixiApp / initPixiApp / destroyPixiApp）
+├── src/pixi/core/resize.ts          # window resize → renderer.resize() + viewport.resize() & 边界重算
+└── src/pixi/core/stats.ts           # pixi-stats dev overlay（仅 DEV 模式）
 ├── systems/               # 空目录，Stage D 起填充（CameraSystem 等）
 ├── bridges/               # 空目录，Stage E 起填充（persona-bridge / card-bridge 等）
 └── hooks/
@@ -220,7 +223,7 @@ useEffect(() => {
     let cancelled = false;
     initPixiApp(canvas, readAntialias()).then(app => {
         if (cancelled) { destroyPixiApp(); return; }
-        initResizeHandler(app);
+        initResizeHandler(app); // 内部会处理 renderer + viewport 的同步缩放
         initPixiStats(app);
     });
     return () => { cancelled = true; destroyPixiStats(); destroyPixiApp(); };
@@ -265,6 +268,42 @@ function GameShell() {
 
 ---
 
+## Stage D · Camera 系统 (Advanced Physics)
+
+**commit:** `feat(stage-d): implement premium camera physics with lead-the-view, peeking, and edge-scrolling`
+
+### 做了什么
+
+采用了 **Layered Physics (分层物理)** 架构，通过 `CameraSystem` 叠加了超越基础平移缩放的沉浸感反馈：
+
+- **基础物理层**：集成 `pixi-viewport` 处理原始坐标变换、滚轮缩放、以及基础的 `clamp` 和 `bounce`。
+- **意图感知层 (`CameraSystem.ts`)**：
+    - **Lead the View**：基于当前速度向量实时 nudging 相机坐标，使视野带有微妙的“前瞻性”。
+    - **Mouse Peeking (重心偏移)**：对内部 `contentLayer` 施加基于光标位置的二次幂偏移（40% 死区），实现视角随心动的纵深感。
+    - **Progressive Resistance (指数泥沼)**：在越界区域，不再是死板的 hard-stop，而是构建了一个 `Math.pow(ratio, 1.5)` 的阻力模型。拉得越远，阻力呈指数级增长，模拟真实的物理极限。
+    - **Edge Scrolling (边缘滚动)**：RTS 风格的自动平移。特别处理了与阻力逻辑的解耦：自动滚动在撞墙时会进行强制位移截断，绝不触发回弹干扰。
+- **状态同步 (`CameraBridge.ts`)**：使用节流 (100ms) 将相机视口状态同步至 Zustand Store，供 UI 层（如 HUD）消费。
+- **调试系统扩展 (`DebugSystem.ts`)**：支持容器级的显隐控制。通过 `DevConsole` 动态注入，实现零渲染开销的调试开关。
+
+### 关键文件
+
+| 文件 | 作用 |
+|---|---|
+| `src/pixi/systems/CameraSystem.ts` | 物理引擎核心，处理非线性反馈与意图预测 |
+| `src/pixi/systems/DebugSystem.ts` | 调试辅助层（网格、HUD），支持热开关 |
+| `src/config/camera.ts` | 物理常量（LEAD_FACTOR, RESISTANCE 等）的统一入口 |
+| `src/pixi/bridges/CameraBridge.ts` | 视口状态 -> Store 的桥接同步 |
+
+### 验证状态
+
+- [x] 画布支持鼠标左键平移与滚轮缩放，回弹丝滑
+- [x] 拖拽时有明显的前瞻感 (Lead the View)
+- [x] 越界时呈现“拉力感”，阻力随距离指数级增加
+- [x] 缩放时强制硬限制，不会导致相机意外滑出世界边界
+- [x] DevConsole > Debug 页面可正常控制网格和 HUD 显隐
+
+---
+
 ## 当前代码结构（对模型的快速定位指南）
 
 ### React 树
@@ -284,7 +323,10 @@ src/main.tsx                     # ReactDOM.render，无 StrictMode
 src/pixi/core/app.ts             # Application 单例，其他 PixiJS 模块通过 getPixiApp() 获取
 ├── src/pixi/config.ts           # buildPixiConfig()
 ├── src/pixi/core/resize.ts      # resize handler
-└── src/pixi/core/stats.ts       # pixi-stats dev overlay
+├── src/pixi/core/stats.ts       # pixi-stats dev overlay
+└── src/pixi/systems/
+    ├── CameraSystem.ts          # 相机物理引擎 (Stage D)
+    └── DebugSystem.ts           # 调试辅助系统 (Stage D)
 ```
 
 PixiJS 内部模块**直接 import `getPixiApp()`**，不经过 React（无需 Context/hook 传递）。React 侧通过 `usePixiApp()` hook 访问（内部也是调用 `getPixiApp()`）。
@@ -300,7 +342,7 @@ src/schemas/            # 数据 schema
 src/types/              # 全局类型
 ```
 
-这些在整个 PixiJS 重写过程中**不会被修改**。新 PixiJS 系统直接消费这些数据层。
+这些在整个 PixiJS 重写过程中**原则上保持不动**。新 PixiJS 系统直接消费这些数据层。唯一的例外是 Stage D 中为了实现相机状态同步，在 `useGameStore` 中新增了 `cameraFocusTarget` 等相关状态位。
 
 ### 旧 UI 组件（磁盘保留，不在 bundle 中）
 
@@ -320,7 +362,7 @@ src/app/hooks/                   # useCardManager, useDeviceManager 等（Stage 
 
 | Stage | 内容 | 关键文件（待创建）|
 |---|---|---|
-| **D** | Camera 系统（pixi-viewport） | `src/pixi/systems/CameraSystem.ts` |
+| **D** ✅ | Camera 系统（pixi-viewport） | `src/pixi/systems/CameraSystem.ts` (已创建) |
 | **E** | Persona Bridge + 背景层 | `src/pixi/bridges/persona-bridge.ts`、`src/pixi/systems/BackgroundSystem.ts` |
 | **F** | 卡片 Sprite（占位色块、LOD、Variant Stack）| `src/pixi/bridges/card-bridge.ts`、`src/pixi/systems/CardSystem.ts` |
 | **G** | Hover 交互 + HTMLText 文字层 | CardSystem 扩展 |
