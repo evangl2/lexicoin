@@ -66,7 +66,7 @@ class CameraSystem {
       underflow: 'center'
     });
 
-    this.updateClampZoom();
+    this.updateWorldBounds();
 
     app.ticker.add(this.update, this);
 
@@ -80,11 +80,6 @@ class CameraSystem {
     };
   }
 
-  public updateClampZoom(): void {
-    if (!this._viewport) return;
-    const minScale = this.calcMinScale();
-    this._viewport.clampZoom({ minScale, maxScale: ZOOM_MAX });
-  }
 
   public destroy(): void {
     if (this._app) {
@@ -94,6 +89,26 @@ class CameraSystem {
     this._contentLayer = null;
     this._app = null;
     delete (window as any).__LEXI_DEBUG__;
+  }
+
+  /**
+   * 当世界（画布）大小发生变化时，必须调用此方法刷新物理插件的边界
+   */
+  public updateWorldBounds(): void {
+    if (!this._viewport) return;
+
+    // 1. 刷新缩放限制（防止世界变大后依然无法缩小）
+    const minScale = this.calcMinScale();
+    this._viewport.clampZoom({ minScale, maxScale: ZOOM_MAX });
+
+    // 2. 刷新位置限制（更新 Overscroll 物理边界）
+    this._viewport.clamp({
+      left: -CANVAS_OVERSCROLL.X,
+      right: this._viewport.worldWidth + CANVAS_OVERSCROLL.X,
+      top: -CANVAS_OVERSCROLL.Y,
+      bottom: this._viewport.worldHeight + CANVAS_OVERSCROLL.Y,
+      underflow: 'center'
+    });
   }
 
   public calcMinScale(): number {

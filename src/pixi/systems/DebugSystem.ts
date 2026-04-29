@@ -1,5 +1,5 @@
 import { Graphics, Text, TextStyle, Container } from 'pixi.js';
-import { WORLD_W, WORLD_H } from '@/config/canvas';
+import { WORLD_W as DEFAULT_W, WORLD_H as DEFAULT_H } from '@/config/canvas';
 import { cameraSystem } from './CameraSystem';
 
 export class DebugSystem {
@@ -8,8 +8,31 @@ export class DebugSystem {
   private static _lodText: Text | null = null;
 
   /**
-   * 切换视觉辅助线（网格、中心点、边界）
+   * 动态修改世界大小并重绘调试图形
    */
+  public static setWorldSize(width: number, height: number) {
+    const vp = cameraSystem.viewport;
+    if (!vp) {
+      console.warn('DebugSystem: Viewport not initialized');
+      return;
+    }
+
+    console.log(`DebugSystem: Updating world size to ${width}x${height}`);
+
+    // 1. 更新 Viewport 物理属性
+    vp.worldWidth = width;
+    vp.worldHeight = height;
+
+    // 2. 通知摄像机系统刷新物理边界
+    cameraSystem.updateWorldBounds();
+
+    // 3. 如果调试层开启，则重绘
+    if (this._debugLayer && this._debugLayer.visible) {
+      this._debugLayer.removeChildren();
+      this.createVisuals(this._debugLayer);
+    }
+  }
+
   public static setVisualsEnabled(parent: Container, enabled: boolean) {
     if (enabled) {
       if (!this._debugLayer) {
@@ -24,9 +47,6 @@ export class DebugSystem {
     }
   }
 
-  /**
-   * 切换 HUD (LOD, Zoom, Pos 信息)
-   */
   public static setHUDEnabled(stage: Container, enabled: boolean) {
     if (enabled) {
       if (!this._hudLayer) {
@@ -42,32 +62,36 @@ export class DebugSystem {
   }
 
   private static createVisuals(container: Container) {
+    const vp = cameraSystem.viewport;
+    const w = vp?.worldWidth ?? DEFAULT_W;
+    const h = vp?.worldHeight ?? DEFAULT_H;
+
     const grid = new Graphics();
     container.addChild(grid);
 
     // 1. Draw Grid
     const step = 500;
     const gridStyle = { width: 2, color: 0x444466 }; 
-    for (let x = 0; x <= WORLD_W; x += step) {
-      grid.moveTo(x, 0).lineTo(x, WORLD_H).stroke(gridStyle);
+    for (let x = 0; x <= w; x += step) {
+      grid.moveTo(x, 0).lineTo(x, h).stroke(gridStyle);
     }
-    for (let y = 0; y <= WORLD_H; y += step) {
-      grid.moveTo(0, y).lineTo(WORLD_W, y).stroke(gridStyle);
+    for (let y = 0; y <= h; y += step) {
+      grid.moveTo(0, y).lineTo(w, y).stroke(gridStyle);
     }
 
     // 2. Center Marker
     const center = new Graphics();
     center.circle(0, 0, 50).fill({ color: 0xff3366, alpha: 0.5 });
-    center.position.set(WORLD_W / 2, WORLD_H / 2);
+    center.position.set(w / 2, h / 2);
     container.addChild(center);
 
     // 3. Corners
     const colors = [0x33ff66, 0x3366ff, 0xffff33, 0xff33ff];
     const corners = [
       { x: 500, y: 500 },
-      { x: WORLD_W - 500, y: 500 },
-      { x: 500, y: WORLD_H - 500 },
-      { x: WORLD_W - 500, y: WORLD_H - 500 }
+      { x: w - 500, y: 500 },
+      { x: 500, y: h - 500 },
+      { x: w - 500, y: h - 500 }
     ];
     corners.forEach((c, i) => {
       const g = new Graphics();
@@ -100,6 +124,6 @@ export class DebugSystem {
     const x = Math.round(vp.center.x);
     const y = Math.round(vp.center.y);
 
-    this._lodText.text = `CAMERA HUD:\nLOD: ${lod.toUpperCase()}\nZOOM: ${zoom}x\nPOS: ${x}, ${y}`;
+    this._lodText.text = `CAMERA HUD:\nLOD: ${lod.toUpperCase()}\nZOOM: ${zoom}x\nPOS: ${x}, ${y}\nWORLD: ${vp.worldWidth}x${vp.worldHeight}`;
   }
 }

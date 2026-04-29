@@ -28,6 +28,9 @@ import { visualRegistry } from '@core/registries/VisualRegistry';
 import { supabase } from '@core/infra/supabaseClient';
 import type { VisualEntry } from '@schemas/schemas/SenseEntity.schema';
 import type { BaseMessage } from '@app-types/protocol';
+import { DebugSystem } from '@/pixi/systems/DebugSystem';
+import { worldSystem } from '@/pixi/systems/WorldSystem';
+import { getPixiApp } from '@/pixi/core/app';
 import './DevConsole.css';
 
 type TabType = 'messages' | 'state' | 'telemetry' | 'inject' | 'logs' | 'system' | 'cheat' | 'debug';
@@ -690,11 +693,43 @@ export const DevConsole: React.FC = () => {
                     <div className="tab-content">
                         <div className="debug-panel">
                             <h4>🛠️ PixiJS Debug System</h4>
-                            <p className="debug-description">
-                                Toggle real-time visual aids and telemetry overlays.
-                            </p>
                             
-                            <div className="debug-options">
+                            <section className="debug-section">
+                                <h5>🌍 World Size Controls</h5>
+                                <div className="debug-row" style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+                                    <div className="input-group">
+                                        <span style={{ fontSize: '11px', opacity: 0.6 }}>Width</span>
+                                        <input 
+                                            type="number" 
+                                            id="debug-world-w"
+                                            defaultValue={8000}
+                                            style={{ width: '80px', background: '#111', border: '1px solid #333', color: '#fff', padding: '4px' }}
+                                        />
+                                    </div>
+                                    <div className="input-group">
+                                        <span style={{ fontSize: '11px', opacity: 0.6 }}>Height</span>
+                                        <input 
+                                            type="number" 
+                                            id="debug-world-h"
+                                            defaultValue={4000}
+                                            style={{ width: '80px', background: '#111', border: '1px solid #333', color: '#fff', padding: '4px' }}
+                                        />
+                                    </div>
+                                    <button 
+                                        onClick={() => {
+                                            const w = parseInt((document.getElementById('debug-world-w') as HTMLInputElement).value);
+                                            const h = parseInt((document.getElementById('debug-world-h') as HTMLInputElement).value);
+                                            DebugSystem.setWorldSize(w, h);
+                                        }}
+                                        style={{ padding: '4px 12px', background: '#334466', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                                    >
+                                        Apply Size
+                                    </button>
+                                </div>
+                            </section>
+
+                            <section className="debug-section">
+                                <h5>👁️ View Overlays</h5>
                                 <label className="debug-toggle">
                                     <input 
                                         type="checkbox" 
@@ -702,9 +737,6 @@ export const DevConsole: React.FC = () => {
                                         onChange={(e) => {
                                             const val = e.target.checked;
                                             localStorage.setItem('LEXI_DEBUG_VISUALS', String(val));
-                                            // Directly interact with DebugSystem
-                                            const { worldSystem } = require('@/pixi/systems/WorldSystem');
-                                            const { DebugSystem } = require('@/pixi/systems/DebugSystem');
                                             if (worldSystem.viewport) {
                                                 DebugSystem.setVisualsEnabled(worldSystem.contentLayer!, val);
                                             }
@@ -720,8 +752,6 @@ export const DevConsole: React.FC = () => {
                                         onChange={(e) => {
                                             const val = e.target.checked;
                                             localStorage.setItem('LEXI_DEBUG_HUD', String(val));
-                                            const { DebugSystem } = require('@/pixi/systems/DebugSystem');
-                                            const { getPixiApp } = require('@/pixi/core/app');
                                             const app = getPixiApp();
                                             if (app) {
                                                 DebugSystem.setHUDEnabled(app.stage, val);
@@ -730,7 +760,7 @@ export const DevConsole: React.FC = () => {
                                     />
                                     <span>Camera HUD (LOD & Pos)</span>
                                 </label>
-                            </div>
+                            </section>
 
                             <section className="debug-section" style={{ marginTop: '24px' }}>
                                 <h4>📊 Performance Tips</h4>

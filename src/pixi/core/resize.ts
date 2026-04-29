@@ -10,8 +10,7 @@ export function initResizeHandler(app: Application): () => void {
     const viewport = cameraSystem.viewport;
     if (viewport) {
       viewport.resize(window.innerWidth, window.innerHeight);
-      const minScale = cameraSystem.calcMinScale();
-      viewport.clampZoom({ minScale, maxScale: ZOOM_MAX });
+      cameraSystem.updateWorldBounds();
     }
   }
   window.addEventListener('resize', handler)

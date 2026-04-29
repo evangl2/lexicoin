@@ -282,6 +282,7 @@ function GameShell() {
     - **Mouse Peeking (重心偏移)**：对内部 `contentLayer` 施加基于光标位置的二次幂偏移（40% 死区），实现视角随心动的纵深感。
     - **Progressive Resistance (指数泥沼)**：在越界区域，不再是死板的 hard-stop，而是构建了一个 `Math.pow(ratio, 1.5)` 的阻力模型。拉得越远，阻力呈指数级增长，模拟真实的物理极限。
     - **Edge Scrolling (边缘滚动)**：RTS 风格的自动平移。特别处理了与阻力逻辑的解耦：自动滚动在撞墙时会进行强制位移截断，绝不触发回弹干扰。
+- **Dynamic World Adaptation (动态边界适配)**：系统原生支持可变画布大小。`CameraSystem` 暴露了 `updateWorldBounds()` 方法，用于在世界维度改变时重新校准物理插件（`clamp` / `clampZoom`）的约束范围，确保摄像机在任何地图尺度下都表现一致。
 - **状态同步 (`CameraBridge.ts`)**：使用节流 (100ms) 将相机视口状态同步至 Zustand Store，供 UI 层（如 HUD）消费。
 - **调试系统扩展 (`DebugSystem.ts`)**：支持容器级的显隐控制。通过 `DevConsole` 动态注入，实现零渲染开销的调试开关。
 
@@ -300,7 +301,8 @@ function GameShell() {
 - [x] 拖拽时有明显的前瞻感 (Lead the View)
 - [x] 越界时呈现“拉力感”，阻力随距离指数级增加
 - [x] 缩放时强制硬限制，不会导致相机意外滑出世界边界
-- [x] DevConsole > Debug 页面可正常控制网格和 HUD 显隐
+- [x] 支持动态修改世界尺寸，物理限制与辅助线能同步刷新适配
+- [x] DevConsole > Debug 页面可正常控制网格、HUD 显隐及测试世界大小切换
 
 ---
 
