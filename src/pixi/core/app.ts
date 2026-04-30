@@ -1,4 +1,4 @@
-import { Application, Graphics } from 'pixi.js'
+import { Application, Graphics, WorkerManager } from 'pixi.js'
 import { buildPixiConfig } from '../config'
 import { cameraSystem } from '../systems/CameraSystem'
 import { cameraBridge } from '../bridges/CameraBridge'
@@ -7,18 +7,24 @@ import { DebugSystem } from '../systems/DebugSystem'
 
 let _app: Application | null = null
 let _cleanupResize: (() => void) | null = null
+let _debugTickerFn: (() => void) | null = null
 
 export function getPixiApp(): Application | null {
   return _app
 }
 
 export async function initPixiApp(
-  canvas: HTMLCanvasElement,
   antialias: boolean
 ): Promise<Application> {
   const app = new Application()
-  await app.init({ canvas, ...buildPixiConfig(antialias) })
+  await app.init({ ...buildPixiConfig(antialias) })
   _app = app
+
+  // Aggressive GC for HMR Dev Stability
+  if (app.renderer.textureGC) {
+    app.renderer.textureGC.maxIdle = 600
+    app.renderer.textureGC.checkCountMax = 300
+  }
 
   // Phase 0 占位背景：bgVoid 深色。Stage E (Persona Bridge) 接入后替换为动态颜色
   const bg = new Graphics()
@@ -29,7 +35,7 @@ export async function initPixiApp(
   // Stage D: Initialize World, Camera, and Debug Systems
   const viewport = worldSystem.init(app)
   const contentLayer = worldSystem.contentLayer!
-  
+
   cameraSystem.init(app, viewport, contentLayer)
   cameraBridge.init()
 
@@ -41,7 +47,8 @@ export async function initPixiApp(
   if (showHUD) DebugSystem.setHUDEnabled(app.stage, true);
 
   // 始终挂载 Ticker，但 updateHUD 内部会判断 visible 状态，隐藏时开销为 0
-  app.ticker.add(() => DebugSystem.updateHUD());
+  _debugTickerFn = () => DebugSystem.updateHUD();
+  app.ticker.add(_debugTickerFn);
 
   // Expose global toggles (Backward compatibility and quick CLI access)
   (window as any).LEXI_DEBUG_ON = () => {
@@ -58,25 +65,42 @@ export async function initPixiApp(
   return app
 }
 
-// PixiJS v8 的 destroy() 是 async，必须 await 否则 WebGL context 未释放就重建会导致 GPU crash
+export function setCleanupResize(fn: () => void): void {
+  _cleanupResize = fn
+}
+
+// PixiJS v8.18 的 Application.destroy() 实际是同步的（返回 void）。
 export async function destroyPixiApp(): Promise<void> {
   _cleanupResize?.()
   _cleanupResize = null
-  
+
+  if (_debugTickerFn && _app) {
+    _app.ticker.remove(_debugTickerFn)
+    _debugTickerFn = null
+  }
+
   // Stage D: Destroy Systems
   cameraBridge.destroy()
   cameraSystem.destroy()
   worldSystem.destroy()
 
-  await _app?.destroy(false, { children: true })
+  _app?.destroy(true, { children: true, texture: true, textureSource: true, context: true })
+  if (typeof WorkerManager !== 'undefined') {
+    WorkerManager.reset()
+  }
   _app = null
 }
 
 export async function reinitPixiApp(
-  canvas: HTMLCanvasElement,
   antialias: boolean
 ): Promise<Application> {
   await destroyPixiApp()
-  return initPixiApp(canvas, antialias)
+  return initPixiApp(antialias)
   // Stage K TODO: reinit 后纹理缓存重建（当前无纹理，安全）
+}
+
+if (import.meta.hot) {
+  import.meta.hot.dispose(() => {
+    destroyPixiApp()
+  })
 }

@@ -14,6 +14,9 @@ import { initializeVisuals } from './initializeVisuals';
 import { realtimeService } from '@core/infra/RealtimeService';
 import { xpRegistry } from '@core/services/XPRegistry';
 
+let _staminaIntervalId: ReturnType<typeof setInterval> | null = null
+let _messageUnsubscribers: (() => void)[] = []
+
 /**
  * Initialize all modules and set up MessageBus subscriptions
  */
@@ -53,7 +56,8 @@ export async function initializeModules(): Promise<void> {
         // --- Stamina Recovery (offline compensation) ---
         store.recoverStamina();
         // Continue recovering every 5 minutes while the app is running
-        setInterval(() => useGameStore.getState().recoverStamina(), 5 * 60 * 1000);
+        if (_staminaIntervalId !== null) clearInterval(_staminaIntervalId)
+        _staminaIntervalId = setInterval(() => useGameStore.getState().recoverStamina(), 5 * 60 * 1000);
 
         // --- Active Grimoire Expiry Check ---
         const now = Date.now();
@@ -78,59 +82,76 @@ export async function initializeModules(): Promise<void> {
  * Set up MessageBus subscriptions to sync module state with Zustand store
  */
 function setupMessageBusSubscriptions(): void {
+    _messageUnsubscribers.forEach(unsub => unsub())
+    _messageUnsubscribers = []
+
     const store = useGameStore.getState();
 
     // Persona Module subscriptions
-    messageBus.subscribe('PERSONA_ACTIVATED', (message) => {
-        store.setActivePersona(message.payload.personaId);
-    });
+    _messageUnsubscribers.push(
+        messageBus.subscribe('PERSONA_ACTIVATED', (message) => {
+            store.setActivePersona(message.payload.personaId);
+        })
+    );
 
-    messageBus.subscribe('RESONANCE_UPDATED', (message) => {
-        const { personaId, change } = message.payload;
-        store.updateResonance(personaId, change);
-    });
+    _messageUnsubscribers.push(
+        messageBus.subscribe('RESONANCE_UPDATED', (message) => {
+            const { personaId, change } = message.payload;
+            store.updateResonance(personaId, change);
+        })
+    );
 
     // Construction Module subscriptions
-    messageBus.subscribe('CONSTRUCTION_CREATED', (message) => {
-        store.addConstruction(message.payload);
-    });
+    _messageUnsubscribers.push(
+        messageBus.subscribe('CONSTRUCTION_CREATED', (message) => {
+            store.addConstruction(message.payload);
+        })
+    );
 
     // Item Module subscriptions
-    messageBus.subscribe('ITEM_ADDED', (message) => {
-        store.addInventoryItem(message.payload);
-    });
+    _messageUnsubscribers.push(
+        messageBus.subscribe('ITEM_ADDED', (message) => {
+            store.addInventoryItem(message.payload);
+        })
+    );
 
-    messageBus.subscribe('ITEM_REMOVED', (message) => {
-        store.removeInventoryItem(message.payload.instanceId);
-    });
+    _messageUnsubscribers.push(
+        messageBus.subscribe('ITEM_REMOVED', (message) => {
+            store.removeInventoryItem(message.payload.instanceId);
+        })
+    );
 
     // Review Module subscriptions
-    messageBus.subscribe('REVIEW_SESSION_STARTED', (message) => {
-        store.setActiveReviewSession(message.payload.id);
-    });
+    _messageUnsubscribers.push(
+        messageBus.subscribe('REVIEW_SESSION_STARTED', (message) => {
+            store.setActiveReviewSession(message.payload.id);
+        })
+    );
 
-    messageBus.subscribe('REVIEW_SESSION_COMPLETED', () => {
-        store.setActiveReviewSession(undefined);
+    _messageUnsubscribers.push(
+        messageBus.subscribe('REVIEW_SESSION_COMPLETED', () => {
+            store.setActiveReviewSession(undefined);
 
-        // Award XP for completed review session via the new XPRegistry.
-        // LevelModule handles the level-up state updates & notifications internally.
-        const learningLang = useGameStore.getState().player.settings.learningLang;
-        xpRegistry.awardXP(learningLang, 'SENSE_COLLECTED').catch(err => {
-            logger.error('Failed to award XP for review session', err, 'ModuleInit');
-        });
-    });
+            const learningLang = useGameStore.getState().player.settings.learningLang;
+            xpRegistry.awardXP(learningLang, 'SENSE_COLLECTED').catch(err => {
+                logger.error('Failed to award XP for review session', err, 'ModuleInit');
+            });
+        })
+    );
 
     // Library Module subscriptions
-    messageBus.subscribe('ACHIEVEMENT_UNLOCKED', (message) => {
-        store.addNotification(
-            {
-                en: `Achievement unlocked: ${message.payload.achievementId}`,
-                zh: `解锁成就：${message.payload.achievementId}`
-            },
-            'SUCCESS',
-            5000
-        );
-    });
+    _messageUnsubscribers.push(
+        messageBus.subscribe('ACHIEVEMENT_UNLOCKED', (message) => {
+            store.addNotification(
+                {
+                    en: `Achievement unlocked: ${message.payload.achievementId}`,
+                    zh: `解锁成就：${message.payload.achievementId}`
+                },
+                'SUCCESS',
+                5000
+            );
+        })
+    );
 
     logger.info('MessageBus subscriptions configured', undefined, 'ModuleInit');
 }
@@ -156,4 +177,15 @@ export function getPlatformInfo() {
         prefersReducedMotion: platformAdapter.prefersReducedMotion(),
         prefersDarkMode: platformAdapter.prefersDarkMode(),
     };
+}
+
+if (import.meta.hot) {
+    import.meta.hot.dispose(() => {
+        if (_staminaIntervalId !== null) {
+            clearInterval(_staminaIntervalId)
+            _staminaIntervalId = null
+        }
+        _messageUnsubscribers.forEach(unsub => unsub())
+        _messageUnsubscribers = []
+    })
 }

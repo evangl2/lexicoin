@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { initPixiApp, destroyPixiApp } from '@/pixi/core/app'
+import { initPixiApp, destroyPixiApp, setCleanupResize } from '@/pixi/core/app'
 import { initResizeHandler } from '@/pixi/core/resize'
 import { initPixiStats, destroyPixiStats } from '@/pixi/core/stats'
 
@@ -10,18 +10,23 @@ function readAntialias(): boolean {
 }
 
 export function PixiRoot() {
-  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    const canvas = canvasRef.current
-    if (!canvas) return
+    const container = containerRef.current
+    if (!container) return
 
     const antialias = readAntialias()
     let cancelled = false
 
-    initPixiApp(canvas, antialias).then(app => {
+    initPixiApp(antialias).then(app => {
       if (cancelled) { destroyPixiApp(); return }
-      initResizeHandler(app)
+      
+      if (containerRef.current) {
+        containerRef.current.appendChild(app.canvas)
+      }
+      
+      setCleanupResize(initResizeHandler(app))
       initPixiStats(app)
     })
 
@@ -33,8 +38,8 @@ export function PixiRoot() {
   }, [])
 
   return (
-    <canvas
-      ref={canvasRef}
+    <div
+      ref={containerRef}
       style={{ position: 'fixed', inset: 0, zIndex: 0, display: 'block' }}
     />
   )

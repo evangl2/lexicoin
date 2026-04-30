@@ -23,10 +23,10 @@ class CameraSystem {
   private _app: Application | null = null;
   private _lastPos = { x: 0, y: 0 };
   private _lastScale = 1;
-  
+
   private static instance: CameraSystem;
 
-  private constructor() {}
+  private constructor() { }
 
   public static getInstance(): CameraSystem {
     if (!CameraSystem.instance) {
@@ -43,14 +43,14 @@ class CameraSystem {
     this._app = app;
     this._viewport = viewport;
     this._contentLayer = contentLayer;
-    
+
     // 1. Configure Viewport Physics
     viewport
       .drag({ mouseButtons: 'left' })
-      .wheel({ 
-        percent: 0.1, 
+      .wheel({
+        percent: 0.1,
         smooth: 10,
-        center: null 
+        center: null
       })
       .bounce({
         sides: 'all',
@@ -126,12 +126,12 @@ class CameraSystem {
 
   public getAdjustedCenter(worldX: number, worldY: number): { x: number, y: number } {
     if (!this._viewport) return { x: worldX, y: worldY };
-    
+
     const effectiveWidth = window.innerWidth - SAFE_AREA.left - SAFE_AREA.right;
     const effectiveHeight = window.innerHeight - SAFE_AREA.top - SAFE_AREA.bottom;
     const screenCenterX = SAFE_AREA.left + effectiveWidth / 2;
     const screenCenterY = SAFE_AREA.top + effectiveHeight / 2;
-    
+
     const offsetX = (window.innerWidth / 2 - screenCenterX) / this._viewport.scale.x;
     const offsetY = (window.innerHeight / 2 - screenCenterY) / this._viewport.scale.y;
 
@@ -140,10 +140,10 @@ class CameraSystem {
 
   public lookAt(worldX: number, worldY: number, zoom?: number) {
     if (!this._viewport) return;
-    
+
     const adjusted = this.getAdjustedCenter(worldX, worldY);
     const targetScale = zoom ?? this._viewport.scale.x;
-    
+
     gsap.to(this._viewport, {
       x: (window.innerWidth / 2) - (adjusted.x * targetScale),
       y: (window.innerHeight / 2) - (adjusted.y * targetScale),
@@ -160,20 +160,20 @@ class CameraSystem {
 
   private update(ticker: Ticker) {
     if (!this._viewport || !this._contentLayer) return;
-    
+
     const dt = ticker.deltaTime;
     const currentX = this._viewport.x;
     const currentY = this._viewport.y;
     const currentScale = this._viewport.scale.x;
     const worldW = this._viewport.worldWidth;
     const worldH = this._viewport.worldHeight;
-    
+
     let vx = (currentX - this._lastPos.x) / dt;
     let vy = (currentY - this._lastPos.y) / dt;
-    
+
     const isZooming = Math.abs(currentScale - this._lastScale) > 0.001;
-    if (isZooming) { 
-      vx = 0; vy = 0; 
+    if (isZooming) {
+      vx = 0; vy = 0;
       if (this._viewport.left < 0) this._viewport.x = 0;
       if (this._viewport.top < 0) this._viewport.y = 0;
       const maxRightX = window.innerWidth - worldW * currentScale;
@@ -185,7 +185,7 @@ class CameraSystem {
         this._viewport.y = maxBottomY;
       }
     }
-    
+
     // --- 1. Intent Prediction (Lead the View) & Progressive Resistance ---
     if (this._viewport.input.count() > 0) {
       this._viewport.x += vx * CAMERA_CONF.LEAD_FACTOR;
@@ -194,9 +194,9 @@ class CameraSystem {
       const getProgressiveFactor = (over: number, max: number) => {
         const ratio = Math.min(1, Math.abs(over) / max);
         return Math.min(
-          CAMERA_CONF.RESISTANCE_MAX, 
+          CAMERA_CONF.RESISTANCE_MAX,
           CAMERA_CONF.RESISTANCE_BASE + Math.pow(ratio, CAMERA_CONF.RESISTANCE_STEEPNESS) * CAMERA_CONF.RESISTANCE_MULTIPLIER
-        ); 
+        );
       };
 
       if (this._viewport.left < 0 && vx > 0) {
@@ -221,7 +221,7 @@ class CameraSystem {
     if (mouse) {
       const normX = (mouse.global.x / window.innerWidth - 0.5) * 2;
       const normY = (mouse.global.y / window.innerHeight - 0.5) * 2;
-      
+
       const getInfluence = (norm: number, deadZone: number) => {
         const absNorm = Math.abs(norm);
         if (absNorm < deadZone) return 0;
@@ -233,7 +233,7 @@ class CameraSystem {
       const influencePeekY = getInfluence(normY, CAMERA_CONF.MOUSE_INFLUENCE_DEAD_ZONE);
       const influenceScrollX = getInfluence(normX, CAMERA_CONF.EDGE_SCROLL_DEAD_ZONE);
       const influenceScrollY = getInfluence(normY, CAMERA_CONF.EDGE_SCROLL_DEAD_ZONE);
-      
+
       const targetMouseOffsetX = -influencePeekX * CAMERA_CONF.MOUSE_INFLUENCE_MAX;
       const targetMouseOffsetY = -influencePeekY * CAMERA_CONF.MOUSE_INFLUENCE_MAX;
       this._contentLayer.x += (targetMouseOffsetX - this._contentLayer.x) * CAMERA_CONF.MOUSE_INFLUENCE_LERP;

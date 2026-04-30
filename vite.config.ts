@@ -24,6 +24,13 @@ export default defineConfig({
     server: {
         port: 5173,
         host: true,
+        watch: {
+            usePolling: true,
+            interval: 500,
+        },
+        hmr: {
+            overlay: true,
+        }
     },
     optimizeDeps: {
         // pixi.js 排除预打包以保全 shader 字符串；其 CJS 传递依赖单独 include 做 CJS→ESM 转换
