@@ -1,14 +1,14 @@
 ## Open
-- [🟡] LevelUpOverlay radial background pulse feels default
-- [🟢] RewardCinematicOverlay Sparkles icon uses default pulse
-- [🟡] RewardCinematicOverlay Echo Reveal background uses default pulse
-- [🟢] SynthesisCircle decorative dashed ring is completely linear
 - [🟡] DynamicText fade-in is hardcoded and slow (structural change — needs separate work)
 - [🟡] ProgressionHUD XP/Stamina bar fill feels too loose (mismatch — code uses configuration reference instead of inline values)
 - [🟢] RewardCinematicOverlay XP/Resonance text count-up missing (structural change — needs separate work)
 - [🟢] FlavorCarousel text change transition (structural change — needs separate work)
 
 ## Tried
+- [🟡] LevelUpOverlay radial background pulse feels default (2026-04-30)
+- [🟢] RewardCinematicOverlay Sparkles icon uses default pulse (2026-04-30)
+- [🟡] RewardCinematicOverlay Echo Reveal background uses default pulse (2026-04-30)
+- [🟢] SynthesisCircle decorative dashed ring is completely linear (2026-04-30)
 - [🟡] ConfigMenu slide-up is harsh and abrupt (2026-04-22)
 - [🟡] LevelUpOverlay backdrop appears instantly (2026-04-22)
 - [🟡] GrimoireOverlay enter animation feels rigid (2026-04-22)
