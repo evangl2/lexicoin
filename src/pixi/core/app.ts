@@ -1,6 +1,7 @@
 import { Application, Graphics, WorkerManager } from 'pixi.js'
 import { buildPixiConfig } from '../config'
 import { cameraSystem } from '../systems/CameraSystem'
+import { backgroundSystem } from '../systems/BackgroundSystem'
 import { cameraBridge } from '../bridges/CameraBridge'
 import { worldSystem } from '../systems/WorldSystem'
 import { DebugSystem } from '../systems/DebugSystem'
@@ -26,15 +27,12 @@ export async function initPixiApp(
     app.renderer.textureGC.checkCountMax = 300
   }
 
-  // Phase 0 占位背景：bgVoid 深色。Stage E (Persona Bridge) 接入后替换为动态颜色
-  const bg = new Graphics()
-  bg.rect(0, 0, app.screen.width, app.screen.height).fill(0x0a0a0f)
-  bg.label = 'bg-placeholder'
-  app.stage.addChild(bg)
-
   // Stage D: Initialize World, Camera, and Debug Systems
   const viewport = worldSystem.init(app)
   const contentLayer = worldSystem.contentLayer!
+
+  // Stage E: Background System (Replaces Stage 0 placeholder)
+  backgroundSystem.init(app, viewport);
 
   cameraSystem.init(app, viewport, contentLayer)
   cameraBridge.init()
@@ -82,6 +80,7 @@ export async function destroyPixiApp(): Promise<void> {
   // Stage D: Destroy Systems
   cameraBridge.destroy()
   cameraSystem.destroy()
+  backgroundSystem.destroy() // Stage E
   worldSystem.destroy()
 
   _app?.destroy(true, { children: true, texture: true, textureSource: true, context: true })

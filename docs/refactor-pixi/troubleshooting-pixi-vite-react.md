@@ -115,6 +115,40 @@ const antialias = localStorage.getItem('pixi-antialias') !== 'false';
 
 ---
 
+---
+
+## P1-7 · 背景系统初始化“空窗期”（Sync Timing Race）
+
+**症状**  
+首屏加载时背景为黑色（Stage 0 默认值），只有手动切换 Persona 后背景才会出现。
+
+**具体原因**  
+`BackgroundSystem.init()` 在 PixiJS 启动时同步执行，而 React 的 `PixiPersonaBridge`（useEffect）在 React Commit 阶段才执行。初始化时 `personaBridge.getData()` 为 `null`，导致 `switchTo` 被跳过，背景系统进入无限等待。
+
+**深层原因（抽象高度）**  
+这是**混合状态架构中的“启动序列冲突”**。当一个同步驱动的系统（PixiJS）依赖于一个异步/响应式驱动的配置源（React/Zustand）时，依赖链路在 T0 时刻是断裂的。系统设计不能假设“数据已就绪”，必须具备**自初始化能力（Self-Sufficient Fallback）**或**状态回溯补全**机制，以保证视觉一致性的连续性。
+
+**解法**  
+在 `BackgroundSystem.init` 中加入硬编码的 Default Fallback，确保 T0 时刻有渲染，后续再由 Bridge 的首次推送进行平滑覆盖。
+
+---
+
+## P1-8 · 自定义 Shader 的“版本红利”陷阱（Abstraction Fragility）
+
+**症状**  
+自定义 Shader 报错 `GL_INVALID_OPERATION: glUniform4f mismatch`，或 `ProjectionMatrix` 未注入导致 Mesh 渲染在错误的坐标（如左上角 1x1 像素）。
+
+**具体原因**  
+PixiJS v8 为了 WebGPU 兼容性，在内存对齐（vec3 vs vec4）和矩阵自动注入逻辑上与 v7 有巨大差异。手动维护 `Mesh + Shader` 方案在 v8 早期版本中非常脆弱，极易受内部对齐规则影响导致 WebGL 驱动层报错。
+
+**深层原因（抽象高度）**  
+**“过度封装导致的技术债”**。在图形框架发生重大架构范式转移（WebGL -> WebGPU）时，底层 API 的稳定性远低于高层 API。过度追求“Shader 极致性能”而选择低级抽象，会引入与业务无关的兼容性维护开销。
+
+**解法（架构转向）**  
+**“降维打击”**：放弃 Raw Mesh，改用 **Canvas 2D 动态生成纹理 + Sprite**。该方案 100% 屏蔽了底层渲染驱动的差异，不仅解决了矩阵注入和内存对齐问题，还大幅降低了布局计算的复杂度，实现了“实现无关”的可移植性。
+
+---
+
 ## 最终有效的 vite.config.ts 片段
 
 ```typescript
