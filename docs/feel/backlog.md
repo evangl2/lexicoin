@@ -1,4 +1,8 @@
 ## Open
+- [🔴] Card pickup lacks audio anchor
+- [🔴] Card placement lacks audio anchor
+- [🔴] Card flip lacks audio anchor
+- [🔴] Card expand/zoom lacks audio anchor
 - [🟡] LevelUpOverlay radial background pulse feels default
 - [🟢] RewardCinematicOverlay Sparkles icon uses default pulse
 - [🟡] RewardCinematicOverlay Echo Reveal background uses default pulse
