@@ -1,4 +1,7 @@
 ## Open
+- [🟡] Camera Center transition is abrupt and stiff (2026-05-02)
+- [🟡] FlyTo navigation feels robotic (2026-05-02)
+- [🟡] Zoom inertia drops off too harshly (2026-05-02)
 - [🟡] LevelUpOverlay radial background pulse feels default
 - [🟢] RewardCinematicOverlay Sparkles icon uses default pulse
 - [🟡] RewardCinematicOverlay Echo Reveal background uses default pulse
