@@ -149,6 +149,85 @@ PixiJS v8 为了 WebGPU 兼容性，在内存对齐（vec3 vs vec4）和矩阵�
 
 ---
 
+## P1-9 · PixiJS v8 自定义 Mesh/Buffer 初始化报错 (WebGL INVALID_VALUE)
+
+**症状**  
+控制台抛出 `bufferData: no data` 或 `no buffer is bound to enabled attribute`，画面不显示任何东西。
+
+**原因**  
+PixiJS v8 为了极致优化，对 Geometry 的属性定义极其严格。如果仅提供普通 Array 而不显式指定属性的 `size` 或使用显式的 `Buffer` 对象，GPU 无法识别内存布局。
+
+**深层原因（抽象高度）**  
+**“显式语义缺失”**。在高版本图形 API（类似 WebGPU 的思维）中，不再支持隐式推断，所有内存布局必须在初始化阶段精确声明。
+
+**解法**  
+1. 显式创建 `new Buffer()` 实例。
+2. 在 `Geometry` 属性中显式声明 `size: 2` (针对 vec2)。
+3. **架构建议**：在不涉及复杂几何体变形时，优先使用 `Filter` 方案代替 `Mesh`，利用引擎内置的 Quad 管理来避开底层 Buffer 绑定的黑盒。
+
+---
+
+## P1-10 · Shader 网格绘制逻辑失效 (全屏纯色)
+
+**症状**  
+Shader 已运行（变色），但看不到线条，全屏呈现纯色。
+
+**原因**  
+`drawGrid` 函数中的 `thickness`（线宽）未进行空间归一化。在 `fract()` 后的 0..1 空间内直接使用像素单位，导致判定区域覆盖了整个网格单元。
+
+**深层原因（抽象高度）**  
+**“空间坐标系的认知错位”**。在 Shader 编程中，开发者极易混淆“物理像素空间”、“世界坐标空间”与“归一化单元空间（UV）”。
+
+**解法**  
+将所有物理参数（厚度、抗锯齿宽度）除以网格尺寸（size），映射到 0..1 的归一化网格空间内进行 smoothstep 计算。
+
+---
+
+## P1-11 · 滤镜管线中的“透明度陷阱” (State Entanglement)
+
+**症状**  
+网格颜色正确但背景色不显示，或者背景色显示但网格消失，甚至出现意料之外的颜色填充。
+
+**原因**  
+当滤镜附加在 `alpha: 0` 的 Graphics 上时，Pixi 渲染管线可能跳过渲染，或在混合阶段（Blending）因为 Shader 输出的 Alpha 导致与背景混合失败。
+
+**深层原因（抽象高度）**  
+**“渲染主权被剥夺导致的耦合”**。过度依赖框架自带的透明度混合，使渲染层（Graphics 填充）与逻辑层（Shader 绘图）的状态产生了不稳定的耦合。在滤镜管线这种离屏渲染路径中，这种耦合会导致环境不确定性。
+
+**解法（架构转向）**  
+1. **不透明输出模式 (Self-Contained Fragment)**：不再依赖外界的混合，将背景色作为 Uniform 传入 Shader。
+2. 在 Shader 内部使用 `mix(bgColor, gridColor, intensity)` 完成图层叠加，输出 `Alpha = 1.0` 的不透明像素。
+3. **架构教训**：**能用数学公式在 GPU 内解决的图层关系，绝不要交给外界的状态机。**
+
+## P1-12 · 自定义 Filter 的“Alpha 通道残留与黑块” (Premultiplied Alpha)
+
+**症状**  
+自定义 Filter 渲染时，本该透明的区域出现了“淡淡的底色”、“黑块”或颜色异常发亮。即使将 `gl_FragColor` 的 Alpha 设为 0，依然无法看到底层的 DOM 或其他 Pixi 对象。
+
+**原因**  
+PixiJS v8 的渲染管线（无论是 WebGL 还是 WebGPU）默认采用 **预乘透明度 (Premultiplied Alpha, PMA)**。
+*   **Straight Alpha (常规认知)**：输出 `vec4(R, G, B, A)`。
+*   **Premultiplied Alpha (Pixi 预期)**：输出 `vec4(R*A, G*A, B*A, A)`。
+
+如果 Shader 输出的是 Straight Alpha，渲染器在混合阶段会按 PMA 逻辑再次处理，导致颜色溢出或混合计算错误，从而产生“底色漏出”的 Bug。
+
+**解法**  
+1. **Shader 内部预乘**：在 Fragment Shader 输出前，手动将 RGB 乘以 Alpha。
+   ```glsl
+   // GLSL 示例
+   float finalAlpha = uColor.a * intensity;
+   gl_FragColor = vec4(uColor.rgb * finalAlpha, finalAlpha);
+   ```
+2. **清理底层填充**：如果 Filter 作用于 `Graphics`，确保该 Graphics 的 fill 是透明的，否则 Filter 的 Alpha 会与 Graphics 的初始颜色叠加：
+   ```typescript
+   graphics.rect(0, 0, w, h).fill({ color: 0xffffff, alpha: 0 });
+   ```
+
+**深层原因（抽象高度）**  
+**“图形管线的工业标准强制性”**。随着渲染引擎向 WebGPU 靠拢，原本在 WebGL 时代可以被“兼容”的非标准操作（如 Straight Alpha 混合）正被更高效但更严格的工业标准（PMA）取代。这要求开发者必须从“像素涂色”的思维转向“色彩能量传输（Energy Conservation）”的思维。
+
+---
+
 ## 最终有效的 vite.config.ts 片段
 
 ```typescript

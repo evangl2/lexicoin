@@ -760,6 +760,21 @@ export const DevConsole: React.FC = () => {
                                     />
                                     <span>Camera HUD (LOD & Pos)</span>
                                 </label>
+
+                                <label className="debug-toggle">
+                                    <input 
+                                        type="checkbox" 
+                                        defaultChecked={localStorage.getItem('LEXI_DEBUG_MOCK_CARD') === 'true'}
+                                        onChange={(e) => {
+                                            const val = e.target.checked;
+                                            localStorage.setItem('LEXI_DEBUG_MOCK_CARD', String(val));
+                                            if (worldSystem.contentLayer) {
+                                                DebugSystem.setMockCardEnabled(worldSystem.contentLayer, val);
+                                            }
+                                        }}
+                                    />
+                                    <span>Mock Card Reference (250x350)</span>
+                                </label>
                             </section>
 
                             <section className="debug-section" style={{ marginTop: '24px' }}>

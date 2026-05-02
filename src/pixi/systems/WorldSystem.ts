@@ -26,6 +26,13 @@ export class WorldSystem {
   }
 
   public init(app: Application): Viewport {
+    /**
+     * [GRID ALIGNMENT RULE]
+     * 为了确保背景网格点阵 (Rune Dots) 与世界边界完美契合，
+     * 建议物理世界的尺寸始终保持为 AABB 网格单元 (275x385) 的整数倍：
+     * WorldWidth  = Math.ceil(desiredWidth / 275) * 275
+     * WorldHeight = Math.ceil(desiredHeight / 385) * 385
+     */
     const viewport = new Viewport({
       screenWidth: window.innerWidth,
       screenHeight: window.innerHeight,

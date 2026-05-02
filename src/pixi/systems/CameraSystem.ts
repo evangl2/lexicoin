@@ -39,6 +39,10 @@ class CameraSystem {
     return this._viewport;
   }
 
+  public get contentLayer(): Container | null {
+    return this._contentLayer;
+  }
+
   public init(app: Application, viewport: Viewport, contentLayer: Container): void {
     this._app = app;
     this._viewport = viewport;
@@ -92,7 +96,8 @@ class CameraSystem {
   }
 
   /**
-   * 当世界（画布）大小发生变化时，必须调用此方法刷新物理插件的边界
+   * 当世界（画布）大小发生变化时，必须调用此方法刷新物理插件的边界。
+   * 注意：传入的 worldWidth/Height 建议遵循 AABB 网格对齐规则（275x385 的整数倍）。
    */
   public updateWorldBounds(): void {
     if (!this._viewport) return;

@@ -22,9 +22,9 @@ export async function initPixiApp(
   _app = app
 
   // Aggressive GC for HMR Dev Stability
-  if (app.renderer.textureGC) {
-    app.renderer.textureGC.maxIdle = 600
-    app.renderer.textureGC.checkCountMax = 300
+  if (app.renderer.gc) {
+    app.renderer.gc.maxIdle = 600;
+    app.renderer.gc.checkCountMax = 300;
   }
 
   // Stage D: Initialize World, Camera, and Debug Systems
@@ -40,12 +40,17 @@ export async function initPixiApp(
   // --- Debug System Bootstrapping (Dynamic & Selective) ---
   const showVisuals = localStorage.getItem('LEXI_DEBUG_VISUALS') === 'true';
   const showHUD = localStorage.getItem('LEXI_DEBUG_HUD') === 'true';
+  const showMockCard = localStorage.getItem('LEXI_DEBUG_MOCK_CARD') === 'true';
 
   if (showVisuals) DebugSystem.setVisualsEnabled(contentLayer, true);
   if (showHUD) DebugSystem.setHUDEnabled(app.stage, true);
+  if (showMockCard) DebugSystem.setMockCardEnabled(contentLayer, true);
 
-  // 始终挂载 Ticker，但 updateHUD 内部会判断 visible 状态，隐藏时开销为 0
-  _debugTickerFn = () => DebugSystem.updateHUD();
+  // 始终挂载 Ticker
+  _debugTickerFn = () => {
+    DebugSystem.updateHUD();
+    backgroundSystem.update(app.ticker.deltaTime);
+  };
   app.ticker.add(_debugTickerFn);
 
   // Expose global toggles (Backward compatibility and quick CLI access)

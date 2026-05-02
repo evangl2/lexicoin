@@ -1,11 +1,15 @@
 import { Graphics, Text, TextStyle, Container } from 'pixi.js';
 import { WORLD_W as DEFAULT_W, WORLD_H as DEFAULT_H } from '@/config/canvas';
 import { cameraSystem } from './CameraSystem';
+import { aabbSystem } from './AABBSystem';
 
 export class DebugSystem {
   private static _debugLayer: Container | null = null;
   private static _hudLayer: Container | null = null;
+  private static _mockCard: Graphics | null = null;
+  private static _mockCardLabel: Text | null = null;
   private static _lodText: Text | null = null;
+  private static _isDraggingMock = false;
 
   /**
    * 动态修改世界大小并重绘调试图形
@@ -30,6 +34,93 @@ export class DebugSystem {
     if (this._debugLayer && this._debugLayer.visible) {
       this._debugLayer.removeChildren();
       this.createVisuals(this._debugLayer);
+    }
+  }
+
+  public static setMockCardEnabled(parent: Container, enabled: boolean) {
+    if (enabled) {
+      if (!this._mockCard) {
+        this._mockCard = new Graphics();
+        this._mockCard.label = 'debug-mock-card';
+        this._mockCard.eventMode = 'static';
+        this._mockCard.cursor = 'grab';
+        
+        // 绘制参考卡片
+        const w = 250;
+        const h = 350;
+        this._mockCard.rect(-w/2, -h/2, w, h)
+          .fill({ color: 0xC0A062, alpha: 0.2 })
+          .stroke({ color: 0xF0D082, width: 2, alpha: 0.8 });
+        
+        this._mockCard.moveTo(-10, 0).lineTo(10, 0).stroke({ color: 0xF0D082, width: 1 });
+        this._mockCard.moveTo(0, -10).lineTo(0, 10).stroke({ color: 0xF0D082, width: 1 });
+
+        this._mockCardLabel = new Text({
+          text: '[0, 0]',
+          style: { fill: 0xF0D082, fontSize: 14, fontFamily: 'monospace' }
+        });
+        this._mockCardLabel.anchor.set(0.5, -1.5);
+        this._mockCard.addChild(this._mockCardLabel);
+
+        // --- Drag Events ---
+        this._mockCard.on('pointerdown', (e) => {
+          this._isDraggingMock = true;
+          this._mockCard!.cursor = 'grabbing';
+          // 锁定 Viewport 防止拖拽卡片时视口也在动
+          const vp = cameraSystem.viewport;
+          if (vp) vp.plugins.pause('drag');
+        });
+
+        window.addEventListener('pointermove', (e) => {
+          if (!this._isDraggingMock || !this._mockCard || !this._mockCard.parent) return;
+          
+          const vp = cameraSystem.viewport;
+          if (!vp) return;
+
+          // 将屏幕坐标转为世界坐标
+          const worldPos = vp.toWorld(e.clientX, e.clientY);
+          this._mockCard.position.set(worldPos.x, worldPos.y);
+          
+          if (this._mockCardLabel) {
+            this._mockCardLabel.text = `DRAGGING...\nPOS: ${Math.round(worldPos.x)}, ${Math.round(worldPos.y)}`;
+          }
+        });
+
+        window.addEventListener('pointerup', () => {
+          if (!this._isDraggingMock || !this._mockCard) return;
+          
+          this._isDraggingMock = false;
+          this._mockCard.cursor = 'grab';
+          
+          // 恢复 Viewport 拖拽
+          const vp = cameraSystem.viewport;
+          if (vp) vp.plugins.resume('drag');
+
+          // 执行吸附
+          const snapped = aabbSystem.snapToGrid(this._mockCard.x, this._mockCard.y);
+          const gridPos = aabbSystem.getGridPos(snapped.x, snapped.y);
+          
+          this._mockCard.position.set(snapped.x, snapped.y);
+          if (this._mockCardLabel) {
+            this._mockCardLabel.text = `CELL: [${gridPos.col}, ${gridPos.row}]\nSNAP: ${Math.round(snapped.x)}, ${Math.round(snapped.y)}`;
+          }
+        });
+      }
+      
+      const vp = cameraSystem.viewport;
+      if (vp && !this._isDraggingMock) {
+        const snapped = aabbSystem.snapToGrid(vp.worldWidth / 2, vp.worldHeight / 2);
+        const gridPos = aabbSystem.getGridPos(snapped.x, snapped.y);
+        this._mockCard.position.set(snapped.x, snapped.y);
+        if (this._mockCardLabel) {
+          this._mockCardLabel.text = `CELL: [${gridPos.col}, ${gridPos.row}]\nSNAP: ${Math.round(snapped.x)}, ${Math.round(snapped.y)}`;
+        }
+      }
+      
+      parent.addChild(this._mockCard);
+      this._mockCard.visible = true;
+    } else if (this._mockCard) {
+      this._mockCard.visible = false;
     }
   }
 
@@ -69,19 +160,20 @@ export class DebugSystem {
     const grid = new Graphics();
     container.addChild(grid);
 
-    // 1. Draw Grid
-    const step = 500;
-    const gridStyle = { width: 2, color: 0x444466 }; 
-    for (let x = 0; x <= w; x += step) {
+    // 1. Draw Grid (AABB 辅助参考线 - 对应顶点)
+    const stepX = aabbSystem.CELL_W;
+    const stepY = aabbSystem.CELL_H;
+    const gridStyle = { width: 1, color: 0x444466, alpha: 0.4 }; 
+    for (let x = 0; x <= w; x += stepX) {
       grid.moveTo(x, 0).lineTo(x, h).stroke(gridStyle);
     }
-    for (let y = 0; y <= h; y += step) {
+    for (let y = 0; y <= h; y += stepY) {
       grid.moveTo(0, y).lineTo(w, y).stroke(gridStyle);
     }
 
     // 2. Center Marker
     const center = new Graphics();
-    center.circle(0, 0, 50).fill({ color: 0xff3366, alpha: 0.5 });
+    center.circle(0, 0, 50).fill({ color: 0xff3366, alpha: 0.3 });
     center.position.set(w / 2, h / 2);
     container.addChild(center);
 
