@@ -7,6 +7,7 @@ import { DeckRepository } from './DeckRepository';
 import { ConfigMenu } from './ConfigMenu';
 import { useInterfacePersona } from '@/app/context/PersonaContext';
 import { Slot } from '@/app/components/persona/slots';
+import { DOCK_ZOOMED_SCALE } from '@/config/canvas';
 import type { CardItem } from '@/app/hooks/useCardManager';
 import type { DeviceItem } from '@/app/hooks/useDeviceManager'; // Added
 
@@ -102,11 +103,11 @@ export const Dock: React.FC<DockProps> = React.memo(({
    // This eliminates expensive re-renders during window resizing while still smoothly adjusting the UI
 
    // Create a motion value for the zoomed state
-   const zoomedScaleMultiplier = useMotionValue(isZoomed ? 0.75 : 1);
+   const zoomedScaleMultiplier = useMotionValue(isZoomed ? DOCK_ZOOMED_SCALE : 1);
 
    // Keep it synced with the prop
    useEffect(() => {
-      zoomedScaleMultiplier.set(isZoomed ? 0.75 : 1);
+      zoomedScaleMultiplier.set(isZoomed ? DOCK_ZOOMED_SCALE : 1);
    }, [isZoomed]);
 
    // Calculate final scale combining window width and zoom state

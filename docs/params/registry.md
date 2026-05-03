@@ -14,5 +14,7 @@ Master list of extracted parameters. Updated by each parameter console session.
 | 8 | `HUD_PROGRESS_BAR_SPRING` | `src/config/physics.ts` | `object` | stiffness: 10-200, damping: 5-50 | `{ stiffness: 50, damping: 20 }` | hud | Y |
 | 9 | `GRIMOIRE_EXPIRY_POLL_INTERVAL_MS` | `src/config/grimoireConfig.ts` | `number` | 5000–120000 ms | 30000 (30s) | grimoire | N |
 | 10 | `GRIMOIRE_EXPIRE_ANIMATION_DELAY_MS` | `src/config/grimoireConfig.ts` | `number` | 100–2000 ms | 500 | grimoire | N |
+| 11 | `CARD_ANIMATION_LOCKOUT_MS` | `src/config/canvas.ts` | `number` | 100-2000 ms | 600 | canvas | N |
+| 12 | `DOCK_ZOOMED_SCALE` | `src/config/canvas.ts` | `number` | 0.5-1.0 | 0.75 | shell | Y |
 
-_Registry size: 10. Next milestone at 25 entries._
+_Registry size: 12. Next milestone at 25 entries._
