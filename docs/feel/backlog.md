@@ -8,6 +8,13 @@
 - [🟢] RewardCinematicOverlay XP/Resonance text count-up missing (structural change — needs separate work)
 - [🟢] FlavorCarousel text change transition (structural change — needs separate work)
 
+- [🟡] ProgressionHUD Experience Bar Lacks Impact
+- [🔴] ProgressionHUD Level Increment Lacks Drama
+- [🟡] LevelUpOverlay Number Animation is Linear
+- [🟢] LevelUpOverlay Transition Feels Abrupt on Exit
+- [🟡] DynamicText Size Adjustments Pop Instantly
+- [🟡] RewardCinematicOverlay Counter Lacks Roll-up
+
 ## Tried
 - [🟡] ConfigMenu slide-up is harsh and abrupt (2026-04-22)
 - [🟡] LevelUpOverlay backdrop appears instantly (2026-04-22)
