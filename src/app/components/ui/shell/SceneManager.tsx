@@ -61,7 +61,7 @@ export const SceneManager = React.memo(({
   mappedSystemLang,
   systemLang,
 }: SceneManagerProps) => {
-  const activeGrimoires = useGameStore(useShallow(s => s.activeGrimoires));
+  const activeGrimoires = useGameStore(s => s.activeGrimoires);
 
   return (
     <AnimatePresence mode="wait">

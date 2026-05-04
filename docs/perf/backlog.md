@@ -18,6 +18,9 @@ Issues waiting for approval before fixing. See `daily/` for full context on each
 
 | # | Priority | Title | Resolved | Notes |
 |---|----------|--------|----------|-------|
+| P-002 | 🟢 P2 | O(N) Array Allocation in SceneManager | 2026-05-04 | Auto-fixed by removing `useShallow` |
+| P-003 | 🟢 P2 | Unnecessary Zustand Store Subscriptions in ProgressionHUD | 2026-05-04 | Auto-fixed using `useShallow` |
+| P-004 | 🟢 P2 | Unnecessary re-renders from Zustand player selector in GrimoireSlot | 2026-05-04 | Auto-fixed by specific property selection |
 | B-011 | 🟢 P2 | O(N) Sequential Database I/O during Export/Import | 2026-04-24 | Auto-fixed using Promise.all |
 | P-001 | ⚪ P3 | ProgressionHUD primitive extraction verbose | 2026-04-20 | Auto-fixed missing `useShallow` for object state selector |
 | B-001 | 🟡 P1 | No bundle chunking — all deps in one JS file | 2026-04-19 | `manualChunks` added to `vite.config.ts` (6 vendor chunks) |
