@@ -8,6 +8,9 @@
 - [🟢] RewardCinematicOverlay XP/Resonance text count-up missing (structural change — needs separate work)
 - [🟢] FlavorCarousel text change transition (structural change — needs separate work)
 
+- [🟡] DragPreviewCard appears instantly with no anticipation or scale transition when dragging starts
+- [🟡] Card mouseTilt is overdamped and feels too rigid when hovering
+
 ## Tried
 - [🟡] ConfigMenu slide-up is harsh and abrupt (2026-04-22)
 - [🟡] LevelUpOverlay backdrop appears instantly (2026-04-22)
