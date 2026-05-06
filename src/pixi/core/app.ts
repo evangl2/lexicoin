@@ -6,20 +6,32 @@ import { cameraBridge } from '../bridges/CameraBridge'
 import { worldSystem } from '../systems/WorldSystem'
 import { DebugSystem } from '../systems/DebugSystem'
 
-let _app: Application | null = null
+import { setPixiApp, getPixiApp } from './globalApp'
+
 let _cleanupResize: (() => void) | null = null
 let _debugTickerFn: (() => void) | null = null
-
-export function getPixiApp(): Application | null {
-  return _app
-}
 
 export async function initPixiApp(
   antialias: boolean
 ): Promise<Application> {
+  const preference = (localStorage.getItem('pixi-preference') as 'webgl' | 'webgpu') || 'webgpu';
   const app = new Application()
-  await app.init({ ...buildPixiConfig(antialias) })
-  _app = app
+  await app.init({ 
+    ...buildPixiConfig(antialias),
+    preference 
+  })
+
+  // Aggressive fix for PixiJS DevTools and other WebGL-centric plugins in WebGPU mode
+  // This silences the "[PIXI Hooks] gl in renderer not found" warning by providing a dummy context.
+  const renderer = app.renderer as any;
+  if (!renderer.gl && renderer.type === 0) {
+    renderer.gl = {
+      getParameter: () => 'WebGPU',
+      getExtension: () => null,
+    };
+  }
+
+  setPixiApp(app)
 
   // Aggressive GC for HMR Dev Stability
   if (app.renderer.gc) {
@@ -88,11 +100,12 @@ export async function destroyPixiApp(): Promise<void> {
   backgroundSystem.destroy() // Stage E
   worldSystem.destroy()
 
-  _app?.destroy(true, { children: true, texture: true, textureSource: true, context: true })
+  const app = getPixiApp();
+  app?.destroy(true, { children: true, texture: true, textureSource: true, context: true })
   if (typeof WorkerManager !== 'undefined') {
     WorkerManager.reset()
   }
-  _app = null
+  setPixiApp(null)
 }
 
 export async function reinitPixiApp(

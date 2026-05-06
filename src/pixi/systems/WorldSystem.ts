@@ -1,6 +1,6 @@
 import { Application, Container } from 'pixi.js';
 import { Viewport } from 'pixi-viewport';
-import { WORLD_W, WORLD_H } from '@/config/canvas';
+import { WORLD_W, WORLD_H, GRID_CELL_W, GRID_CELL_H } from '@/config/canvas';
 
 export class WorldSystem {
   private _viewport: Viewport | null = null;
@@ -33,11 +33,14 @@ export class WorldSystem {
      * WorldWidth  = Math.ceil(desiredWidth / 275) * 275
      * WorldHeight = Math.ceil(desiredHeight / 385) * 385
      */
+    const snappedW = Math.ceil(WORLD_W / (GRID_CELL_W * 2)) * (GRID_CELL_W * 2);
+    const snappedH = Math.ceil(WORLD_H / (GRID_CELL_H * 2)) * (GRID_CELL_H * 2);
+
     const viewport = new Viewport({
       screenWidth: window.innerWidth,
       screenHeight: window.innerHeight,
-      worldWidth: WORLD_W,
-      worldHeight: WORLD_H,
+      worldWidth: snappedW,
+      worldHeight: snappedH,
       events: app.renderer.events,
     });
 
@@ -51,7 +54,33 @@ export class WorldSystem {
     this._contentLayer.label = 'world-content';
     viewport.addChild(this._contentLayer);
 
+    // Initial centering
+    this._contentLayer.position.set(snappedW / 2, snappedH / 2);
+
     return viewport;
+  }
+
+  /**
+   * 动态更新世界大小，并保持内容居中对齐
+   * @param desiredW 目标宽度
+   * @param desiredH 目标高度
+   */
+  public updateSize(desiredW: number, desiredH: number): void {
+    if (!this._viewport || !this._contentLayer) return;
+
+    // 强制偶数倍吸附
+    const finalW = Math.round(desiredW / (GRID_CELL_W * 2)) * (GRID_CELL_W * 2);
+    const finalH = Math.round(desiredH / (GRID_CELL_H * 2)) * (GRID_CELL_H * 2);
+
+    this._viewport.worldWidth = finalW;
+    this._viewport.worldHeight = finalH;
+    
+    // 内容容器永远锁定在当前几何中心
+    this._contentLayer.position.set(finalW / 2, finalH / 2);
+
+    // 通知相机系统更新物理边界
+    const { cameraSystem } = require('./CameraSystem'); // 避开循环引用
+    cameraSystem.getInstance().updateWorldBounds();
   }
 
   public destroy(): void {

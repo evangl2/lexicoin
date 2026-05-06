@@ -228,6 +228,78 @@ PixiJS v8 的渲染管线（无论是 WebGL 还是 WebGPU）默认采用 **预�
 
 ---
 
+## P1-13 · ESM 环境下的 `require is not defined` (DebugSystem)
+
+**症状**  
+控制台报错 `ReferenceError: require is not defined`，导致调试面板（DevConsole）崩溃。
+
+**根因**  
+在 Vite + ESM 架构中，不能使用 CommonJS 的 `require` 动态加载模块。代码中尝试通过 `require` 获取 Renderer 类型，但在浏览器环境中该指令无效。
+
+**解法**  
+1. 废弃 `require`，改为标准的 ESM `import`。
+2. 建立 `globalApp.ts` 单例中心，让各个系统通过统一的入口访问 `app` 实例，避免直接从初始化脚本中提取导致的竞态或非法引用。
+
+---
+
+## P1-14 · WebGPU BindGroup 布局与内存对齐 (Padding)
+
+**症状**  
+切换到 WebGPU 后报错：`Failed to read the 'layout' property from 'GPUBindGroupDescriptor': Required member is undefined.`。
+
+**根因**  
+1. **命名匹配**：WGSL 中的 `group(1) @binding(0) var<uniform> grid: GridUniforms` 要求 TypeScript 中的资源 key 必须严格为 `grid`。
+2. **16字节对齐**：WebGPU 的 Uniform 块要求大小必须是 16 字节的倍数。如果结构体（如 `uZoom: f32` 后面紧跟 `uColor: vec4`）不满足对齐规则，BindGroup 创建会失败。
+
+**解法**  
+1. 确保 `Shader.from` 的 `resources` key 与 WGSL 的变量名一致。
+2. 在 UniformGroup 中添加显式的填充字段（如 `_pad: { value: 0, type: 'f32' }`），使总字节数对齐。
+
+---
+
+## P1-15 · PixiJS v8 循环依赖导致的 Export 缺失
+
+**症状**  
+`Uncaught SyntaxError: ... does not provide an export named 'getPixiApp'`。
+
+**根因**  
+`app.ts` 导入了各个 `System`，而 `System` 又反过来导入 `app.ts` 以获取应用实例。这种循环依赖在 Vite/ESM 下会导致某些导出的函数在初始化瞬间为 `undefined`。
+
+**解法**  
+**架构解耦**：创建一个极简的 `src/pixi/core/globalApp.ts`，只负责持有 `Application` 引用。所有系统从 `globalApp` 获取实例，不再直接引用 `app.ts`。
+
+---
+
+## P1-16 · Filter 渲染管线的性能开销 (Mesh 优化)
+
+**症状**  
+全屏背景使用 Filter 时，在大分辨率/高刷屏上 FPS 从 100 掉到 88。
+
+**根因**  
+`Filter` 强制执行 **Render-to-Texture (离屏渲染)**。GPU 必须先在临时纹理上画一遍网格，再将其拷贝回主缓冲区。在大屏幕上，这种带宽损耗（纹理读写）会拖慢主线程帧率。
+
+**解法**  
+**迁移至 Mesh 模式**：使用全屏 `Mesh` + 自定义 `Shader` 进行 **Direct-to-Screen** 渲染。省去了离屏纹理的分配与读写，性能可直接回升 10% - 15%。
+
+---
+
+## P1-17 · Mesh 模式下的顶点 Y 轴翻转
+
+**症状**  
+背景网格显示位置错误，或者暗角在上方而不是四周。
+
+**根因**  
+在自定义 Mesh 顶点着色器中，NDC（归一化设备坐标）的 Y 轴是向上为正（-1 到 1），而 PixiJS 的屏幕坐标是向下为正。
+
+**解法**  
+在顶点着色器中进行坐标转换时翻转 Y 轴：
+```glsl
+vec2 pos = (aPosition / uResolution) * 2.0 - 1.0;
+gl_Position = vec4(pos.x, -pos.y, 0.0, 1.0); // 关键：取负值
+```
+
+---
+
 ## 最终有效的 vite.config.ts 片段
 
 ```typescript

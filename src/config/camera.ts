@@ -7,7 +7,7 @@ export const CAMERA_CONF = {
 
   // Cursor-Aware Focus (Peeking)
   MOUSE_INFLUENCE_MAX: 150,
-  MOUSE_INFLUENCE_DEAD_ZONE: 0.4,
+  MOUSE_INFLUENCE_DEAD_ZONE: 0.6,
   MOUSE_INFLUENCE_LERP: 0.08,
 
   // Edge Scrolling

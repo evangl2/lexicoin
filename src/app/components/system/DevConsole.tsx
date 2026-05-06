@@ -30,7 +30,8 @@ import type { VisualEntry } from '@schemas/schemas/SenseEntity.schema';
 import type { BaseMessage } from '@app-types/protocol';
 import { DebugSystem } from '@/pixi/systems/DebugSystem';
 import { worldSystem } from '@/pixi/systems/WorldSystem';
-import { getPixiApp } from '@/pixi/core/app';
+import { getPixiApp } from '@/pixi/core/globalApp';
+import { GRID_CELL_W, GRID_CELL_H } from '@/config/canvas';
 import './DevConsole.css';
 
 type TabType = 'messages' | 'state' | 'telemetry' | 'inject' | 'logs' | 'system' | 'cheat' | 'debug';
@@ -717,9 +718,18 @@ export const DevConsole: React.FC = () => {
                                     </div>
                                     <button 
                                         onClick={() => {
-                                            const w = parseInt((document.getElementById('debug-world-w') as HTMLInputElement).value);
-                                            const h = parseInt((document.getElementById('debug-world-h') as HTMLInputElement).value);
-                                            DebugSystem.setWorldSize(w, h);
+                                            const wInput = document.getElementById('debug-world-w') as HTMLInputElement;
+                                            const hInput = document.getElementById('debug-world-h') as HTMLInputElement;
+                                            
+                                            // 自动吸附到最近的“偶数”格子倍数，确保中心对齐
+                                            const snappedW = Math.round(parseInt(wInput.value) / (GRID_CELL_W * 2)) * (GRID_CELL_W * 2);
+                                            const snappedH = Math.round(parseInt(hInput.value) / (GRID_CELL_H * 2)) * (GRID_CELL_H * 2);
+                                            
+                                            // 更新 UI 反馈
+                                            wInput.value = snappedW.toString();
+                                            hInput.value = snappedH.toString();
+                                            
+                                            DebugSystem.setWorldSize(snappedW, snappedH);
                                         }}
                                         style={{ padding: '4px 12px', background: '#334466', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
                                     >
@@ -775,6 +785,39 @@ export const DevConsole: React.FC = () => {
                                     />
                                     <span>Mock Card Reference (250x350)</span>
                                 </label>
+                            </section>
+
+                            <section className="debug-section" style={{ marginTop: '24px', padding: '12px', background: 'rgba(0,0,0,0.2)', borderRadius: '4px', border: '1px solid #333' }}>
+                                <h5>⚙️ Renderer & Backend</h5>
+                                <div style={{ fontSize: '13px', marginBottom: '12px', display: 'flex', justifyContent: 'space-between' }}>
+                                    <span>Active Backend:</span>
+                                    <strong style={{ color: '#00ff00', textShadow: '0 0 8px rgba(0,255,0,0.5)' }}>
+                                        {DebugSystem.getActualRendererType()}
+                                    </strong>
+                                </div>
+                                <div style={{ fontSize: '11px', opacity: 0.6, marginBottom: '12px' }}>
+                                    Preference: {DebugSystem.getRendererPreference().toUpperCase()}
+                                </div>
+                                <button 
+                                    onClick={() => {
+                                        const next = DebugSystem.getRendererPreference() === 'webgpu' ? 'webgl' : 'webgpu';
+                                        DebugSystem.setRendererPreference(next);
+                                    }}
+                                    className="action-btn"
+                                    style={{ 
+                                        width: '100%',
+                                        padding: '6px', 
+                                        background: '#334466', 
+                                        color: '#fff', 
+                                        border: 'none', 
+                                        borderRadius: '4px', 
+                                        cursor: 'pointer',
+                                        fontSize: '12px',
+                                        fontWeight: 'bold'
+                                    }}
+                                >
+                                    🔄 Switch to {DebugSystem.getRendererPreference() === 'webgpu' ? 'WebGL' : 'WebGPU'} & Reload
+                                </button>
                             </section>
 
                             <section className="debug-section" style={{ marginTop: '24px' }}>

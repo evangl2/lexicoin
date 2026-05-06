@@ -5,11 +5,14 @@
  * Persona 视觉布局）均从这里导入，禁止在各模块内单独硬编码。
  */
 
-/** 世界总宽度（像素，世界坐标系中心为 0,0） */
-export const WORLD_W = 9600;
+/** 世界最大宽度 (32格 x 275) */
+export const WORLD_W = 8800;
+/** 世界最大高度 (16格 x 385) */
+export const WORLD_H = 6160;
 
-/** 世界总高度（像素） */
-export const WORLD_H = 6000;
+/** 基础网格单元尺寸 */
+export const GRID_CELL_W = 275;
+export const GRID_CELL_H = 385;
 
 // ── Card scale ───────────────────────────────────────────────────────────────
 /** Card scale multipliers for hover and drag states */
