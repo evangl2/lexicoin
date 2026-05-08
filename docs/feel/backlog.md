@@ -9,6 +9,10 @@
 - [🟢] FlavorCarousel text change transition (structural change — needs separate work)
 
 ## Tried
+- [🔴] Card interactions lack audio anchors (2026-05-08)
+- [🔴] LevelUpOverlay misses triumphant audio cue (2026-05-08)
+- [🟡] RewardCinematicOverlay lacks sequence audio (2026-05-08)
+- [🟡] SynthesisCircle completion is silent (2026-05-08)
 - [🟡] ConfigMenu slide-up is harsh and abrupt (2026-04-22)
 - [🟡] LevelUpOverlay backdrop appears instantly (2026-04-22)
 - [🟡] GrimoireOverlay enter animation feels rigid (2026-04-22)
