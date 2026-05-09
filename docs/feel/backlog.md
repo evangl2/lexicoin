@@ -1,4 +1,9 @@
 ## Open
+- [🟡] Zoom inertia uses mechanical per-frame deceleration
+- [🟡] Camera `flyTo` uses overly loose spring
+- [🟡] Pan boundary resistance feels rigid
+- [🟡] Pixi camera `lookAt` uses standard duration regardless of distance
+- [🟢] Pixi Camera Viewport edge bounce is generic
 - [🟡] LevelUpOverlay radial background pulse feels default
 - [🟢] RewardCinematicOverlay Sparkles icon uses default pulse
 - [🟡] RewardCinematicOverlay Echo Reveal background uses default pulse
