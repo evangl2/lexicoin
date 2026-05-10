@@ -6,6 +6,7 @@
 
 import type { StateCreator } from 'zustand';
 import type { GameStore } from '../interfaces';
+import { messageBus } from '../../protocol/MessageBus';
 import type { 
     GrimoireEntity, 
     GrimoireStatus, 
@@ -140,12 +141,10 @@ export const createGrimoireSlice: StateCreator<
         state.updateSlotSense(grimoireId, slotId, null);
         
         // Return to Repository (prevents loss)
-        import('../../protocol/MessageBus').then(({ messageBus }) => {
-            messageBus.send('CARD_LOCATION_CHANGED', { 
-                uid: senseId, 
-                location: 'repository' 
-            }, 'GrimoireModule');
-        });
+        messageBus.send('CARD_LOCATION_CHANGED', {
+            uid: senseId,
+            location: 'repository'
+        }, 'GrimoireModule');
     },
 
     clearAllGrimoires: () => {
@@ -160,13 +159,11 @@ export const createGrimoireSlice: StateCreator<
         });
 
         if (filledSenseIds.length > 0) {
-            import('../../protocol/MessageBus').then(({ messageBus }) => {
-                filledSenseIds.forEach(uid => {
-                    messageBus.send('CARD_LOCATION_CHANGED', { 
-                        uid, 
-                        location: 'repository' 
-                    }, 'DevConsole');
-                });
+            filledSenseIds.forEach(uid => {
+                messageBus.send('CARD_LOCATION_CHANGED', {
+                    uid,
+                    location: 'repository'
+                }, 'DevConsole');
             });
         }
 
