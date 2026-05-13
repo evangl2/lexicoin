@@ -7,6 +7,9 @@
 - [🟡] ProgressionHUD XP/Stamina bar fill feels too loose (mismatch — code uses configuration reference instead of inline values)
 - [🟢] RewardCinematicOverlay XP/Resonance text count-up missing (structural change — needs separate work)
 - [🟢] FlavorCarousel text change transition (structural change — needs separate work)
+- [🟡] NotificationSystem lacks exit animation
+- [🟡] NotificationSystem uses CSS ease-out
+- [🟡] Synthesis error feedback lacks physical response
 
 ## Tried
 - [🟡] ConfigMenu slide-up is harsh and abrupt (2026-04-22)
