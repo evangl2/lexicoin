@@ -70,7 +70,7 @@ export const DragLayer: React.FC<DragLayerProps> = ({ systemLang, learningLang, 
     return (
         <div className="fixed inset-0 pointer-events-none z-[10000]">
             <div
-                className="absolute top-0 left-0 will-change-transform"
+                className="absolute top-0 left-0"
                 style={{
                     transform: `translate(${newLeft}px, ${newTop}px)`,
                 }}

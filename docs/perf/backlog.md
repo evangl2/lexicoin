@@ -18,6 +18,8 @@ Issues waiting for approval before fixing. See `daily/` for full context on each
 
 | # | Priority | Title | Resolved | Notes |
 |---|----------|--------|----------|-------|
+| P-002 | 🟢 P2 | Leaking will-change: transform inline on DragLayer | 2026-05-13 | Auto-fixed by removing class |
+| P-003 | 🟢 P2 | Unnecessary requestAnimationFrame opacity toggling | 2026-05-13 | Auto-fixed by removing redraw pulse |
 | B-011 | 🟢 P2 | O(N) Sequential Database I/O during Export/Import | 2026-04-24 | Auto-fixed using Promise.all |
 | P-001 | ⚪ P3 | ProgressionHUD primitive extraction verbose | 2026-04-20 | Auto-fixed missing `useShallow` for object state selector |
 | B-001 | 🟡 P1 | No bundle chunking — all deps in one JS file | 2026-04-19 | `manualChunks` added to `vite.config.ts` (6 vendor chunks) |
