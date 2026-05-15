@@ -1,4 +1,7 @@
 ## Open
+- [🔴] Card hover lacks audio anchor
+- [🟡] Card expand/zoom lacks audio anchor
+- [🟢] Card drop target lacks drop feedback
 - [🟡] LevelUpOverlay radial background pulse feels default
 - [🟢] RewardCinematicOverlay Sparkles icon uses default pulse
 - [🟡] RewardCinematicOverlay Echo Reveal background uses default pulse
