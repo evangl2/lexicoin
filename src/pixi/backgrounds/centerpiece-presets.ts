@@ -1,34 +1,51 @@
 /**
- * CenterpieceDecal Preset 系统 v2.0
+ * CenterpieceDecal Preset 系统 v3.1
  */
 
 export interface CenterpiecePreset {
   label: string;
 
   // ── 系统基础 ─────────────────────────────────────────────────────────────────
+  exposure?:        number; 
+  baseAlpha?:       number; 
   alphaClip:        number;
   diffuseTint:      [number, number, number];
-  normalFlipY:      number; // 0 或 1
-  lightHeight:      number; // 光源高度 (Z)
+  diffuseSaturation?: number; 
+  normalFlipY:      number; 
+  lightHeight:      number; 
+
+  // ── 交互与动态 (NEW Phase 2) ─────────────────────────────────────────────────
+  lightOrbitSpeed?:  number;
+  lightOrbitRadiusX?: number;
+  lightOrbitRadiusY?: number;
+  mouseInfluence?:   number;
+  maskAnimSpeed?:    number;
 
   // ── 光照与结构 ───────────────────────────────────────────────────────────────
-  ambient:          number; // 环境光强度
+  lightColor?:      [number, number, number];
+  lightStrength?:   number;
+  ambient:          number; 
   ambientColor:     [number, number, number];
-  diffuse:          number; // 漫反射强度
-  bump:             number; // 法线凹凸强度
-  parallax:         number; // 视差深度
-  ao:               number; // 高度AO强度
+  diffuse:          number; 
+  diffuseWrap?:     number; 
+  bumpX?:           number; 
+  bumpY?:           number; 
+  parallax:         number; 
+  ao:               number; 
+  cavityStrength?:  number; 
 
   // ── 粗糙度 (Roughness) ───────────────────────────────────────────────────────
   roughnessMin:     number;
   roughnessMax:     number;
+  roughnessContrast?: number;
+  roughnessBias?:     number;
 
   // ── 完整 GGX 高光 ────────────────────────────────────────────────────────────
   specStrength:     number;
   specColor:        [number, number, number];
-  f0Dielectric:     number; // 基础反射率 (默认0.04)
-  fresnelPower:     number; // 菲涅尔衰减幂次 (默认5.0)
-  specAoMask:       number; // 高度 AO 对高光的遮蔽程度 (0~1)
+  f0Dielectric:     number; 
+  fresnelPower:     number; 
+  specAoMask:       number; 
 
   // ── 边缘光 (Rim) ─────────────────────────────────────────────────────────────
   rimStrength:      number;
@@ -36,23 +53,31 @@ export interface CenterpiecePreset {
   rimColor:         [number, number, number];
 
   // ── 通道路由权重 ──────────────────────────────────────────────────────────────
-  bWeights:         [number, number, number]; // [metalness, ao, sss]
-  aWeights:         [number, number, number]; // [metalness, ao, sss]
+  bWeights:         [number, number, number]; 
+  aWeights:         [number, number, number]; 
 
   // ── 遮罩发光层 (Mask Emissive) ───────────────────────────────────────────────
   maskBWeight:      number;
   maskAWeight:      number;
-  maskAnimMode:     number; // 0=Static, 1=Breathe, 2=Blink, 3=Pulse
+  maskAnimMode:     number; 
   maskIntensity:    number;
   maskColor:        [number, number, number];
-  baseBlur:         number; // 基础模糊辉光强度
+  maskColor2?:      [number, number, number]; 
+  maskGradient?:    number; 
+  maskBrightness?:  number;
+  maskContrast?:    number;
+  maskEdgeSoftness?:number;
+  baseBlur:         number; 
+  bloomScale?:      number; 
 
   // ── 噪声贴图与流动 (Noise) ───────────────────────────────────────────────────
   maskNoiseTex:     string;
   noiseScale:       number;
+  noiseScale2?:     number; 
   noiseContrast:    number;
   noiseSpeedX:      number;
   noiseSpeedY:      number;
+  noiseBlend?:      number; 
 
   // ── SSS (Stub) ──────────────────────────────────────────────────────────────
   sssStrength?:     number;
@@ -61,20 +86,36 @@ export interface CenterpiecePreset {
 
 const rubedo: CenterpiecePreset = {
   label: '炼金 · 赤化 (Rubedo)',
+  exposure:         1.0,
+  baseAlpha:        1.0,
   alphaClip:        0.01,
   diffuseTint:      [1.0, 1.0, 1.0],
+  diffuseSaturation: 1.0,
   normalFlipY:      0.0,
   lightHeight:      1.5,
 
+  lightOrbitSpeed:   0.2,
+  lightOrbitRadiusX: 0.4,
+  lightOrbitRadiusY: 0.3,
+  mouseInfluence:    0.5,
+  maskAnimSpeed:     1.0,
+
+  lightColor:       [1.0, 1.0, 1.0],
+  lightStrength:    1.0,
   ambient:          0.05,
   ambientColor:     [1.0, 1.0, 1.0],
   diffuse:          0.8,
-  bump:             1.0,
+  diffuseWrap:      0.0,
+  bumpX:            1.0,
+  bumpY:            1.0,
   parallax:         0.03,
   ao:               0.5,
+  cavityStrength:   0.0,
 
   roughnessMin:     0.0,
   roughnessMax:     1.0,
+  roughnessContrast: 1.0,
+  roughnessBias:     0.0,
 
   specStrength:     2.0,
   specColor:        [1.0, 0.9, 0.6],
@@ -91,29 +132,44 @@ const rubedo: CenterpiecePreset = {
 
   maskBWeight:      1.0,
   maskAWeight:      0.0,
-  maskAnimMode:     1, // Breathe
+  maskAnimMode:     1, 
   maskIntensity:    1.0,
   maskColor:        [1.0, 0.1, 0.05],
+  maskColor2:       [1.0, 0.1, 0.05],
+  maskGradient:     0.0,
+  maskBrightness:   0.0,
+  maskContrast:     1.0,
+  maskEdgeSoftness: 0.0,
   baseBlur:         14.0,
+  bloomScale:       1.0,
 
   maskNoiseTex:     '/assets/canvas/textures/noise/Melt 14 - 512x512.png',
   noiseScale:       2.5,
+  noiseScale2:      3.5,
   noiseContrast:    1.2,
   noiseSpeedX:      0.02,
   noiseSpeedY:      0.01,
+  noiseBlend:       0.0,
 };
 
 const nigredo: CenterpiecePreset = {
   ...rubedo,
   label: '炼金 · 黑化 (Nigredo)',
   maskColor: [0.2, 0.1, 0.8],
-  maskNoiseTex: '/assets/canvas/textures/noise/Melt 14 - 512x512.png', // 可以换别的
+  maskColor2: [0.4, 0.2, 1.0],
+  maskGradient: 0.5,
+  lightOrbitSpeed: 0.4,
+  mouseInfluence: 0.8,
 };
 
 const albedo: CenterpiecePreset = {
   ...rubedo,
   label: '炼金 · 白化 (Albedo)',
   maskColor: [0.8, 0.9, 1.0],
+  maskColor2: [1.0, 1.0, 1.0],
+  maskGradient: 0.2,
+  lightOrbitSpeed: 0.1,
+  mouseInfluence: 0.2,
 };
 
 export const CENTERPIECE_PRESETS: Record<string, CenterpiecePreset> = {
@@ -124,24 +180,42 @@ export const CENTERPIECE_PRESETS: Record<string, CenterpiecePreset> = {
 
 export function presetToParams(p: CenterpiecePreset): Record<string, number | string> {
   return {
+    exposure:         p.exposure ?? 1.0,
+    baseAlpha:        p.baseAlpha ?? 1.0,
     alphaClip:        p.alphaClip,
     diffuseTintR:     p.diffuseTint[0],
     diffuseTintG:     p.diffuseTint[1],
     diffuseTintB:     p.diffuseTint[2],
+    diffuseSaturation: p.diffuseSaturation ?? 1.0,
     normalFlipY:      p.normalFlipY,
     lightHeight:      p.lightHeight,
 
+    lightOrbitSpeed:   p.lightOrbitSpeed ?? 0.2,
+    lightOrbitRadiusX: p.lightOrbitRadiusX ?? 0.4,
+    lightOrbitRadiusY: p.lightOrbitRadiusY ?? 0.3,
+    mouseInfluence:    p.mouseInfluence ?? 0.5,
+    maskAnimSpeed:     p.maskAnimSpeed ?? 1.0,
+
+    lightR:           p.lightColor ? p.lightColor[0] : 1.0,
+    lightG:           p.lightColor ? p.lightColor[1] : 1.0,
+    lightB:           p.lightColor ? p.lightColor[2] : 1.0,
+    lightStrength:    p.lightStrength ?? 1.0,
     ambientStrength:  p.ambient,
     ambientR:         p.ambientColor[0],
     ambientG:         p.ambientColor[1],
     ambientB:         p.ambientColor[2],
     diffuse:          p.diffuse,
-    bump:             p.bump,
+    diffuseWrap:      p.diffuseWrap ?? 0.0,
+    bumpX:            p.bumpX ?? 1.0,
+    bumpY:            p.bumpY ?? 1.0,
     parallax:         p.parallax,
     ao:               p.ao,
+    cavityStrength:   p.cavityStrength ?? 0.0,
 
     roughnessMin:     p.roughnessMin,
     roughnessMax:     p.roughnessMax,
+    roughnessContrast: p.roughnessContrast ?? 1.0,
+    roughnessBias:     p.roughnessBias ?? 0.0,
 
     specStrength:     p.specStrength,
     specColorR:       p.specColor[0],
@@ -171,13 +245,23 @@ export function presetToParams(p: CenterpiecePreset): Record<string, number | st
     maskColorR:       p.maskColor[0],
     maskColorG:       p.maskColor[1],
     maskColorB:       p.maskColor[2],
+    maskColor2R:      p.maskColor2 ? p.maskColor2[0] : p.maskColor[0],
+    maskColor2G:      p.maskColor2 ? p.maskColor2[1] : p.maskColor[1],
+    maskColor2B:      p.maskColor2 ? p.maskColor2[2] : p.maskColor[2],
+    maskGradient:     p.maskGradient ?? 0.0,
+    maskBrightness:   p.maskBrightness ?? 0.0,
+    maskContrast:     p.maskContrast ?? 1.0,
+    maskEdgeSoftness: p.maskEdgeSoftness ?? 0.0,
     baseBlur:         p.baseBlur,
+    bloomScale:       p.bloomScale ?? 1.0,
 
-    maskNoiseTex:     p.maskNoiseTex, // string, will not be tweened, handled in applyPreset
+    maskNoiseTex:     p.maskNoiseTex,
     noiseScale:       p.noiseScale,
+    noiseScale2:      p.noiseScale2 ?? 3.5,
     noiseContrast:    p.noiseContrast,
     noiseSpeedX:      p.noiseSpeedX,
     noiseSpeedY:      p.noiseSpeedY,
+    noiseBlend:       p.noiseBlend ?? 0.0,
 
     ...(p.sssStrength !== undefined && { sssStrength: p.sssStrength }),
     ...(p.sssColor    !== undefined && { sssR: p.sssColor[0], sssG: p.sssColor[1], sssB: p.sssColor[2] }),

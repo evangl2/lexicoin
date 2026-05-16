@@ -13,6 +13,7 @@ export const CAMERA_CONF = {
   // Edge Scrolling
   EDGE_SCROLL_DEAD_ZONE: 0.95,
   EDGE_SCROLL_SPEED: 15,
+  EDGE_SCROLL_DELAY: 1000, // ms
 
   // Boundary Resistance
   RESISTANCE_BASE: 0.4,

@@ -23,6 +23,7 @@ class CameraSystem {
   private _app: Application | null = null;
   private _lastPos = { x: 0, y: 0 };
   private _lastScale = 1;
+  private _edgeScrollTimer = 0;
 
   private static instance: CameraSystem;
 
@@ -244,24 +245,32 @@ class CameraSystem {
       this._contentLayer.x += (targetMouseOffsetX - this._contentLayer.x) * CAMERA_CONF.MOUSE_INFLUENCE_LERP;
       this._contentLayer.y += (targetMouseOffsetY - this._contentLayer.y) * CAMERA_CONF.MOUSE_INFLUENCE_LERP;
 
-      if (this._viewport.input.count() === 0) {
-        if (Math.abs(influenceScrollX) > 0) {
-          this._viewport.x -= influenceScrollX * CAMERA_CONF.EDGE_SCROLL_SPEED;
-        }
-        if (Math.abs(influenceScrollY) > 0) {
-          this._viewport.y -= influenceScrollY * CAMERA_CONF.EDGE_SCROLL_SPEED;
-        }
+      const isAtEdge = Math.abs(influenceScrollX) > 0 || Math.abs(influenceScrollY) > 0;
 
-        if (this._viewport.left < 0) this._viewport.x = 0;
-        if (this._viewport.top < 0) this._viewport.y = 0;
-        const maxRightX = window.innerWidth - worldW * currentScale;
-        if (this._viewport.right > worldW && this._viewport.x < maxRightX) {
-          this._viewport.x = maxRightX;
+      if (this._viewport.input.count() === 0 && isAtEdge) {
+        this._edgeScrollTimer += ticker.elapsedMS;
+
+        if (this._edgeScrollTimer >= CAMERA_CONF.EDGE_SCROLL_DELAY) {
+          if (Math.abs(influenceScrollX) > 0) {
+            this._viewport.x -= influenceScrollX * CAMERA_CONF.EDGE_SCROLL_SPEED;
+          }
+          if (Math.abs(influenceScrollY) > 0) {
+            this._viewport.y -= influenceScrollY * CAMERA_CONF.EDGE_SCROLL_SPEED;
+          }
+
+          if (this._viewport.left < 0) this._viewport.x = 0;
+          if (this._viewport.top < 0) this._viewport.y = 0;
+          const maxRightX = window.innerWidth - worldW * currentScale;
+          if (this._viewport.right > worldW && this._viewport.x < maxRightX) {
+            this._viewport.x = maxRightX;
+          }
+          const maxBottomY = window.innerHeight - worldH * currentScale;
+          if (this._viewport.bottom > worldH && this._viewport.y < maxBottomY) {
+            this._viewport.y = maxBottomY;
+          }
         }
-        const maxBottomY = window.innerHeight - worldH * currentScale;
-        if (this._viewport.bottom > worldH && this._viewport.y < maxBottomY) {
-          this._viewport.y = maxBottomY;
-        }
+      } else {
+        this._edgeScrollTimer = 0;
       }
     }
 
