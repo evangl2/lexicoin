@@ -3,10 +3,12 @@ import {
   type Texture, Sprite, BlurFilter, Buffer
 } from 'pixi.js';
 import type { Viewport } from 'pixi-viewport';
-import type { gsap } from 'gsap';
+import gsap from 'gsap';
 import { aabbSystem } from '../systems/AABBSystem';
-import { getPixiApp } from '../core/globalApp';
 import { CenterpieceDebugPanel } from './CenterpieceDebugPanel';
+import { CENTERPIECE_PRESETS, presetToParams, loadPresetsForPersona } from './centerpiece-presets';
+import { personaBridge } from '../bridges/PersonaBridge';
+import { getPixiApp } from '../core/globalApp';
 
 const SIZE = 550; // world units
 
@@ -260,6 +262,7 @@ export class CenterpieceDecal {
   private _channelConfig:   UniformGroup | null = null;
   private _maskUniforms:    UniformGroup | null = null;
   private _debugPanel:      unknown      | null = null;
+  private _personaUnsubscribe: (() => void) | null = null;
   private _time = 0;
   private _lastWorldW = 0;
   private _lastWorldH = 0;
@@ -447,6 +450,16 @@ export class CenterpieceDecal {
       aabbSystem.reserveCells(-1, -1, 2, 2);
       this._debugPanel = new CenterpieceDebugPanel(this);
 
+      // Subscribe to persona modifications dynamically
+      this._personaUnsubscribe = personaBridge.onChange((data) => {
+        if (data && data.theme) {
+          this._onPersonaChanged(data.theme);
+        }
+      });
+      // Initial trigger for the active Persona presets
+      const activePersona = personaBridge.getData()?.theme || 'default';
+      this._onPersonaChanged(activePersona);
+
     } catch (e) {
       console.error('[CenterpieceDecal] Redo failed:', e);
     }
@@ -561,7 +574,7 @@ export class CenterpieceDecal {
 
   private _flushParams(): void {
     if (!this._lightUniforms || !this._channelConfig || !this._maskUniforms) return;
-    const lu = this._lightUniforms.uniforms;
+    const lu = this._lightUniforms.uniforms as any;
     lu.uLightColor = [this._params.lightR, this._params.lightG, this._params.lightB, this._params.lightStrength];
     lu.uAmbient    = [this._params.ambientR, this._params.ambientG, this._params.ambientB, this._params.ambientStrength];
     lu.uSurface    = [this._params.diffuse, this._params.bumpX, this._params.parallax, this._params.ao];
@@ -597,8 +610,8 @@ export class CenterpieceDecal {
     if (this._currentNoiseTexKey === texturePath || !this._runeGlowMesh) return;
     try {
       const tex = await Assets.load<Texture>(texturePath);
-      this._runeGlowMesh.shader.resources.uNoiseMap = tex.source;
-      if (this._runeMesh) this._runeMesh.shader.resources.uNoiseMap = tex.source;
+      if (this._runeGlowMesh) (this._runeGlowMesh.shader as any).resources.uNoiseMap = tex.source;
+      if (this._runeMesh) (this._runeMesh.shader as any).resources.uNoiseMap = tex.source;
       this._currentNoiseTexKey = texturePath;
     } catch (e) {
       console.error('Failed to load mask noise texture:', texturePath, e);
@@ -606,15 +619,31 @@ export class CenterpieceDecal {
   }
 
   applyPreset(preset: Partial<typeof this._params> & { maskNoiseTex?: string }, duration = 1.0): void {
-    const gsapLib = (globalThis as any).gsap;
     if (preset.maskNoiseTex) {
       this.loadMaskNoiseTexture(preset.maskNoiseTex);
       delete preset.maskNoiseTex;
     }
-    if (gsapLib && duration > 0) {
-      gsapLib.to(this._params, { duration, ease: 'power2.inOut', ...preset });
+    
+    // 杀死当前正在对 _params 进行的 tween，防止冲突并能立刻响应新指令
+    gsap.killTweensOf(this._params);
+
+    if (duration > 0) {
+      gsap.to(this._params, {
+        duration,
+        ease: 'power2.inOut',
+        ...preset,
+        onUpdate: () => {
+          // 同步更新 Debug 面板上的滑块与数值输入框
+          if (this._debugPanel && typeof (this._debugPanel as any).syncUI === 'function') {
+            (this._debugPanel as any).syncUI();
+          }
+        }
+      });
     } else {
       Object.assign(this._params, preset);
+      if (this._debugPanel && typeof (this._debugPanel as any).syncUI === 'function') {
+        (this._debugPanel as any).syncUI();
+      }
     }
   }
 
@@ -622,7 +651,34 @@ export class CenterpieceDecal {
     return { ...this._params };
   }
 
+  private _onPersonaChanged(theme: string): void {
+    console.log(`[CenterpieceDecal] Persona changed to: ${theme}. Reloading parameters...`);
+    // 1. 载入或从本地草稿恢复当前 Persona 的各子阶段预设
+    loadPresetsForPersona(theme);
+
+    // 2. 获取该主题下上一次处于激活状态的子阶段
+    const activeSubPhase = localStorage.getItem(`centerpiece-active-subphase-${theme}`) || 'rubedo';
+
+    // 3. 应用该预设数据覆盖当前 _params（瞬间覆盖，不使用 Tween，防止重载时跳动）
+    const preset = CENTERPIECE_PRESETS[activeSubPhase];
+    if (preset) {
+      Object.assign(this._params, presetToParams(preset as any));
+      if (preset.maskNoiseTex) {
+        this.loadMaskNoiseTexture(preset.maskNoiseTex);
+      }
+    }
+
+    // 4. 通知 Debug 面板渲染新主题与子阶段的数据结构
+    if (this._debugPanel && typeof (this._debugPanel as any).onPersonaChanged === 'function') {
+      (this._debugPanel as any).onPersonaChanged(theme);
+    }
+  }
+
   destroy(): void {
+    if (this._personaUnsubscribe) {
+      this._personaUnsubscribe();
+      this._personaUnsubscribe = null;
+    }
     if (this._debugPanel && typeof (this._debugPanel as any).destroy === 'function') {
       (this._debugPanel as any).destroy();
     }

@@ -1,5 +1,6 @@
 import type { CenterpieceDecal } from './CenterpieceDecal';
-import { CENTERPIECE_PRESETS, presetToParams } from './centerpiece-presets';
+import { CENTERPIECE_PRESETS, presetToParams, loadPresetsForPersona, getBasePresetsForPersona, paramsToPreset } from './centerpiece-presets';
+import { personaBridge } from '../bridges/PersonaBridge';
 
 interface SliderDef { 
   key: string; 
@@ -182,7 +183,13 @@ const PANEL_STYLES = `
   .row { display: flex; align-items: center; gap: 8px; padding: 3px 16px; min-height: 20px; }
   .label { width: 110px; opacity: 0.7; font-size: 10px; }
   .input-range { flex: 1; accent-color: #d4b060; height: 3px; cursor: pointer; }
-  .val { width: 40px; text-align: right; font-weight: bold; font-variant-numeric: tabular-nums; opacity: 0.9; }
+  .val-input { 
+    width: 44px; text-align: right; font-weight: bold; font-variant-numeric: tabular-nums; 
+    opacity: 0.9; background: rgba(0,0,0,0.3); border: 1px solid rgba(180,140,60,0.3); 
+    color: #e0d0b0; border-radius: 4px; padding: 2px 4px; font-family: inherit; font-size: 10px;
+  }
+  .val-input:focus { border-color: #d4b060; outline: none; background: rgba(0,0,0,0.5); }
+  .val-input::-webkit-outer-spin-button, .val-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 
   .color-row { padding: 4px 16px; }
   .color-header { display: flex; align-items: center; gap: 8px; cursor: pointer; }
@@ -207,11 +214,11 @@ export class CenterpieceDebugPanel {
   private _styleEl: HTMLStyleElement | null = null;
   private _visible = true;
   private _isAdv = false;
-  private _decal: CenterpieceDecal;
+  private _decal!: CenterpieceDecal;
   private _activePreset = 'rubedo';
   private _duration = 1.0;
-  private _onKey: (e: KeyboardEvent) => void;
-  private _sliderRefs: Map<string, { input: HTMLInputElement; valueEl: HTMLElement }> = new Map();
+  private _onKey?: (e: KeyboardEvent) => void;
+  private _sliderRefs: Map<string, { input: HTMLInputElement; valueEl: HTMLInputElement }> = new Map();
   private _colorSwatches: Map<string, HTMLElement> = new Map();
   private _sections: HTMLElement[] = [];
 
@@ -239,10 +246,11 @@ export class CenterpieceDebugPanel {
     const params = this._decal.getCurrentParams() as any;
 
     // Header
+    const personaName = this._getActivePersonaName();
     const header = document.createElement('div');
     header.className = 'panel-header';
     header.innerHTML = `
-      <span class="panel-title">⚗ CENTERPIECE PBR v3.0</span>
+      <span class="panel-title">⚗ PBR: ${personaName.toUpperCase()}</span>
       <div class="panel-controls">
         <label class="adv-toggle">
           <input type="checkbox" ${this._isAdv ? 'checked' : ''} id="adv-checkbox"> ADV
@@ -260,15 +268,34 @@ export class CenterpieceDebugPanel {
     const presetGrid = document.createElement('div');
     presetGrid.className = 'preset-grid';
     Object.entries(CENTERPIECE_PRESETS).forEach(([key, preset]) => {
+      if (!preset) return;
       const card = document.createElement('div');
       card.className = `preset-card${key === this._activePreset ? ' active' : ''}`;
       card.dataset['key'] = key;
       const dot = document.createElement('div');
       dot.className = 'preset-dot';
-      dot.style.backgroundColor = `rgb(${preset.maskColor[0]*255}, ${preset.maskColor[1]*255}, ${preset.maskColor[2]*255})`;
+      
+      const r = preset.maskColor ? preset.maskColor[0] : 0.5;
+      const g = preset.maskColor ? preset.maskColor[1] : 0.5;
+      const b = preset.maskColor ? preset.maskColor[2] : 0.5;
+      dot.style.backgroundColor = `rgb(${r*255}, ${g*255}, ${b*255})`;
+      
       const label = document.createElement('div');
       label.className = 'preset-label';
-      label.textContent = key.toUpperCase();
+      
+      let displayName = key.toUpperCase();
+      if (preset.label) {
+        if (preset.label.includes('(')) {
+          const parts = preset.label.split('(');
+          const rightPart = parts[1];
+          if (rightPart) {
+            displayName = rightPart.replace(')', '');
+          }
+        } else {
+          displayName = preset.label;
+        }
+      }
+      label.textContent = displayName;
       
       card.appendChild(dot);
       card.appendChild(label);
@@ -347,14 +374,17 @@ export class CenterpieceDebugPanel {
     const actions = document.createElement('div');
     actions.className = 'action-bar';
     const copyBtn = document.createElement('button');
-    copyBtn.className = 'action-btn'; copyBtn.textContent = 'COPY PRESET JS';
-    copyBtn.addEventListener('click', () => this._exportParams());
+    copyBtn.className = 'action-btn'; copyBtn.textContent = 'COPY CONFIG';
+    copyBtn.title = 'Copy complete Persona JSON config with all subphases';
+    copyBtn.addEventListener('click', () => this._copyPersonaJson());
     const dlBtn = document.createElement('button');
-    dlBtn.className = 'action-btn'; dlBtn.textContent = 'EXPORT JSON';
-    dlBtn.addEventListener('click', () => this._downloadJson());
+    dlBtn.className = 'action-btn'; dlBtn.textContent = 'DOWNLOAD JSON';
+    dlBtn.title = 'Download complete Persona JSON file';
+    dlBtn.addEventListener('click', () => this._exportPersonaJson());
     const resetBtn = document.createElement('button');
     resetBtn.className = 'action-btn reset-btn'; resetBtn.textContent = '↺';
-    resetBtn.addEventListener('click', () => this._applyPreset(this._activePreset));
+    resetBtn.title = 'Reset active subphase draft back to JSON defaults';
+    resetBtn.addEventListener('click', () => this._resetDraft());
     
     actions.appendChild(copyBtn); actions.appendChild(dlBtn); actions.appendChild(resetBtn);
     this._el.appendChild(actions);
@@ -370,13 +400,27 @@ export class CenterpieceDebugPanel {
     input.min = String(def.min); input.max = String(def.max); input.step = String(def.step);
     const val = params[def.key] ?? 0;
     input.value = String(val);
-    const valueEl = document.createElement('span'); valueEl.className = 'val'; valueEl.textContent = Number(val).toFixed(2);
+    
+    const valueEl = document.createElement('input'); 
+    valueEl.type = 'number'; valueEl.className = 'val-input'; 
+    valueEl.step = String(def.step); valueEl.value = Number(val).toFixed(2);
     
     input.addEventListener('input', () => {
       const v = parseFloat(input.value);
-      valueEl.textContent = v.toFixed(2);
+      valueEl.value = v.toFixed(2);
       this._decal.applyPreset({ [def.key]: v } as any, 0);
       this._updateColorSwatches(); // In case this is part of a color
+      this._saveDraft();
+    });
+
+    valueEl.addEventListener('change', () => {
+      let v = parseFloat(valueEl.value);
+      if (isNaN(v)) v = parseFloat(input.value);
+      v = Math.max(def.min, Math.min(def.max, v));
+      valueEl.value = v.toFixed(2);
+      input.value = String(v);
+      this._decal.applyPreset({ [def.key]: v } as any, 0);
+      this._updateColorSwatches();
       this._saveDraft();
     });
     
@@ -407,7 +451,7 @@ export class CenterpieceDebugPanel {
     expand.className = 'color-expand';
     
     ['R', 'G', 'B'].forEach((channel, i) => {
-      const key = def.keys[i];
+      const key = def.keys[i] || '';
       const sliderRow = this._createSliderRow({ key, label: channel, min: 0, max: 2, step: 0.01 }, params);
       expand.appendChild(sliderRow);
     });
@@ -418,9 +462,12 @@ export class CenterpieceDebugPanel {
   }
 
   private _updateSwatch(swatch: HTMLElement, keys: string[], params: any): void {
-    const r = Math.min(255, (params[keys[0]] ?? 0) * 255);
-    const g = Math.min(255, (params[keys[1]] ?? 0) * 255);
-    const b = Math.min(255, (params[keys[2]] ?? 0) * 255);
+    const k0 = keys[0] || 'lightR';
+    const k1 = keys[1] || 'lightG';
+    const k2 = keys[2] || 'lightB';
+    const r = Math.min(255, (params[k0] ?? 0) * 255);
+    const g = Math.min(255, (params[k1] ?? 0) * 255);
+    const b = Math.min(255, (params[k2] ?? 0) * 255);
     swatch.style.backgroundColor = `rgb(${r}, ${g}, ${b})`;
   }
 
@@ -448,71 +495,143 @@ export class CenterpieceDebugPanel {
     const preset = CENTERPIECE_PRESETS[key];
     if (!preset) return;
     this._activePreset = key;
+    
+    const personaName = this._getActivePersonaName();
+    localStorage.setItem(`centerpiece-active-subphase-${personaName}`, key);
+    
     this._decal.applyPreset(presetToParams(preset), this._duration);
     
     this._el?.querySelectorAll('.preset-card').forEach(c => {
       c.classList.toggle('active', (c as HTMLElement).dataset['key'] === key);
     });
-    
-    setTimeout(() => this._syncUI(), Math.max(this._duration * 1000 + 50, 100));
+    setTimeout(() => this.syncUI(), Math.max(this._duration * 1000 + 50, 100));
   }
 
-  private _syncUI(): void {
+  syncUI(): void {
     const params = this._decal.getCurrentParams() as any;
     this._sliderRefs.forEach(({ input, valueEl }, key) => {
       const v = params[key] ?? 0;
       input.value = String(v);
-      valueEl.textContent = Number(v).toFixed(2);
+      valueEl.value = Number(v).toFixed(2);
     });
     this._updateColorSwatches();
   }
 
+  private _getActivePersonaName(): string {
+    return personaBridge.getData()?.theme || 'default';
+  }
+
+  private _compilePersonaConfig(): any {
+    const personaName = this._getActivePersonaName();
+    const basePresets = getBasePresetsForPersona(personaName);
+    const subKeys = ['rubedo', 'nigredo', 'albedo'];
+    const result: Record<string, any> = {};
+
+    subKeys.forEach(key => {
+      const rawPreset = basePresets[key];
+      const preset = rawPreset ? JSON.parse(JSON.stringify(rawPreset)) : {};
+      const draftStr = localStorage.getItem(`centerpiece-preset-${personaName}-${key}`);
+      if (draftStr) {
+        try {
+          const draftObj = JSON.parse(draftStr);
+          Object.assign(preset, paramsToPreset(draftObj, preset as any));
+        } catch (e) {
+          console.error(`[presets] Failed parsing draft for export: ${key}`, e);
+        }
+      }
+      result[key] = preset;
+    });
+
+    return result;
+  }
+
   private _saveDraft(): void {
-    localStorage.setItem('centerpiece-debug-draft', JSON.stringify(this._decal.getCurrentParams()));
+    const personaName = this._getActivePersonaName();
+    const key = this._activePreset;
+    localStorage.setItem(`centerpiece-preset-${personaName}-${key}`, JSON.stringify(this._decal.getCurrentParams()));
   }
 
-  private _exportParams(): void {
-    const p = this._decal.getCurrentParams() as any;
-    const lines = [
-      `, { // CenterpiecePreset`,
-      `  exposure: ${p.exposure?.toFixed(3)}, baseAlpha: ${p.baseAlpha?.toFixed(3)}, alphaClip: ${p.alphaClip?.toFixed(3)},`,
-      `  diffuseTint: [${p.diffuseTintR?.toFixed(3)}, ${p.diffuseTintG?.toFixed(3)}, ${p.diffuseTintB?.toFixed(3)}],`,
-      `  diffuseSaturation: ${p.diffuseSaturation?.toFixed(3)}, normalFlipY: ${p.normalFlipY}, lightHeight: ${p.lightHeight?.toFixed(3)},`,
-      `  lightOrbitSpeed: ${p.lightOrbitSpeed?.toFixed(3)}, lightOrbitRadiusX: ${p.lightOrbitRadiusX?.toFixed(3)}, lightOrbitRadiusY: ${p.lightOrbitRadiusY?.toFixed(3)},`,
-      `  mouseInfluence: ${p.mouseInfluence?.toFixed(3)}, lightColor: [${p.lightR?.toFixed(3)}, ${p.lightG?.toFixed(3)}, ${p.lightB?.toFixed(3)}],`,
-      `  lightStrength: ${p.lightStrength?.toFixed(3)}, ambient: ${p.ambientStrength?.toFixed(3)}, ambientColor: [${p.ambientR?.toFixed(3)}, ${p.ambientG?.toFixed(3)}, ${p.ambientB?.toFixed(3)}],`,
-      `  diffuse: ${p.diffuse?.toFixed(3)}, diffuseWrap: ${p.diffuseWrap?.toFixed(3)}, bumpX: ${p.bumpX?.toFixed(3)}, bumpY: ${p.bumpY?.toFixed(3)},`,
-      `  parallax: ${p.parallax?.toFixed(4)}, ao: ${p.ao?.toFixed(3)}, cavityStrength: ${p.cavityStrength?.toFixed(3)},`,
-      `  roughnessMin: ${p.roughnessMin?.toFixed(3)}, roughnessMax: ${p.roughnessMax?.toFixed(3)}, roughnessContrast: ${p.roughnessContrast?.toFixed(3)}, roughnessBias: ${p.roughnessBias?.toFixed(3)},`,
-      `  specStrength: ${p.specStrength?.toFixed(3)}, specColor: [${p.specColorR?.toFixed(3)}, ${p.specColorG?.toFixed(3)}, ${p.specColorB?.toFixed(3)}],`,
-      `  f0Dielectric: ${p.f0Dielectric?.toFixed(3)}, fresnelPower: ${p.fresnelPower?.toFixed(3)}, specAoMask: ${p.specAoMask?.toFixed(3)},`,
-      `  rimStrength: ${p.rimStrength?.toFixed(3)}, rimPower: ${p.rimPower?.toFixed(3)}, rimColor: [${p.rimColorR?.toFixed(3)}, ${p.rimColorG?.toFixed(3)}, ${p.rimColorB?.toFixed(3)}],`,
-      `  bWeights: [${p.bMetalness?.toFixed(3)}, ${p.bAO?.toFixed(3)}, ${p.bSSS?.toFixed(3)}],`,
-      `  aWeights: [${p.aMetalness?.toFixed(3)}, ${p.aAO?.toFixed(3)}, ${p.aSSS?.toFixed(3)}],`,
-      `  maskBWeight: ${p.maskBWeight?.toFixed(3)}, maskAWeight: ${p.maskAWeight?.toFixed(3)},`,
-      `  maskAnimMode: ${p.maskAnimMode}, maskAnimSpeed: ${p.maskAnimSpeed?.toFixed(3)}, maskIntensity: ${p.maskIntensity?.toFixed(3)},`,
-      `  maskColor: [${p.maskColorR?.toFixed(3)}, ${p.maskColorG?.toFixed(3)}, ${p.maskColorB?.toFixed(3)}],`,
-      `  maskColor2: [${p.maskColor2R?.toFixed(3)}, ${p.maskColor2G?.toFixed(3)}, ${p.maskColor2B?.toFixed(3)}],`,
-      `  maskGradient: ${p.maskGradient?.toFixed(3)}, maskBrightness: ${p.maskBrightness?.toFixed(3)}, maskContrast: ${p.maskContrast?.toFixed(3)}, maskEdgeSoftness: ${p.maskEdgeSoftness?.toFixed(3)},`,
-      `  baseBlur: ${p.baseBlur?.toFixed(1)}, bloomScale: ${p.bloomScale?.toFixed(3)},`,
-      `  maskNoiseTex: '${p.maskNoiseTex}', noiseScale: ${p.noiseScale?.toFixed(3)}, noiseScale2: ${p.noiseScale2?.toFixed(3)},`,
-      `  noiseContrast: ${p.noiseContrast?.toFixed(3)}, noiseSpeedX: ${p.noiseSpeedX?.toFixed(4)}, noiseSpeedY: ${p.noiseSpeedY?.toFixed(4)}, noiseBlend: ${p.noiseBlend?.toFixed(3)},`,
-      `}`,
-    ];
-    const str = lines.join('\n');
-    console.log('%c[CenterpieceDebugPanel] Exported JS:', 'color: #d4b060; font-weight: bold;');
-    console.log(str);
-    navigator.clipboard.writeText(str).catch(() => {});
+  private _exportPersonaJson(): void {
+    const personaName = this._getActivePersonaName();
+    const config = this._compilePersonaConfig();
+    const str = JSON.stringify(config, null, 2);
+    
+    const blob = new Blob([str], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${personaName}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    this._showNotification(`✓ ${personaName}.json downloaded!`);
   }
 
-  private _downloadJson(): void {
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(this._decal.getCurrentParams(), null, 2));
-    const dlNode = document.createElement('a');
-    dlNode.setAttribute("href", dataStr);
-    dlNode.setAttribute("download", `centerpiece-preset-${Date.now()}.json`);
-    document.body.appendChild(dlNode);
-    dlNode.click();
-    dlNode.remove();
+  private _copyPersonaJson(): void {
+    const personaName = this._getActivePersonaName();
+    const config = this._compilePersonaConfig();
+    const str = JSON.stringify(config, null, 2);
+    
+    navigator.clipboard.writeText(str).then(() => {
+      this._showNotification(`✓ ${personaName}.json copied!`);
+    }).catch(err => {
+      console.error('Failed to copy persona JSON:', err);
+    });
+  }
+
+  private _resetDraft(): void {
+    const personaName = this._getActivePersonaName();
+    const key = this._activePreset;
+    
+    localStorage.removeItem(`centerpiece-preset-${personaName}-${key}`);
+    loadPresetsForPersona(personaName);
+    this._applyPreset(key);
+    this._showNotification(`↺ Reset ${personaName}.${key} draft to JSON defaults`);
+  }
+
+  public onPersonaChanged(personaName: string): void {
+    this._activePreset = localStorage.getItem(`centerpiece-active-subphase-${personaName}`) || 'rubedo';
+    this._build();
+    this.syncUI();
+  }
+
+  private _showNotification(msg: string): void {
+    const toast = document.createElement('div');
+    toast.className = 'debug-toast';
+    toast.textContent = msg;
+    document.body.appendChild(toast);
+    
+    Object.assign(toast.style, {
+      position: 'fixed',
+      bottom: '24px',
+      right: '24px',
+      background: '#d4b060',
+      color: '#000',
+      padding: '12px 24px',
+      borderRadius: '8px',
+      zIndex: '100000',
+      fontFamily: "'JetBrains Mono', monospace",
+      fontSize: '11px',
+      fontWeight: 'bold',
+      boxShadow: '0 8px 32px rgba(0,0,0,0.6)',
+      border: '1px solid #ffffffaa',
+      opacity: '0',
+      transition: 'all 0.3s cubic-bezier(0.25, 1, 0.5, 1)',
+      transform: 'translateY(12px) scale(0.95)'
+    });
+    
+    setTimeout(() => {
+      toast.style.opacity = '1';
+      toast.style.transform = 'translateY(0) scale(1)';
+    }, 10);
+    
+    setTimeout(() => {
+      toast.style.opacity = '0';
+      toast.style.transform = 'translateY(12px) scale(0.95)';
+      setTimeout(() => document.body.removeChild(toast), 300);
+    }, 3000);
   }
 
   toggle(): void {
@@ -522,7 +641,9 @@ export class CenterpieceDebugPanel {
   }
 
   destroy(): void {
-    window.removeEventListener('keydown', this._onKey);
+    if (this._onKey) {
+      window.removeEventListener('keydown', this._onKey);
+    }
     this._el?.remove();
     this._styleEl?.remove();
     this._el = null;

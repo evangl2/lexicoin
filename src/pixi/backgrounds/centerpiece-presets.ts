@@ -1,6 +1,12 @@
 /**
- * CenterpieceDecal Preset 系统 v3.1
+ * CenterpieceDecal Preset 系统 v3.2
+ * 
+ * 现已支持从 JSON 配置文件按 Persona (Skins/Themes) 进行动态加载与保存，
+ * 并支持通过本地草稿 (localStorage) 机制自动记忆各个 Persona 内部子阶段的参数修改。
  */
+
+import defaultJson from './presets/default.json';
+import cyberpunkJson from './presets/cyberpunk.json';
 
 export interface CenterpiecePreset {
   label: string;
@@ -14,7 +20,7 @@ export interface CenterpiecePreset {
   normalFlipY:      number; 
   lightHeight:      number; 
 
-  // ── 交互与动态 (NEW Phase 2) ─────────────────────────────────────────────────
+  // ── 交互与动态 ───────────────────────────────────────────────────────────────
   lightOrbitSpeed?:  number;
   lightOrbitRadiusX?: number;
   lightOrbitRadiusY?: number;
@@ -84,99 +90,138 @@ export interface CenterpiecePreset {
   sssColor?:        [number, number, number];
 }
 
-const rubedo: CenterpiecePreset = {
-  label: '炼金 · 赤化 (Rubedo)',
-  exposure:         1.0,
-  baseAlpha:        1.0,
-  alphaClip:        0.01,
-  diffuseTint:      [1.0, 1.0, 1.0],
-  diffuseSaturation: 1.0,
-  normalFlipY:      0.0,
-  lightHeight:      1.5,
-
-  lightOrbitSpeed:   0.2,
-  lightOrbitRadiusX: 0.4,
-  lightOrbitRadiusY: 0.3,
-  mouseInfluence:    0.5,
-  maskAnimSpeed:     1.0,
-
-  lightColor:       [1.0, 1.0, 1.0],
-  lightStrength:    1.0,
-  ambient:          0.05,
-  ambientColor:     [1.0, 1.0, 1.0],
-  diffuse:          0.8,
-  diffuseWrap:      0.0,
-  bumpX:            1.0,
-  bumpY:            1.0,
-  parallax:         0.03,
-  ao:               0.5,
-  cavityStrength:   0.0,
-
-  roughnessMin:     0.0,
-  roughnessMax:     1.0,
-  roughnessContrast: 1.0,
-  roughnessBias:     0.0,
-
-  specStrength:     2.0,
-  specColor:        [1.0, 0.9, 0.6],
-  f0Dielectric:     0.04,
-  fresnelPower:     5.0,
-  specAoMask:       1.0,
-
-  rimStrength:      0.6,
-  rimPower:         3.0,
-  rimColor:         [1.0, 0.4, 0.1],
-
-  bWeights:         [0.0, 0.0, 0.0],
-  aWeights:         [0.0, 0.0, 0.0],
-
-  maskBWeight:      1.0,
-  maskAWeight:      0.0,
-  maskAnimMode:     1, 
-  maskIntensity:    1.0,
-  maskColor:        [1.0, 0.1, 0.05],
-  maskColor2:       [1.0, 0.1, 0.05],
-  maskGradient:     0.0,
-  maskBrightness:   0.0,
-  maskContrast:     1.0,
-  maskEdgeSoftness: 0.0,
-  baseBlur:         14.0,
-  bloomScale:       1.0,
-
-  maskNoiseTex:     '/assets/canvas/textures/noise/Melt 14 - 512x512.png',
-  noiseScale:       2.5,
-  noiseScale2:      3.5,
-  noiseContrast:    1.2,
-  noiseSpeedX:      0.02,
-  noiseSpeedY:      0.01,
-  noiseBlend:       0.0,
-};
-
-const nigredo: CenterpiecePreset = {
-  ...rubedo,
-  label: '炼金 · 黑化 (Nigredo)',
-  maskColor: [0.2, 0.1, 0.8],
-  maskColor2: [0.4, 0.2, 1.0],
-  maskGradient: 0.5,
-  lightOrbitSpeed: 0.4,
-  mouseInfluence: 0.8,
-};
-
-const albedo: CenterpiecePreset = {
-  ...rubedo,
-  label: '炼金 · 白化 (Albedo)',
-  maskColor: [0.8, 0.9, 1.0],
-  maskColor2: [1.0, 1.0, 1.0],
-  maskGradient: 0.2,
-  lightOrbitSpeed: 0.1,
-  mouseInfluence: 0.2,
-};
-
+// 核心预设常驻引用（不可被重新赋值，但内部键值会根据载入的 Persona 动态刷新）
 export const CENTERPIECE_PRESETS: Record<string, CenterpiecePreset> = {
-  rubedo,
-  nigredo,
-  albedo,
+  rubedo: {} as any,
+  nigredo: {} as any,
+  albedo: {} as any,
 };
+
+const JSON_REGISTRY: Record<string, any> = {
+  'default': defaultJson,
+  'cyberpunk': cyberpunkJson,
+};
+
+/**
+ * 获取某个 Persona 下的所有基础预设（不包含本地 localStorage 草稿）
+ */
+export function getBasePresetsForPersona(personaName: string): Record<string, CenterpiecePreset> {
+  const baseData = JSON_REGISTRY[personaName] || JSON_REGISTRY['default'];
+  return {
+    rubedo: { ...baseData.rubedo },
+    nigredo: { ...baseData.nigredo },
+    albedo: { ...baseData.albedo },
+  };
+}
+
+/**
+ * 载入特定 Persona 的预设并应用本地草稿覆盖，刷新 CENTERPIECE_PRESETS 内容
+ */
+export function loadPresetsForPersona(personaName: string): void {
+  const baseData = JSON_REGISTRY[personaName] || JSON_REGISTRY['default'];
+  const subKeys = ['rubedo', 'nigredo', 'albedo'];
+  
+  subKeys.forEach(key => {
+    // 1. 克隆 JSON 基础配置
+    const rawPreset = baseData[key];
+    if (!rawPreset) return;
+    const preset = JSON.parse(JSON.stringify(rawPreset));
+    
+    // 2. 读取针对当前 Persona 与当前子阶段的独立持久化草稿
+    const draftStr = localStorage.getItem(`centerpiece-preset-${personaName}-${key}`);
+    if (draftStr) {
+      try {
+        const draftObj = JSON.parse(draftStr);
+        // 将平面存储 of shader parameters re-assembled and merged back to preset
+        Object.assign(preset, paramsToPreset(draftObj, preset));
+      } catch (e) {
+        console.error(`[presets] Failed to load draft for ${personaName}.${key}:`, e);
+      }
+    }
+    
+    // 3. 更新全局静态引用中的属性
+    const target = CENTERPIECE_PRESETS[key];
+    if (target) {
+      Object.assign(target, preset);
+    }
+  });
+}
+
+/**
+ * 将平铺的 shader 参数结构重组成标准的 CenterpiecePreset 嵌套结构
+ */
+export function paramsToPreset(params: Record<string, any>, base: CenterpiecePreset): CenterpiecePreset {
+  return {
+    label: base.label,
+    exposure:          params.exposure,
+    baseAlpha:         params.baseAlpha,
+    alphaClip:         params.alphaClip,
+    diffuseTint:       [params.diffuseTintR, params.diffuseTintG, params.diffuseTintB],
+    diffuseSaturation: params.diffuseSaturation,
+    normalFlipY:       params.normalFlipY,
+    lightHeight:       params.lightHeight,
+
+    lightOrbitSpeed:   params.lightOrbitSpeed,
+    lightOrbitRadiusX: params.lightOrbitRadiusX,
+    lightOrbitRadiusY: params.lightOrbitRadiusY,
+    mouseInfluence:    params.mouseInfluence,
+    maskAnimSpeed:     params.maskAnimSpeed,
+
+    lightColor:        [params.lightR, params.lightG, params.lightB],
+    lightStrength:     params.lightStrength,
+    ambient:           params.ambientStrength,
+    ambientColor:      [params.ambientR, params.ambientG, params.ambientB],
+    diffuse:           params.diffuse,
+    diffuseWrap:       params.diffuseWrap,
+    bumpX:             params.bumpX,
+    bumpY:             params.bumpY,
+    parallax:          params.parallax,
+    ao:                params.ao,
+    cavityStrength:    params.cavityStrength,
+
+    roughnessMin:      params.roughnessMin,
+    roughnessMax:      params.roughnessMax,
+    roughnessContrast: params.roughnessContrast,
+    roughnessBias:     params.roughnessBias,
+
+    specStrength:      params.specStrength,
+    specColor:         [params.specColorR, params.specColorG, params.specColorB],
+    f0Dielectric:      params.f0Dielectric,
+    fresnelPower:      params.fresnelPower,
+    specAoMask:        params.specAoMask,
+
+    rimStrength:       params.rimStrength,
+    rimPower:          params.rimPower,
+    rimColor:          [params.rimColorR, params.rimColorG, params.rimColorB],
+
+    bWeights:          [params.bMetalness, params.bAO, params.bSSS],
+    aWeights:          [params.aMetalness, params.aAO, params.aSSS],
+
+    maskBWeight:       params.maskBWeight,
+    maskAWeight:       params.maskAWeight,
+    maskAnimMode:      params.maskAnimMode,
+    maskIntensity:     params.maskIntensity,
+    maskColor:         [params.maskColorR, params.maskColorG, params.maskColorB],
+    maskColor2:        [params.maskColor2R, params.maskColor2G, params.maskColor2B],
+    maskGradient:      params.maskGradient,
+    maskBrightness:    params.maskBrightness,
+    maskContrast:      params.maskContrast,
+    maskEdgeSoftness:  params.maskEdgeSoftness,
+    baseBlur:          params.baseBlur,
+    bloomScale:        params.bloomScale,
+
+    maskNoiseTex:      params.maskNoiseTex,
+    noiseScale:        params.noiseScale,
+    noiseScale2:       params.noiseScale2,
+    noiseContrast:     params.noiseContrast,
+    noiseSpeedX:       params.noiseSpeedX,
+    noiseSpeedY:       params.noiseSpeedY,
+    noiseBlend:        params.noiseBlend,
+
+    ...(params.sssStrength !== undefined && { sssStrength: params.sssStrength }),
+    ...(params.sssR !== undefined && { sssColor: [params.sssR, params.sssG, params.sssB] }),
+  };
+}
 
 export function presetToParams(p: CenterpiecePreset): Record<string, number | string> {
   return {
@@ -267,3 +312,6 @@ export function presetToParams(p: CenterpiecePreset): Record<string, number | st
     ...(p.sssColor    !== undefined && { sssR: p.sssColor[0], sssG: p.sssColor[1], sssB: p.sssColor[2] }),
   };
 }
+
+// 初始化默认载入 'default' 皮肤的预设，作为降级/启动保障
+loadPresetsForPersona('default');
