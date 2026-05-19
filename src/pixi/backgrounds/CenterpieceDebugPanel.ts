@@ -9,6 +9,7 @@ interface SliderDef {
   max: number; 
   step: number; 
   isAdv?: boolean; 
+  options?: string[]; // If present, renders as premium button group instead of slider
 }
 
 interface ColorDef {
@@ -67,8 +68,9 @@ const SECTIONS: {
   {
     title: 'PBR PROPERTIES',
     sliders: [
-      { key: 'roughnessMin', label: 'Rough Min',  min: 0,   max: 1,   step: 0.01 },
-      { key: 'roughnessMax', label: 'Rough Max',  min: 0,   max: 1,   step: 0.01 },
+      { key: 'metalness',    label: 'Metalness',      min: 0,   max: 1,   step: 0.01 },
+      { key: 'roughnessMin', label: 'Rough Min',      min: 0,   max: 1,   step: 0.01 },
+      { key: 'roughnessMax', label: 'Rough Max',      min: 0,   max: 1,   step: 0.01 },
       { key: 'roughnessContrast', label: 'Rough Contrast', min: 0.1, max: 5, step: 0.1, isAdv: true },
       { key: 'roughnessBias',     label: 'Rough Bias',     min: -1,  max: 1, step: 0.01, isAdv: true },
       { key: 'specStrength', label: 'Spec Strength',  min: 0,   max: 10,  step: 0.1  },
@@ -81,31 +83,55 @@ const SECTIONS: {
     ]
   },
   {
-    title: 'RIM & SSS',
+    title: 'RIM & SSS (PBR)',
     sliders: [
       { key: 'rimStrength',  label: 'Rim Strength',   min: 0,   max: 5,   step: 0.05 },
       { key: 'rimPower',     label: 'Rim Power',      min: 1,   max: 10,  step: 0.1  },
-      { key: 'sssStrength',  label: 'SSS Strength',   min: 0,   max: 1,   step: 0.01 },
+      { key: 'sssStrength',  label: 'SSS Strength',   min: 0,   max: 5,   step: 0.05 },
     ],
     colors: [
       { label: 'Rim Color', keys: ['rimColorR', 'rimColorG', 'rimColorB'] },
-      { label: 'SSS Color', keys: ['sssR', 'sssG', 'sssB'], isAdv: true },
+      { label: 'SSS Color', keys: ['sssR', 'sssG', 'sssB'] },
     ]
   },
   {
-    title: 'MASK EMISSIVE',
+    title: 'MASK CHANNEL R (HEIGHT)',
     sliders: [
-      { key: 'maskIntensity',label: 'Base Intensity', min: 0,   max: 10,  step: 0.05 },
-      { key: 'maskBrightness',label: 'Brightness',    min: -1,  max: 1,   step: 0.01, isAdv: true },
-      { key: 'maskContrast', label: 'Contrast',       min: 0.1, max: 5,   step: 0.1, isAdv: true },
-      { key: 'maskEdgeSoftness', label: 'Edge Softness', min: 0,   max: 1,   step: 0.01 },
-      { key: 'baseBlur',     label: 'Base Blur',      min: 0,   max: 100, step: 1    },
-      { key: 'bloomScale',   label: 'Bloom Scale',    min: 0.5, max: 2,   step: 0.01, isAdv: true },
-      { key: 'maskGradient', label: 'Color Gradient', min: 0,   max: 1,   step: 0.01 },
+      { key: 'maskR_effectType', label: 'Effect Type', min: 0, max: 3, step: 1, options: ['Emissive', 'Tint', 'Rim', 'SSS'] },
+      { key: 'maskR_strength',   label: 'Strength',    min: 0, max: 5, step: 0.05 },
+      { key: 'maskR_noiseCoupling', label: 'Noise Coupling', min: 0, max: 1, step: 0.01 },
     ],
     colors: [
-      { label: 'Emissive Color 1', keys: ['maskColorR', 'maskColorG', 'maskColorB'] },
-      { label: 'Emissive Color 2', keys: ['maskColor2R', 'maskColor2G', 'maskColor2B'] },
+      { label: 'Channel R Color', keys: ['maskR_colorR', 'maskR_colorG', 'maskR_colorB'] }
+    ]
+  },
+  {
+    title: 'MASK CHANNEL G (ROUGHNESS)',
+    sliders: [
+      { key: 'maskG_effectType', label: 'Effect Type', min: 0, max: 3, step: 1, options: ['Emissive', 'Tint', 'Rim', 'SSS'] },
+      { key: 'maskG_strength',   label: 'Strength',    min: 0, max: 5, step: 0.05 },
+      { key: 'maskG_noiseCoupling', label: 'Noise Coupling', min: 0, max: 1, step: 0.01 },
+    ],
+    colors: [
+      { label: 'Channel G Color', keys: ['maskG_colorR', 'maskG_colorG', 'maskG_colorB'] }
+    ]
+  },
+  {
+    title: 'MASK CHANNEL B (BAKED AO)',
+    sliders: [
+      { key: 'maskB_effectType', label: 'Effect Type', min: 0, max: 3, step: 1, options: ['Emissive', 'Tint', 'Rim', 'SSS'] },
+      { key: 'maskB_strength',   label: 'Strength',    min: 0, max: 5, step: 0.05 },
+      { key: 'maskB_noiseCoupling', label: 'Noise Coupling', min: 0, max: 1, step: 0.01 },
+    ],
+    colors: [
+      { label: 'Channel B Color', keys: ['maskB_colorR', 'maskB_colorG', 'maskB_colorB'] }
+    ]
+  },
+  {
+    title: 'MASK GLOBAL CONFIG',
+    sliders: [
+      { key: 'baseBlur',     label: 'Base Blur',      min: 0,   max: 100, step: 1    },
+      { key: 'bloomScale',   label: 'Bloom Scale',    min: 0.5, max: 2,   step: 0.01, isAdv: true },
     ]
   },
   {
@@ -117,19 +143,6 @@ const SECTIONS: {
       { key: 'noiseSpeedX',  label: 'Noise Speed X',  min: -0.5,max: 0.5, step: 0.005},
       { key: 'noiseSpeedY',  label: 'Noise Speed Y',  min: -0.5,max: 0.5, step: 0.005},
       { key: 'noiseBlend',   label: 'Noise Blend',    min: 0,   max: 1,   step: 0.5, isAdv: true },
-    ],
-  },
-  {
-    title: 'CHANNEL ROUTING',
-    sliders: [
-      { key: 'bMetalness',   label: 'B -> Metalness', min: 0,   max: 1,   step: 0.01 },
-      { key: 'bAO',          label: 'B -> AO',        min: 0,   max: 1,   step: 0.01 },
-      { key: 'bSSS',         label: 'B -> SSS',       min: 0,   max: 1,   step: 0.01 },
-      { key: 'aMetalness',   label: 'A -> Metalness', min: 0,   max: 1,   step: 0.01 },
-      { key: 'aAO',          label: 'A -> AO',        min: 0,   max: 1,   step: 0.01 },
-      { key: 'aSSS',         label: 'A -> SSS',       min: 0,   max: 1,   step: 0.01 },
-      { key: 'maskBWeight',  label: 'Read B (Mask)',  min: 0,   max: 1,   step: 0.01 },
-      { key: 'maskAWeight',  label: 'Read A (Mask)',  min: 0,   max: 1,   step: 0.01 },
     ],
   },
 ];
@@ -201,7 +214,7 @@ const PANEL_STYLES = `
   
   .action-bar { display: grid; grid-template-columns: 1fr 1fr 40px; gap: 8px; padding: 12px 16px; background: rgba(0,0,0,0.3); }
   .action-btn { 
-    background: rgba(180,140,60,0.15); border: 1px solid rgba(180,140,60,0.4); 
+    background: rgba(180,140,60,0.15); border: 1px solid rgba(180, 140, 60, 0.4); 
     color: #d4b060; border-radius: 6px; padding: 8px; font-size: 10px; font-weight: 800;
     cursor: pointer; transition: all 0.2s;
   }
@@ -219,6 +232,7 @@ export class CenterpieceDebugPanel {
   private _duration = 1.0;
   private _onKey?: (e: KeyboardEvent) => void;
   private _sliderRefs: Map<string, { input: HTMLInputElement; valueEl: HTMLInputElement }> = new Map();
+  private _selectRefs: Map<string, HTMLElement> = new Map();
   private _colorSwatches: Map<string, HTMLElement> = new Map();
   private _sections: HTMLElement[] = [];
 
@@ -275,9 +289,9 @@ export class CenterpieceDebugPanel {
       const dot = document.createElement('div');
       dot.className = 'preset-dot';
       
-      const r = preset.maskColor ? preset.maskColor[0] : 0.5;
-      const g = preset.maskColor ? preset.maskColor[1] : 0.5;
-      const b = preset.maskColor ? preset.maskColor[2] : 0.5;
+      const r = preset.maskR_color ? preset.maskR_color[0] : 0.5;
+      const g = preset.maskR_color ? preset.maskR_color[1] : 0.5;
+      const b = preset.maskR_color ? preset.maskR_color[2] : 0.5;
       dot.style.backgroundColor = `rgb(${r*255}, ${g*255}, ${b*255})`;
       
       const label = document.createElement('div');
@@ -352,7 +366,7 @@ export class CenterpieceDebugPanel {
         sec.classList.toggle('collapsed');
       });
       
-      // Sliders
+      // Sliders & Selection rows
       secDef.sliders?.forEach(def => {
         const row = this._createSliderRow(def, params);
         secContent.appendChild(row);
@@ -393,6 +407,69 @@ export class CenterpieceDebugPanel {
   }
 
   private _createSliderRow(def: SliderDef, params: any): HTMLElement {
+    if (def.options) {
+      const row = document.createElement('div');
+      row.className = `row${def.isAdv ? ' adv-only' : ''}`;
+      const label = document.createElement('span'); label.className = 'label'; label.textContent = def.label;
+      
+      const btnGroup = document.createElement('div');
+      btnGroup.style.display = 'flex';
+      btnGroup.style.gap = '4px';
+      btnGroup.style.flex = '1';
+      
+      const activeVal = params[def.key] ?? 0;
+      def.options.forEach((optName, idx) => {
+        const btn = document.createElement('button');
+        btn.textContent = optName.toUpperCase();
+        btn.style.flex = '1';
+        btn.style.fontSize = '8px';
+        btn.style.padding = '4px 2px';
+        btn.style.border = '1px solid rgba(180, 140, 60, 0.4)';
+        btn.style.borderRadius = '4px';
+        btn.style.cursor = 'pointer';
+        btn.style.transition = 'all 0.2s';
+        
+        const updateBtnStyle = (val: number) => {
+          if (val === idx) {
+            btn.style.background = 'rgba(180, 140, 60, 0.4)';
+            btn.style.color = '#fff';
+            btn.style.borderColor = '#d4b060';
+          } else {
+            btn.style.background = 'rgba(0, 0, 0, 0.2)';
+            btn.style.color = '#e0d0b0';
+            btn.style.borderColor = 'rgba(180, 140, 60, 0.2)';
+          }
+        };
+        
+        updateBtnStyle(activeVal);
+        
+        btn.addEventListener('click', () => {
+          this._decal.applyPreset({ [def.key]: idx } as any, 0);
+          // Refresh all buttons in this group
+          Array.from(btnGroup.children).forEach((childBtn, cIdx) => {
+            if (childBtn instanceof HTMLButtonElement) {
+              if (cIdx === idx) {
+                childBtn.style.background = 'rgba(180, 140, 60, 0.4)';
+                childBtn.style.color = '#fff';
+                childBtn.style.borderColor = '#d4b060';
+              } else {
+                childBtn.style.background = 'rgba(0, 0, 0, 0.2)';
+                childBtn.style.color = '#e0d0b0';
+                childBtn.style.borderColor = 'rgba(180, 140, 60, 0.2)';
+              }
+            }
+          });
+          this._saveDraft();
+        });
+        
+        btnGroup.appendChild(btn);
+      });
+      
+      this._selectRefs.set(def.key, btnGroup);
+      row.appendChild(label); row.appendChild(btnGroup);
+      return row;
+    }
+
     const row = document.createElement('div');
     row.className = `row${def.isAdv ? ' adv-only' : ''}`;
     const label = document.createElement('span'); label.className = 'label'; label.textContent = def.label;
@@ -511,8 +588,26 @@ export class CenterpieceDebugPanel {
     const params = this._decal.getCurrentParams() as any;
     this._sliderRefs.forEach(({ input, valueEl }, key) => {
       const v = params[key] ?? 0;
-      input.value = String(v);
-      valueEl.value = Number(v).toFixed(2);
+      if (input && valueEl) {
+        input.value = String(v);
+        valueEl.value = Number(v).toFixed(2);
+      }
+    });
+    this._selectRefs.forEach((btnGroup, key) => {
+      const activeVal = params[key] ?? 0;
+      Array.from(btnGroup.children).forEach((childBtn, idx) => {
+        if (childBtn instanceof HTMLButtonElement) {
+          if (idx === activeVal) {
+            childBtn.style.background = 'rgba(180, 140, 60, 0.4)';
+            childBtn.style.color = '#fff';
+            childBtn.style.borderColor = '#d4b060';
+          } else {
+            childBtn.style.background = 'rgba(0, 0, 0, 0.2)';
+            childBtn.style.color = '#e0d0b0';
+            childBtn.style.borderColor = 'rgba(180, 140, 60, 0.2)';
+          }
+        }
+      });
     });
     this._updateColorSwatches();
   }
@@ -649,5 +744,6 @@ export class CenterpieceDebugPanel {
     this._el = null;
     this._styleEl = null;
     this._sliderRefs.clear();
+    this._selectRefs.clear();
   }
 }

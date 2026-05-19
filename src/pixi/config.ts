@@ -6,7 +6,7 @@ export function buildPixiConfig(antialias: boolean): Partial<ApplicationOptions>
     height: window.innerHeight,
     preference: 'webgl',
     antialias,
-    resolution: Math.min(window.devicePixelRatio, 2),
+    resolution: Math.min(window.devicePixelRatio, 3),
     autoDensity: true,
     backgroundAlpha: 0,
     preserveDrawingBuffer: false,

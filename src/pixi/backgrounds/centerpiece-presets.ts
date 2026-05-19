@@ -59,25 +59,26 @@ export interface CenterpiecePreset {
   rimColor:         [number, number, number];
 
   // ── 通道路由权重 ──────────────────────────────────────────────────────────────
-  bWeights:         [number, number, number]; 
-  aWeights:         [number, number, number]; 
+  // ── 遮罩通道配置与路由 (Mask Channel Routing) ──────────────────────────────────
+  maskR_effectType: number; // 0=Emissive, 1=ColorTint, 2=Rim, 3=SSS
+  maskR_color:      [number, number, number];
+  maskR_strength:   number;
+  maskR_noiseCoupling: number;
 
-  // ── 遮罩发光层 (Mask Emissive) ───────────────────────────────────────────────
-  maskBWeight:      number;
-  maskAWeight:      number;
-  maskAnimMode:     number; 
-  maskIntensity:    number;
-  maskColor:        [number, number, number];
-  maskColor2?:      [number, number, number]; 
-  maskGradient?:    number; 
-  maskBrightness?:  number;
-  maskContrast?:    number;
-  maskEdgeSoftness?:number;
+  maskG_effectType: number;
+  maskG_color:      [number, number, number];
+  maskG_strength:   number;
+  maskG_noiseCoupling: number;
+
+  maskB_effectType: number;
+  maskB_color:      [number, number, number];
+  maskB_strength:   number;
+  maskB_noiseCoupling: number;
+
   baseBlur:         number; 
   bloomScale?:      number; 
 
-  // ── 噪声贴图与流动 (Noise) ───────────────────────────────────────────────────
-  maskNoiseTex:     string;
+  // ── 噪声与流动 (Noise) ────────────────────────────────────────────────────────
   noiseScale:       number;
   noiseScale2?:     number; 
   noiseContrast:    number;
@@ -85,9 +86,11 @@ export interface CenterpiecePreset {
   noiseSpeedY:      number;
   noiseBlend?:      number; 
 
-  // ── SSS (Stub) ──────────────────────────────────────────────────────────────
+  // ── SSS & Metalness ─────────────────────────────────────────────────────────
+  metalness:        number;
   sssStrength?:     number;
   sssColor?:        [number, number, number];
+  maskNoiseTex?:    string;
 }
 
 // 核心预设常驻引用（不可被重新赋值，但内部键值会根据载入的 Persona 动态刷新）
@@ -194,23 +197,24 @@ export function paramsToPreset(params: Record<string, any>, base: CenterpiecePre
     rimPower:          params.rimPower,
     rimColor:          [params.rimColorR, params.rimColorG, params.rimColorB],
 
-    bWeights:          [params.bMetalness, params.bAO, params.bSSS],
-    aWeights:          [params.aMetalness, params.aAO, params.aSSS],
+    maskR_effectType:  params.maskR_effectType,
+    maskR_color:       [params.maskR_colorR, params.maskR_colorG, params.maskR_colorB],
+    maskR_strength:    params.maskR_strength,
+    maskR_noiseCoupling: params.maskR_noiseCoupling,
 
-    maskBWeight:       params.maskBWeight,
-    maskAWeight:       params.maskAWeight,
-    maskAnimMode:      params.maskAnimMode,
-    maskIntensity:     params.maskIntensity,
-    maskColor:         [params.maskColorR, params.maskColorG, params.maskColorB],
-    maskColor2:        [params.maskColor2R, params.maskColor2G, params.maskColor2B],
-    maskGradient:      params.maskGradient,
-    maskBrightness:    params.maskBrightness,
-    maskContrast:      params.maskContrast,
-    maskEdgeSoftness:  params.maskEdgeSoftness,
+    maskG_effectType:  params.maskG_effectType,
+    maskG_color:       [params.maskG_colorR, params.maskG_colorG, params.maskG_colorB],
+    maskG_strength:    params.maskG_strength,
+    maskG_noiseCoupling: params.maskG_noiseCoupling,
+
+    maskB_effectType:  params.maskB_effectType,
+    maskB_color:       [params.maskB_colorR, params.maskB_colorG, params.maskB_colorB],
+    maskB_strength:    params.maskB_strength,
+    maskB_noiseCoupling: params.maskB_noiseCoupling,
+
     baseBlur:          params.baseBlur,
     bloomScale:        params.bloomScale,
 
-    maskNoiseTex:      params.maskNoiseTex,
     noiseScale:        params.noiseScale,
     noiseScale2:       params.noiseScale2,
     noiseContrast:     params.noiseContrast,
@@ -218,6 +222,7 @@ export function paramsToPreset(params: Record<string, any>, base: CenterpiecePre
     noiseSpeedY:       params.noiseSpeedY,
     noiseBlend:        params.noiseBlend,
 
+    metalness:         params.metalness,
     ...(params.sssStrength !== undefined && { sssStrength: params.sssStrength }),
     ...(params.sssR !== undefined && { sssColor: [params.sssR, params.sssG, params.sssB] }),
   };
@@ -276,31 +281,30 @@ export function presetToParams(p: CenterpiecePreset): Record<string, number | st
     rimColorG:        p.rimColor[1],
     rimColorB:        p.rimColor[2],
 
-    bMetalness:       p.bWeights[0],
-    bAO:              p.bWeights[1],
-    bSSS:             p.bWeights[2],
-    aMetalness:       p.aWeights[0],
-    aAO:              p.aWeights[1],
-    aSSS:             p.aWeights[2],
+    maskR_effectType: p.maskR_effectType,
+    maskR_colorR:     p.maskR_color[0],
+    maskR_colorG:     p.maskR_color[1],
+    maskR_colorB:     p.maskR_color[2],
+    maskR_strength:   p.maskR_strength,
+    maskR_noiseCoupling: p.maskR_noiseCoupling,
 
-    maskBWeight:      p.maskBWeight,
-    maskAWeight:      p.maskAWeight,
-    maskAnimMode:     p.maskAnimMode,
-    maskIntensity:    p.maskIntensity,
-    maskColorR:       p.maskColor[0],
-    maskColorG:       p.maskColor[1],
-    maskColorB:       p.maskColor[2],
-    maskColor2R:      p.maskColor2 ? p.maskColor2[0] : p.maskColor[0],
-    maskColor2G:      p.maskColor2 ? p.maskColor2[1] : p.maskColor[1],
-    maskColor2B:      p.maskColor2 ? p.maskColor2[2] : p.maskColor[2],
-    maskGradient:     p.maskGradient ?? 0.0,
-    maskBrightness:   p.maskBrightness ?? 0.0,
-    maskContrast:     p.maskContrast ?? 1.0,
-    maskEdgeSoftness: p.maskEdgeSoftness ?? 0.0,
+    maskG_effectType: p.maskG_effectType,
+    maskG_colorR:     p.maskG_color[0],
+    maskG_colorG:     p.maskG_color[1],
+    maskG_colorB:     p.maskG_color[2],
+    maskG_strength:   p.maskG_strength,
+    maskG_noiseCoupling: p.maskG_noiseCoupling,
+
+    maskB_effectType: p.maskB_effectType,
+    maskB_colorR:     p.maskB_color[0],
+    maskB_colorG:     p.maskB_color[1],
+    maskB_colorB:     p.maskB_color[2],
+    maskB_strength:   p.maskB_strength,
+    maskB_noiseCoupling: p.maskB_noiseCoupling,
+
     baseBlur:         p.baseBlur,
     bloomScale:       p.bloomScale ?? 1.0,
 
-    maskNoiseTex:     p.maskNoiseTex,
     noiseScale:       p.noiseScale,
     noiseScale2:      p.noiseScale2 ?? 3.5,
     noiseContrast:    p.noiseContrast,
@@ -308,6 +312,7 @@ export function presetToParams(p: CenterpiecePreset): Record<string, number | st
     noiseSpeedY:      p.noiseSpeedY,
     noiseBlend:       p.noiseBlend ?? 0.0,
 
+    metalness:        p.metalness,
     ...(p.sssStrength !== undefined && { sssStrength: p.sssStrength }),
     ...(p.sssColor    !== undefined && { sssR: p.sssColor[0], sssG: p.sssColor[1], sssB: p.sssColor[2] }),
   };

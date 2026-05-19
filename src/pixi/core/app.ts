@@ -1,4 +1,6 @@
-import { Application, Graphics, WorkerManager } from 'pixi.js'
+import 'pixi.js/ktx2';
+import 'pixi.js/basis';
+import { Application, Graphics, WorkerManager, setBasisTranscoderPath } from 'pixi.js'
 import { buildPixiConfig } from '../config'
 import { cameraSystem } from '../systems/CameraSystem'
 import { backgroundSystem } from '../systems/BackgroundSystem'
@@ -14,6 +16,11 @@ let _debugTickerFn: (() => void) | null = null
 export async function initPixiApp(
   antialias: boolean
 ): Promise<Application> {
+  setBasisTranscoderPath({
+    jsUrl: '/assets/transcoders/basis/basis_transcoder.js',
+    wasmUrl: '/assets/transcoders/basis/basis_transcoder.wasm',
+  });
+
   const preference = (localStorage.getItem('pixi-preference') as 'webgl' | 'webgpu') || 'webgpu';
   const app = new Application()
   await app.init({ 
@@ -35,8 +42,8 @@ export async function initPixiApp(
 
   // Aggressive GC for HMR Dev Stability
   if (app.renderer.gc) {
-    app.renderer.gc.maxIdle = 600;
-    app.renderer.gc.checkCountMax = 300;
+    (app.renderer.gc as any).maxIdle = 600;
+    (app.renderer.gc as any).checkCountMax = 300;
   }
 
   // Stage D: Initialize World, Camera, and Debug Systems
@@ -89,8 +96,9 @@ export async function destroyPixiApp(): Promise<void> {
   _cleanupResize?.()
   _cleanupResize = null
 
-  if (_debugTickerFn && _app) {
-    _app.ticker.remove(_debugTickerFn)
+  const app = getPixiApp();
+  if (_debugTickerFn && app) {
+    app.ticker.remove(_debugTickerFn)
     _debugTickerFn = null
   }
 
@@ -100,7 +108,6 @@ export async function destroyPixiApp(): Promise<void> {
   backgroundSystem.destroy() // Stage E
   worldSystem.destroy()
 
-  const app = getPixiApp();
   app?.destroy(true, { children: true, texture: true, textureSource: true, context: true })
   if (typeof WorkerManager !== 'undefined') {
     WorkerManager.reset()

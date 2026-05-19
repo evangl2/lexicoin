@@ -43,35 +43,63 @@
 
 ---
 
-## 3. 标准制作流水线 (Pipeline)
+## 3. 标准 4 通道 KTX2 材质制作流水线 (2026 Pipeline)
 
-如果你要制作一个新的类似资产，请遵循以下步骤：
+如果你要制作一个新的类似资产，请遵循以下标准贴图与 UBO 规范：
 
-### Step 1: 资产准备 (Assets)
-*   `Diffuse`: 基础颜色。
-*   `Normal`: 法线贴图（建议 OpenGL Y+ 格式）。
-*   `Specular`: 高光权重图（定义哪里是金属，哪里是磨砂）。
-*   `Mask/Rune`: 符文或特殊发光区域。
-*   `Noise`: 噪声图（如 Melt Noise），用于驱动能量流动。
+### Step 1: 贴图资产规格 (4-Channel KTX2 Textures)
 
-### Step 2: 基础设施架设 (Infrastructure)
-1.  创建一个 `Container`。
-2.  初始化 `Geometry` (通常为 Plane)。
-3.  创建三个 `UniformGroup`：`camera` (坐标同步), `light` (材质与光照), `rune` (动画参数)。
+| 贴图文件名 | 通道 | 属性定义 | 线性/sRGB 空间 |
+|---|---|---|---|
+| `*-1.ktx2` | **RGBA** | Diffuse + Alpha 剪裁掩码 | **sRGB** |
+| `*-1-normal.ktx2` | **RGB** | 切线空间法线 (OpenGL Y+) | **Linear** |
+| `*-1-hrbc.ktx2` | **RGBA** | **R**: Height (视差高度)<br>**G**: Roughness (粗糙度度)<br>**B**: Baked AO (烘焙光圈遮蔽)<br>**A**: Curvature (表面曲率) | **Linear** |
+| `*-mask.ktx2` | **RGBA** | **R**: Mask Channel 1 (第一层符文)<br>**G**: Mask Channel 2 (第二层符文)<br>**B**: Mask Channel 3 (第三层符文)<br>**A**: Thickness (透光厚度，用于 SSS) | **Linear** |
 
-### Step 3: 材质层 (Material Layer)
-1.  编写 WebGPU Shader。
-2.  解码法线：`N = normalize(raw * 2.0 - 1.0)`。
-3.  应用 **GGX NDF** 计算高光。
-4.  应用 **Fresnel Schlick** 计算边缘反射。
+### Step 2: 内存对齐规范 (WGSL Alignment Rules)
 
-### Step 4: 特效层 (VFX Layer)
-1.  使用 **Additive (叠加)** 混合模式。
-2.  引入噪声流动：`noise(uv + uTime * speed)`。建议使用双层噪声干涉。
-3.  实现 **呼吸与闪烁 (Flicker)**：
-    *   **呼吸**：低频 `sin` 波驱动基础亮度。
-    *   **闪烁逻辑**：**快速、短暂、偶尔**。不要使用持续的振荡，而是通过一个阈值（如 `burstTrigger > 0.8`）来瞬间触发高频随机抖动。
-4.  配合 `BlurFilter` 产生发光扩散感。
+WGSL Uniform 结构体需要严格遵守 WebGPU 的 16 字节对齐规则（`vec4` 占用 16 字节，`vec2` 占用 8 字节，`f32` 占用 4 字节）。
+在声明 `UniformGroup` 对应的 WGSL 结构体时，应采取 **扁平化结构，按大小排序降序排列**，并在尾部填补占位 Padding：
+
+```wgsl
+struct MaskUniforms {
+  // 16-byte aligned parameters (Grouped first)
+  maskR_colorAndType: vec4<f32>, // rgb=color, a=effectType (0=Emissive, 1=ColorTint, 2=Rim, 3=SSS)
+  maskG_colorAndType: vec4<f32>,
+  maskB_colorAndType: vec4<f32>,
+  uNoiseCfg:          vec4<f32>, // x=scale, y=contrast, z=speedX, w=speedY
+  uNoiseCfg2:         vec4<f32>, // x=scale2, y=blendMode
+  
+  // 8-byte aligned parameters (Grouped second)
+  maskR_strengthAndNoise: vec2<f32>, // x=strength, y=noiseCoupling
+  maskG_strengthAndNoise: vec2<f32>,
+  maskB_strengthAndNoise: vec2<f32>,
+  
+  // 4-byte aligned parameters (Grouped last)
+  uTime: f32,
+  uPad1: f32, // Padding to reach 112 bytes total (multiple of 16)
+}
+```
+
+### Step 3: PBR 渲染管线节点公式 (PBR Shader Nodes)
+
+1.  **高度 AO (Height AO) 与裂缝遮蔽 (Cavity)**：
+    *   `let ao = mix(1.0, hrbc.b, light.uSurface.w);` — 使用 `hrbc.b` (Baked AO) 代替高度图进行柔和阴影遮蔽。
+    *   `let cavity = mix(1.0, hrbc.r, light.uSystem.w);` — 使用高度高度差 `hrbc.r` 驱动紧密裂缝的局部遮蔽。
+2.  **曲率高光增强 (Curvature Edge Rim)**：
+    *   `let edgeHighlight = hrbc.a * light.uRimColor.rgb * light.uRim.x * specMask;`
+    *   `let rim_term = light.uRimColor.rgb * rim + edgeHighlight;`
+3.  **次表面散射 (SSS Subsurface Scattering)**：
+    *   `let thickness = mask.a;` — 从 Mask Map 的 A 通道直读厚度。
+    *   `let sssAmount = (1.0 - thickness) * channel.uSSSStrength;`
+    *   `let n_dot_l_final = max((n_dot_l_raw + sssAmount) / (1.0 + sssAmount), 0.0);`
+    *   `let sss_term = channel.uSSSColor.rgb * sssAmount * n_dot_l_final * light.uSurface.x;`
+
+### Step 4: 动态掩码路由特效 (Universal Mask Routing)
+
+在 `maskShader` (片段着色器) 中，对 Mask 贴图的 R、G、B 分别计算其对应的 `effectType`。每层通道的效果为：
+$$\text{Effect} = \text{BaseEffect} \times \text{lerp}(1.0, \text{noise}(uv, t), \text{noiseCoupling})$$
+将不同类型（Emissive, ColorTint, Rim, SSS）的效果相加后输出，产生高度灵动的魔法炼金符文流动效果。
 
 ---
 

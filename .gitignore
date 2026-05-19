@@ -40,3 +40,6 @@ coverage
 .claude/worktrees/epic-jemison/
 .claude/worktrees/happy-chaplygin/
 .claude/worktrees/optimistic-pasteur-eddc56/
+
+# Public folder
+public/
