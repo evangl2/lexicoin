@@ -1,4 +1,3 @@
-/**
  * DevConsole - Enhanced Developer Console
  * 
  * Advanced debug panel with:
@@ -120,7 +119,7 @@ export const DevConsole: React.FC = () => {
     const [isPaused, setIsPaused] = useState(false);
     const [isRefetching, setIsRefetching] = useState(false);
     const [refetchResult, setRefetchResult] = useState<string | null>(null);
-    const player = useGameStore(s => s.player);
+    const player = useGameStore(useShallow(s => s.player));
     const updateLanguageProgress = useGameStore(s => s.updateLanguageProgress);
     const regenerateStamina = useGameStore(s => s.regenerateStamina);
     const updatePlayer = useGameStore(s => s.updatePlayer);
