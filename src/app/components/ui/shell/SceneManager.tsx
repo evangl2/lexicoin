@@ -4,7 +4,6 @@ import { Canvas } from "@/app/components/ui/canvas/Canvas";
 import { CanvasControl } from "@/app/components/ui/canvas/CanvasControl";
 import { CanvasContent } from "@/app/components/ui/canvas/CanvasContent";
 import { useGameStore } from "@store/index";
-import { useShallow } from "zustand/react/shallow";
 import { getLoc } from "@/app/utils/localization";
 import { CanvasProvider } from "@/app/context/CanvasContext";
 
@@ -61,7 +60,7 @@ export const SceneManager = React.memo(({
   mappedSystemLang,
   systemLang,
 }: SceneManagerProps) => {
-  const activeGrimoires = useGameStore(useShallow(s => s.activeGrimoires));
+  const activeGrimoires = useGameStore(s => s.activeGrimoires);
 
   return (
     <AnimatePresence mode="wait">
