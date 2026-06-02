@@ -27,3 +27,4 @@ Issues waiting for approval before fixing. See `daily/` for full context on each
 | B-005 | ⚪ P3 | sucrase always in main bundle | 2026-04-19 | Resolved by B-001: sucrase now in its own `vendor-sucrase` cached chunk |
 | B-006 | 🟢 P2 | O(N) Array Allocation in libraryGrimoires update | 2026-04-23 | Auto-fixed using `.findIndex()` and shallow copy |
 | B-008 | 🟢 P2 | Unnecessary re-renders from Zustand player selector | 2026-04-23 | Auto-fixed using specific property selection |
+| B-012 | 🟢 P2 | Unnecessary re-renders from Zustand player selector | 2026-04-26 | Auto-fixed using specific property selection in GrimoireSlot and DevConsole |
