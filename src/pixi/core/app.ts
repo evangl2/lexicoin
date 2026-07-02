@@ -1,6 +1,4 @@
-import 'pixi.js/ktx2';
-import 'pixi.js/basis';
-import { Application, Graphics, WorkerManager, setBasisTranscoderPath } from 'pixi.js'
+import { Application, Graphics, WorkerManager } from 'pixi.js'
 import { buildPixiConfig } from '../config'
 import { cameraSystem } from '../systems/CameraSystem'
 import { backgroundSystem } from '../systems/BackgroundSystem'
@@ -16,11 +14,6 @@ let _debugTickerFn: (() => void) | null = null
 export async function initPixiApp(
   antialias: boolean
 ): Promise<Application> {
-  setBasisTranscoderPath({
-    jsUrl: '/assets/transcoders/basis/basis_transcoder.js',
-    wasmUrl: '/assets/transcoders/basis/basis_transcoder.wasm',
-  });
-
   const preference = (localStorage.getItem('pixi-preference') as 'webgl' | 'webgpu') || 'webgpu';
   const app = new Application()
   await app.init({ 

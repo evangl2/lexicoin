@@ -43,63 +43,34 @@
 
 ---
 
-## 3. 标准 4 通道 KTX2 材质制作流水线 (2026 Pipeline)
+## 3. 标准制作流水线 (Pipeline)
 
-如果你要制作一个新的类似资产，请遵循以下标准贴图与 UBO 规范：
+如果你要制作一个新的类似资产，请遵循以下步骤：
 
-### Step 1: 贴图资产规格 (4-Channel KTX2 Textures)
+### Step 1: 资产准备 (Assets)
+*   `Diffuse`: 基础颜色贴图。
+*   `Normal`: 法线贴图（建议 OpenGL Y+ 格式，可在 Shader 中修正 Y 轴）。
+*   `HRBA Map`: 高级材质数据贴图（R=Height, G=Roughness, B=Metalness, A=SSS Thickness）。
+*   `Mask Map`: 三路 Universal Mask 掩码贴图（R, G, B 分别映射到独立的动画/发光/染色/边缘光/次表面路由）。
+*   `Noise`: 噪声图（如 Melt Noise），用于驱动能量流动与发光干涉。
 
-| 贴图文件名 | 通道 | 属性定义 | 线性/sRGB 空间 |
-|---|---|---|---|
-| `*-1.ktx2` | **RGBA** | Diffuse + Alpha 剪裁掩码 | **sRGB** |
-| `*-1-normal.ktx2` | **RGB** | 切线空间法线 (OpenGL Y+) | **Linear** |
-| `*-1-hrbc.ktx2` | **RGBA** | **R**: Height (视差高度)<br>**G**: Roughness (粗糙度度)<br>**B**: Baked AO (烘焙光圈遮蔽)<br>**A**: Curvature (表面曲率) | **Linear** |
-| `*-mask.ktx2` | **RGBA** | **R**: Mask Channel 1 (第一层符文)<br>**G**: Mask Channel 2 (第二层符文)<br>**B**: Mask Channel 3 (第三层符文)<br>**A**: Thickness (透光厚度，用于 SSS) | **Linear** |
+### Step 2: 基础设施架设 (Infrastructure)
+1.  创建一个 `Container`。
+2.  初始化 `Geometry` (通常为 Plane)。
+3.  创建四个 `UniformGroup`：`camera` (坐标同步), `light` (材质与光照), `hrbaConfig` (材质控制) 与 `maskConfig` (三路路由与噪声)。
 
-### Step 2: 内存对齐规范 (WGSL Alignment Rules)
+### Step 3: 材质层 (Material Layer)
+1.  编写 WebGPU Shader。
+2.  解码法线：`N = normalize(raw * 2.0 - 1.0)`。
+3.  应用 **GGX NDF** 计算高光，并混合高度图。
+4.  基于法线导数实时计算曲率高光：`curvature = clamp(length(fwidth(N.xyz)) * 2.0, 0.0, 1.0)`。
+5.  应用 **Fresnel Schlick** 计算边缘反射与遮蔽。
 
-WGSL Uniform 结构体需要严格遵守 WebGPU 的 16 字节对齐规则（`vec4` 占用 16 字节，`vec2` 占用 8 字节，`f32` 占用 4 字节）。
-在声明 `UniformGroup` 对应的 WGSL 结构体时，应采取 **扁平化结构，按大小排序降序排列**，并在尾部填补占位 Padding：
-
-```wgsl
-struct MaskUniforms {
-  // 16-byte aligned parameters (Grouped first)
-  maskR_colorAndType: vec4<f32>, // rgb=color, a=effectType (0=Emissive, 1=ColorTint, 2=Rim, 3=SSS)
-  maskG_colorAndType: vec4<f32>,
-  maskB_colorAndType: vec4<f32>,
-  uNoiseCfg:          vec4<f32>, // x=scale, y=contrast, z=speedX, w=speedY
-  uNoiseCfg2:         vec4<f32>, // x=scale2, y=blendMode
-  
-  // 8-byte aligned parameters (Grouped second)
-  maskR_strengthAndNoise: vec2<f32>, // x=strength, y=noiseCoupling
-  maskG_strengthAndNoise: vec2<f32>,
-  maskB_strengthAndNoise: vec2<f32>,
-  
-  // 4-byte aligned parameters (Grouped last)
-  uTime: f32,
-  uPad1: f32, // Padding to reach 112 bytes total (multiple of 16)
-}
-```
-
-### Step 3: PBR 渲染管线节点公式 (PBR Shader Nodes)
-
-1.  **高度 AO (Height AO) 与裂缝遮蔽 (Cavity)**：
-    *   `let ao = mix(1.0, hrbc.b, light.uSurface.w);` — 使用 `hrbc.b` (Baked AO) 代替高度图进行柔和阴影遮蔽。
-    *   `let cavity = mix(1.0, hrbc.r, light.uSystem.w);` — 使用高度高度差 `hrbc.r` 驱动紧密裂缝的局部遮蔽。
-2.  **曲率高光增强 (Curvature Edge Rim)**：
-    *   `let edgeHighlight = hrbc.a * light.uRimColor.rgb * light.uRim.x * specMask;`
-    *   `let rim_term = light.uRimColor.rgb * rim + edgeHighlight;`
-3.  **次表面散射 (SSS Subsurface Scattering)**：
-    *   `let thickness = mask.a;` — 从 Mask Map 的 A 通道直读厚度。
-    *   `let sssAmount = (1.0 - thickness) * channel.uSSSStrength;`
-    *   `let n_dot_l_final = max((n_dot_l_raw + sssAmount) / (1.0 + sssAmount), 0.0);`
-    *   `let sss_term = channel.uSSSColor.rgb * sssAmount * n_dot_l_final * light.uSurface.x;`
-
-### Step 4: 动态掩码路由特效 (Universal Mask Routing)
-
-在 `maskShader` (片段着色器) 中，对 Mask 贴图的 R、G、B 分别计算其对应的 `effectType`。每层通道的效果为：
-$$\text{Effect} = \text{BaseEffect} \times \text{lerp}(1.0, \text{noise}(uv, t), \text{noiseCoupling})$$
-将不同类型（Emissive, ColorTint, Rim, SSS）的效果相加后输出，产生高度灵动的魔法炼金符文流动效果。
+### Step 4: 特效层 (VFX Layer)
+1.  使用 **Additive (叠加)** 混合模式。
+2.  引入双层噪声干涉流动：`noise(uv + uTime * speed)`。
+3.  实现 **呼吸与闪烁 (Flicker)**，通过 runtime 参数 `maskAnimMode` 驱动。
+4.  配合 `BlurFilter` 产生发光扩散感。
 
 ---
 
@@ -126,10 +97,36 @@ $$\text{Effect} = \text{BaseEffect} \times \text{lerp}(1.0, \text{noise}(uv, t),
 *   **原因**：顶点着色器 (`VERT_WGSL`) 和片段着色器 (`FRAG_WGSL`) 往往共用某些 Bind Group。即使你在片段着色器中只用了噪声图，如果顶点着色器声明了 `cam` 资源，你的 `Shader.from` 资源池里就**必须包含相机资源**，否则整个渲染通道 (Render Pass) 会被 WebGPU 标记为无效并停止渲染。
 
 ### C. 资源加载竞态
-*   **对策**：使用 `Promise.all([Assets.load(...)])` 确保所有贴图（Diffuse, Normal, Specular, Rune, Noise）全部加载完毕再初始化 Mesh。任何一个贴图丢失都会导致整个 `CenterpieceDecal` 初始化静默失败或在控制台报 `texture.source` 为空的错误。
+*   **对策**：使用 `Promise.all([Assets.load(...)])` 确保所有贴图（Diffuse, Normal, HRBA, Mask, Noise）全部加载完毕再初始化 Mesh。任何一个贴图丢失都会导致整个 `CenterpieceDecal` 初始化静默失败或在控制台报 `texture.source` 为空的错误。
 
 ---
 
+## 6. PBR v3.3 (PNG-HRBA & Universal Mask 路由) 规范说明
+
+在 **v3.3** 版本中，我们将光照材质管线升级为更加标准、可控的 **HRBA 材质流** 与 **Universal Mask 路由系统**。
+
+### A. HRBA 材质流定义
+为了在 2D 贴图内压缩更多的 PBR 材质信息，我们定义了以下通道规格：
+*   **R (Red)**: **Height (高度)**。用于驱动 3D 浮雕视差位移与环境光遮蔽 (AO)。
+*   **G (Green)**: **Roughness (粗糙度)**。
+*   **B (Blue)**: **Metalness (金属度)**。当 `hrbaMetalnessEnabled` 为开启时生效。
+*   **A (Alpha)**: **Thickness (厚度)**。当 `hrbaSssEnabled` 开启时驱动次表面散射的透光量。
+
+#### 核心推导公式：
+1.  **动态 Curvature (曲率) 实时推导**：
+    $$\text{curvature} = \text{clamp}(\text{length}(\text{fwidth}(N.\text{xyz})) \times 2.0, 0.0, 1.0)$$
+    用于在法线变化剧烈的边缘实时推导高光增强因子。
+2.  **Height-Derived Thickness (高度推导厚度)**：
+    $$\text{thickness} = \text{sssEnabled} \ ? \ \text{hrba}.\text{a} \ : \ \text{height}$$
+    当 SSS 开启时使用独立的 Alpha 厚度通道；未开启时，以高度图 (R 通道) 作为默认厚度。
+
+### B. 三路 Universal Mask 路由机制
+Mask 贴图的 R、G、B 三个通道为物理上完全独立的控制通道。在运行时，它们能被**路由 (Route)** 到五种视觉效果类型：
+1.  `0 (None)`: 无效果。
+2.  `1 (Emissive)`: 动态自发光。在发光/核心 Mesh 的 `MASK_EMISSIVE_WGSL` Pass 中进行三通道独立叠加与噪声调制。
+3.  `2 (ColorTint)`: 漫反射染色。将通道颜色混合到 PBR 主材质的 `diffuseColor` 中。
+4.  `3 (Rim)`: 边缘光增强。将通道颜色与强度叠加到 Rim Light 计算中。
+5.  `4 (SSS)`: 次表面散射。叠加通道强度至 `sss_strength`，参与次表面透光计算。
 
 ---
 *Created by Antigravity AI for Lexicoin Development Team.*

@@ -107,7 +107,8 @@ export class DebugSystem {
           
           // 恢复 Viewport 拖拽
           const vp = cameraSystem.viewport;
-          if (vp) vp.plugins.resume('drag');
+          if (!vp) return;
+          vp.plugins.resume('drag');
 
           // 执行吸附
           const snapped = aabbSystem.snapToGrid(this._mockCard.x, this._mockCard.y, vp.worldWidth, vp.worldHeight);

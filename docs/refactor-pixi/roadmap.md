@@ -6,11 +6,11 @@
 
 | Stage | 状态 | 内容 |
 |---|---|---|
-| A | ⏳ 进行中 | 卸载所有游戏 UI（仅保留 DevConsole）+ 归档旧方案 |
-| B | 待开始 | 安装 PixiJS v8 + GSAP + pixi-viewport，建立 `src/pixi/` 骨架 |
-| C | 待开始 | 挂载空白 PixiRoot（bgVoid 背景 + Stats overlay） |
+| A | ✅ 已完成 | 卸载所有游戏 UI（仅保留 DevConsole）+ 归档旧方案 |
+| B | ✅ 已完成 | 安装 PixiJS v8 + GSAP + pixi-viewport，建立 `src/pixi/` 骨架 |
+| C | ✅ 已完成 | 挂载空白 PixiRoot（bgVoid 背景 + Stats overlay） |
 | D | ✅ 已完成 | Camera 系统（pixi-viewport：pan / zoom / clamp） |
-| E | 待开始 | Persona Bridge + 背景层（IBackground 接口） |
+| E | ⏳ 进行中 | Persona Bridge + 背景层（IBackground 接口）；Centerpiece 材质系统见 [Assets-guide.md](Assets-guide.md)，shader 预算规则见 [ADR-004](../decisions/ADR-004-shader-budget-and-tuning-workflow.md) |
 | F | 待开始 | 卡片 Sprite（占位色块、坐标桥、Variant Stack、LOD） |
 | G | 待开始 | Hover 交互 + HTMLText 文字层 |
 | H | 待开始 | InspectOverlay（DOM 检视态） |

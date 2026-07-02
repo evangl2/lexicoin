@@ -1,5 +1,8 @@
 # Docs Index
 
+> 状态: 已归档→[docs/INDEX.md](../INDEX.md) · 类型: 流程 · 更新: 2026-07-03
+> 📖 人话: 这是 2026-04 旧审计体系的索引,已停用。文档路由请看 docs/INDEX.md,规范见 docs/documentation-standard.md。
+
 Master list of all tracked docs. One line per file with last-audited date.
 Last full pass: 2026-04-20.
 

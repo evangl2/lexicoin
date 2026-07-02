@@ -1,56 +1,37 @@
 # Lexicoin - 语言炼金术
 
-通过沉浸式的"语言炼金术"体验,打破传统枯燥的语言学习模式。
+> 状态: 现行 · 类型: 指南 · 更新: 2026-07-03
+> 📖 人话: 项目门面。人类第一次打开仓库看这里;AI 会话的规则入口是 `CLAUDE.md`(不要合并或改名这两个文件,`CLAUDE.md` 依赖文件名被自动加载)。
 
-## 项目架构
+游戏化语言学习平台:通过沉浸式的"语言炼金术"体验,打破传统枯燥的语言学习模式。资材由 AI 生成,开发以 AI 辅助为主。
 
-本项目采用三层模块化架构:
+## ⚠️ 当前状态
 
-- **基础设施层 (Infrastructure)**: 协议经纪人、存储管理、资源分发、安全网关
-- **语言大脑层 (Linguistic Engine)**: 词义模块、构式模块、AI 模块、知识注册表
-- **体验表现层 (Experience Layer)**: UI 组件、多模态渲染、游戏视图
-
-## 开发
-
-```bash
-# 安装依赖
-npm install
-
-# 启动开发服务器
-npm run dev
-
-# 类型检查
-npm run type-check
-
-# 构建生产版本
-npm run build
-```
+渲染层正在从 React DOM 重写为 PixiJS v8(**期间游戏不可玩**),进度见 [docs/refactor-pixi/roadmap.md](docs/refactor-pixi/roadmap.md)。数据/逻辑层完整可用。
 
 ## 技术栈
 
-- **前端**: React 18 + TypeScript 5
-- **状态管理**: Zustand
-- **构建工具**: Vite
-- **动画**: Framer Motion
-- **AI**: Google Generative AI (Gemini)
+- **数据/逻辑层**: React 18 + TypeScript 5 + Zustand + Dexie (IndexedDB) + Supabase
+- **渲染层**: PixiJS v8 + pixi-viewport + GSAP(重写中)
+- **构建**: Vite + Tailwind CSS 4
 
-## 项目结构
+## 常用命令
 
-```
-src/
-├── core/              # 核心层 (基础设施 + 语言大脑)
-├── modules/           # 功能模块
-├── ui/                # 体验表现层
-├── types/             # 全局类型定义
-├── utils/             # 工具函数
-└── main.tsx           # 应用入口
+```bash
+npm run dev          # 启动开发服务器
+npm run type-check   # 类型检查
+npm run build        # 生产构建
+npm run assets       # 资产预处理(法线图推导 / HRBA 打包),用法见 scripts/assets/preprocess.mjs
 ```
 
-## 文档
+## 文档入口
 
-详细的架构设计和开发计划请参考:
-- `context/项目愿景.md` - 长期规划和愿景
-- `context/全模块架构详细设计文档.md` - 模块架构设计
+| 读者 | 入口 |
+|---|---|
+| AI 会话 | [CLAUDE.md](CLAUDE.md)(自动加载)→ [docs/INDEX.md](docs/INDEX.md) |
+| 人类 | [docs/INDEX.md](docs/INDEX.md)(文档地图)· [docs/documentation-standard.md](docs/documentation-standard.md)(文档规范) |
+| 游戏设计 | [docs/grimoire/GDD_Grimoire.md](docs/grimoire/GDD_Grimoire.md) |
+| 关键决策 | [docs/decisions/](docs/decisions/)(ADR) |
 
 ## License
 

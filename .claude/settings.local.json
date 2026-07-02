@@ -40,7 +40,13 @@
       "Bash(del \"A:\\\\lexicoin\\\\lexicoin\\\\supabase\\\\functions\\\\synthesize-sense\\\\lib\\\\PersonaDictionary.ts\")",
       "Bash(pnpm tsc *)",
       "Bash(git -C \"A:/lexicoin/lexicoin\" log --since=\"yesterday\" --name-status --format=\"%H %s\")",
-      "Bash(git mv *)"
+      "Bash(git mv *)",
+      "Bash(python -c \"import PIL, numpy; print\\('PIL', PIL.__version__, '| numpy', numpy.__version__\\)\")",
+      "PowerShell(npm install -D pngjs)",
+      "PowerShell(node -e \"const fs=require\\('fs'\\);const {PNG}=require\\('pngjs'\\);const src=PNG.sync.read\\(fs.readFileSync\\('public/assets/canvas/decals/alchemist-centerpiece-1-hrba.png'\\)\\);const out=new PNG\\({width:src.width,height:src.height}\\);for\\(let i=0;i<src.data.length;i+=4\\){const v=src.data[i];out.data[i]=v;out.data[i+1]=v;out.data[i+2]=v;out.data[i+3]=255;}fs.writeFileSync\\('C:/Users/admin/AppData/Local/Temp/claude/A--lexicoin-lexicoin/b8de9def-2076-4ff2-ae34-c6e98898ae90/scratchpad/test-height.png',PNG.sync.write\\(out\\)\\);console.log\\('extracted',src.width,'x',src.height\\)\")",
+      "PowerShell(npm run assets -- normal --in \"C:/Users/admin/AppData/Local/Temp/claude/A--lexicoin-lexicoin/b8de9def-2076-4ff2-ae34-c6e98898ae90/scratchpad/test-height.png\" --out \"C:/Users/admin/AppData/Local/Temp/claude/A--lexicoin-lexicoin/b8de9def-2076-4ff2-ae34-c6e98898ae90/scratchpad/test-normal.png\" --strength 2)",
+      "PowerShell(npm run assets -- hrba --height \"C:/Users/admin/AppData/Local/Temp/claude/A--lexicoin-lexicoin/b8de9def-2076-4ff2-ae34-c6e98898ae90/scratchpad/test-height.png\" --rough 0.4 --metal 0.8 --out \"C:/Users/admin/AppData/Local/Temp/claude/A--lexicoin-lexicoin/b8de9def-2076-4ff2-ae34-c6e98898ae90/scratchpad/test-hrba.png\")",
+      "PowerShell(Get-ChildItem -Recurse A:\\\\lexicoin\\\\lexicoin\\\\docs -File | Select-Object -ExpandProperty FullName | ForEach-Object { $_.Replace\\('A:\\\\lexicoin\\\\lexicoin\\\\',''\\) })"
     ]
   }
 }

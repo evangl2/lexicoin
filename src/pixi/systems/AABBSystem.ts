@@ -15,6 +15,7 @@ class AABBSystem {
   public readonly CELL_H = 385;
 
   private _reservedCells: Set<string> = new Set();
+  private static instance: AABBSystem;
 
   private constructor() {}
 

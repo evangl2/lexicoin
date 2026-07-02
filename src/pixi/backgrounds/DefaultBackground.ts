@@ -5,7 +5,7 @@ import type { PixiPersonaData } from '../bridges/PersonaBridge';
 import { getPixiApp } from '../core/globalApp';
 import { cameraSystem } from '../systems/CameraSystem';
 import { WORLD_W, WORLD_H } from '@/config/canvas';
-import type { gsap as GsapType } from 'gsap';
+import type { gsap } from 'gsap';
 import { CenterpieceDecal } from './CenterpieceDecal';
 
 /**
@@ -14,7 +14,7 @@ import { CenterpieceDecal } from './CenterpieceDecal';
 export class DefaultBackground implements IBackground {
   public readonly label = 'DefaultBackground';
   private _container: Container | null = null;
-  private _gridMesh: Mesh | null = null;
+  private _gridMesh: Mesh<any, any> | null = null;
   private _persona: PixiPersonaData | null = null;
   private _centerpiece: CenterpieceDecal | null = null;
   private _time = 0;
@@ -67,13 +67,13 @@ export class DefaultBackground implements IBackground {
     this.update(0);
   }
 
-  public enter(tl: GsapType.core.Timeline): void {
+  public enter(tl: gsap.core.Timeline): void {
     if (!this._container) return;
     tl.fromTo(this._container, { alpha: 0 }, { alpha: 1, duration: 0.8, ease: 'power2.out' });
     this._centerpiece?.enter(tl);
   }
 
-  public exit(tl: GsapType.core.Timeline): void {
+  public exit(tl: gsap.core.Timeline): void {
     if (!this._container) return;
     tl.to(this._container, { alpha: 0, duration: 0.6, ease: 'power2.in' });
     this._centerpiece?.exit(tl);
@@ -136,7 +136,7 @@ export class DefaultBackground implements IBackground {
   /**
    * 创建基于 Mesh 的网格渲染器
    */
-  private _createGridMesh(w: number, h: number, persona: PixiPersonaData): Mesh {
+  private _createGridMesh(w: number, h: number, persona: PixiPersonaData): Mesh<any, any> {
     const color = new Color(persona.primary);
     const bgColor = new Color(persona.bgVoid);
 

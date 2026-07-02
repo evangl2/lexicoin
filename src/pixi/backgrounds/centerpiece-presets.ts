@@ -1,8 +1,14 @@
 /**
- * CenterpieceDecal Preset 系统 v3.2
+ * CenterpieceDecal Preset 系统 v3.3 (PNG-HRBA版)
  * 
  * 现已支持从 JSON 配置文件按 Persona (Skins/Themes) 进行动态加载与保存，
  * 并支持通过本地草稿 (localStorage) 机制自动记忆各个 Persona 内部子阶段的参数修改。
+ *
+ * v3.3 变更：
+ *   - 移除旧的 bWeights/aWeights 通道路由权重字段
+ *   - 新增 hrbaMetalnessEnabled / hrbaSssEnabled HRBA 通道开关
+ *   - 新增 maskR_* / maskG_* / maskB_* 三路 Mask 通用路由系统
+ *   - maskAnimMode 保留为纯 runtime _params 字段（不写入预设 JSON）
  */
 
 import defaultJson from './presets/default.json';
@@ -12,85 +18,94 @@ export interface CenterpiecePreset {
   label: string;
 
   // ── 系统基础 ─────────────────────────────────────────────────────────────────
-  exposure?:        number; 
-  baseAlpha?:       number; 
+  exposure?:        number;
+  baseAlpha?:       number;
   alphaClip:        number;
   diffuseTint:      [number, number, number];
-  diffuseSaturation?: number; 
-  normalFlipY:      number; 
-  lightHeight:      number; 
+  diffuseSaturation?: number;
+  normalFlipY:      number;
+  lightHeight:      number;
 
   // ── 交互与动态 ───────────────────────────────────────────────────────────────
-  lightOrbitSpeed?:  number;
+  lightOrbitSpeed?:   number;
   lightOrbitRadiusX?: number;
   lightOrbitRadiusY?: number;
-  mouseInfluence?:   number;
-  maskAnimSpeed?:    number;
+  mouseInfluence?:    number;
+  maskAnimSpeed?:     number;
 
   // ── 光照与结构 ───────────────────────────────────────────────────────────────
   lightColor?:      [number, number, number];
   lightStrength?:   number;
-  ambient:          number; 
+  ambient:          number;
   ambientColor:     [number, number, number];
-  diffuse:          number; 
-  diffuseWrap?:     number; 
-  bumpX?:           number; 
-  bumpY?:           number; 
-  parallax:         number; 
-  ao:               number; 
-  cavityStrength?:  number; 
+  diffuse:          number;
+  diffuseWrap?:     number;
+  bumpX?:           number;
+  bumpY?:           number;
+  parallax:         number;
+  ao:               number;
+  cavityStrength?:  number;
 
   // ── 粗糙度 (Roughness) ───────────────────────────────────────────────────────
-  roughnessMin:     number;
-  roughnessMax:     number;
+  roughnessMin:       number;
+  roughnessMax:       number;
   roughnessContrast?: number;
   roughnessBias?:     number;
 
   // ── 完整 GGX 高光 ────────────────────────────────────────────────────────────
-  specStrength:     number;
-  specColor:        [number, number, number];
-  f0Dielectric:     number; 
-  fresnelPower:     number; 
-  specAoMask:       number; 
+  specStrength:  number;
+  specColor:     [number, number, number];
+  f0Dielectric:  number;
+  fresnelPower:  number;
+  specAoMask:    number;
 
   // ── 边缘光 (Rim) ─────────────────────────────────────────────────────────────
-  rimStrength:      number;
-  rimPower:         number;
-  rimColor:         [number, number, number];
+  rimStrength: number;
+  rimPower:    number;
+  rimColor:    [number, number, number];
 
-  // ── 通道路由权重 ──────────────────────────────────────────────────────────────
-  // ── 遮罩通道配置与路由 (Mask Channel Routing) ──────────────────────────────────
-  maskR_effectType: number; // 0=Emissive, 1=ColorTint, 2=Rim, 3=SSS
-  maskR_color:      [number, number, number];
-  maskR_strength:   number;
-  maskR_noiseCoupling: number;
+  // ── HRBA 路由 ────────────────────────────────────────────────────────────────
+  hrbaB_route?:         number;
+  hrbaA_route?:         number;
+  hrbaMetalnessEnabled?: number;
+  hrbaSssEnabled?:       number;
 
-  maskG_effectType: number;
-  maskG_color:      [number, number, number];
-  maskG_strength:   number;
-  maskG_noiseCoupling: number;
+  // ── Mask 三路路由 ────────────────────────────────────────────────────────────
+  maskR_effectType?:    number;
+  maskR_color?:         [number, number, number];
+  maskR_strength?:      number;
+  maskR_noiseCoupling?: number;
 
-  maskB_effectType: number;
-  maskB_color:      [number, number, number];
-  maskB_strength:   number;
-  maskB_noiseCoupling: number;
+  maskG_effectType?:    number;
+  maskG_color?:         [number, number, number];
+  maskG_strength?:      number;
+  maskG_noiseCoupling?: number;
 
-  baseBlur:         number; 
-  bloomScale?:      number; 
+  maskB_effectType?:    number;
+  maskB_color?:         [number, number, number];
+  maskB_strength?:      number;
+  maskB_noiseCoupling?: number;
 
-  // ── 噪声与流动 (Noise) ────────────────────────────────────────────────────────
-  noiseScale:       number;
-  noiseScale2?:     number; 
-  noiseContrast:    number;
-  noiseSpeedX:      number;
-  noiseSpeedY:      number;
-  noiseBlend?:      number; 
+  // ── 发光层基础参数 ────────────────────────────────────────────────────────────
+  maskIntensity: number;  // 全局 Emissive 强度乘数
+  baseBlur:      number;
+  bloomScale?:   number;
+  maskBrightness?: number;
+  maskContrast?:   number;
+  maskEdgeSoftness?: number;
 
-  // ── SSS & Metalness ─────────────────────────────────────────────────────────
-  metalness:        number;
-  sssStrength?:     number;
-  sssColor?:        [number, number, number];
-  maskNoiseTex?:    string;
+  // ── 噪声贴图与流动 (Noise) ───────────────────────────────────────────────────
+  maskNoiseTex:  string;
+  noiseScale:    number;
+  noiseScale2?:  number;
+  noiseContrast: number;
+  noiseSpeedX:   number;
+  noiseSpeedY:   number;
+  noiseBlend?:   number;
+
+  // ── SSS 全局参数 ─────────────────────────────────────────────────────────────
+  sssStrength?: number;
+  sssColor?:    [number, number, number];
 }
 
 // 核心预设常驻引用（不可被重新赋值，但内部键值会根据载入的 Persona 动态刷新）
@@ -151,7 +166,7 @@ export function loadPresetsForPersona(personaName: string): void {
 }
 
 /**
- * 将平铺的 shader 参数结构重组成标准的 CenterpiecePreset 嵌套结构
+ * 将平铺的 shader 参数结构重组成标准的 CenterpiecePreset 嵌套结构 (v3.3)
  */
 export function paramsToPreset(params: Record<string, any>, base: CenterpiecePreset): CenterpiecePreset {
   return {
@@ -197,32 +212,44 @@ export function paramsToPreset(params: Record<string, any>, base: CenterpiecePre
     rimPower:          params.rimPower,
     rimColor:          [params.rimColorR, params.rimColorG, params.rimColorB],
 
-    maskR_effectType:  params.maskR_effectType,
-    maskR_color:       [params.maskR_colorR, params.maskR_colorG, params.maskR_colorB],
-    maskR_strength:    params.maskR_strength,
-    maskR_noiseCoupling: params.maskR_noiseCoupling,
+    // ── HRBA 路由 (v3.4) ────────────────────────────────────────────────────────
+    hrbaB_route: params.hrbaB_route ?? params.hrbaMetalnessEnabled ?? 1,
+    hrbaA_route: params.hrbaA_route ?? params.hrbaSssEnabled ?? 0,
+    hrbaMetalnessEnabled: params.hrbaB_route ?? params.hrbaMetalnessEnabled ?? 1,
+    hrbaSssEnabled: params.hrbaA_route ?? params.hrbaSssEnabled ?? 0,
 
-    maskG_effectType:  params.maskG_effectType,
-    maskG_color:       [params.maskG_colorR, params.maskG_colorG, params.maskG_colorB],
-    maskG_strength:    params.maskG_strength,
-    maskG_noiseCoupling: params.maskG_noiseCoupling,
+    // ── Mask 三路路由 (v3.3) ─────────────────────────────────────────────────────
+    maskR_effectType:    params.maskR_effectType    ?? 1,
+    maskR_color:         [params.maskR_colorR ?? 1.0, params.maskR_colorG ?? 0.1, params.maskR_colorB ?? 0.05],
+    maskR_strength:      params.maskR_strength      ?? 1.0,
+    maskR_noiseCoupling: params.maskR_noiseCoupling ?? 0.5,
 
-    maskB_effectType:  params.maskB_effectType,
-    maskB_color:       [params.maskB_colorR, params.maskB_colorG, params.maskB_colorB],
-    maskB_strength:    params.maskB_strength,
-    maskB_noiseCoupling: params.maskB_noiseCoupling,
+    maskG_effectType:    params.maskG_effectType    ?? 0,
+    maskG_color:         [params.maskG_colorR ?? 0.0, params.maskG_colorG ?? 1.0, params.maskG_colorB ?? 0.0],
+    maskG_strength:      params.maskG_strength      ?? 1.0,
+    maskG_noiseCoupling: params.maskG_noiseCoupling ?? 0.5,
 
-    baseBlur:          params.baseBlur,
-    bloomScale:        params.bloomScale,
+    maskB_effectType:    params.maskB_effectType    ?? 0,
+    maskB_color:         [params.maskB_colorR ?? 0.0, params.maskB_colorG ?? 0.0, params.maskB_colorB ?? 1.0],
+    maskB_strength:      params.maskB_strength      ?? 1.0,
+    maskB_noiseCoupling: params.maskB_noiseCoupling ?? 0.5,
 
-    noiseScale:        params.noiseScale,
-    noiseScale2:       params.noiseScale2,
-    noiseContrast:     params.noiseContrast,
-    noiseSpeedX:       params.noiseSpeedX,
-    noiseSpeedY:       params.noiseSpeedY,
-    noiseBlend:        params.noiseBlend,
+    // ── 发光层基础参数 ───────────────────────────────────────────────────────────
+    maskIntensity:  params.maskIntensity,
+    baseBlur:       params.baseBlur,
+    bloomScale:     params.bloomScale,
+    maskBrightness: params.maskBrightness ?? 0.0,
+    maskContrast:   params.maskContrast ?? 1.0,
+    maskEdgeSoftness: params.maskEdgeSoftness ?? 0.0,
 
-    metalness:         params.metalness,
+    maskNoiseTex:   params.maskNoiseTex,
+    noiseScale:     params.noiseScale,
+    noiseScale2:    params.noiseScale2,
+    noiseContrast:  params.noiseContrast,
+    noiseSpeedX:    params.noiseSpeedX,
+    noiseSpeedY:    params.noiseSpeedY,
+    noiseBlend:     params.noiseBlend,
+
     ...(params.sssStrength !== undefined && { sssStrength: params.sssStrength }),
     ...(params.sssR !== undefined && { sssColor: [params.sssR, params.sssG, params.sssB] }),
   };
@@ -230,89 +257,104 @@ export function paramsToPreset(params: Record<string, any>, base: CenterpiecePre
 
 export function presetToParams(p: CenterpiecePreset): Record<string, number | string> {
   return {
-    exposure:         p.exposure ?? 1.0,
-    baseAlpha:        p.baseAlpha ?? 1.0,
-    alphaClip:        p.alphaClip,
-    diffuseTintR:     p.diffuseTint[0],
-    diffuseTintG:     p.diffuseTint[1],
-    diffuseTintB:     p.diffuseTint[2],
+    exposure:          p.exposure ?? 1.0,
+    baseAlpha:         p.baseAlpha ?? 1.0,
+    alphaClip:         p.alphaClip,
+    diffuseTintR:      p.diffuseTint[0],
+    diffuseTintG:      p.diffuseTint[1],
+    diffuseTintB:      p.diffuseTint[2],
     diffuseSaturation: p.diffuseSaturation ?? 1.0,
-    normalFlipY:      p.normalFlipY,
-    lightHeight:      p.lightHeight,
+    normalFlipY:       p.normalFlipY,
+    lightHeight:       p.lightHeight,
 
-    lightOrbitSpeed:   p.lightOrbitSpeed ?? 0.2,
+    lightOrbitSpeed:   p.lightOrbitSpeed   ?? 0.2,
     lightOrbitRadiusX: p.lightOrbitRadiusX ?? 0.4,
     lightOrbitRadiusY: p.lightOrbitRadiusY ?? 0.3,
-    mouseInfluence:    p.mouseInfluence ?? 0.5,
-    maskAnimSpeed:     p.maskAnimSpeed ?? 1.0,
+    mouseInfluence:    p.mouseInfluence    ?? 0.5,
+    maskAnimSpeed:     p.maskAnimSpeed     ?? 1.0,
 
-    lightR:           p.lightColor ? p.lightColor[0] : 1.0,
-    lightG:           p.lightColor ? p.lightColor[1] : 1.0,
-    lightB:           p.lightColor ? p.lightColor[2] : 1.0,
-    lightStrength:    p.lightStrength ?? 1.0,
-    ambientStrength:  p.ambient,
-    ambientR:         p.ambientColor[0],
-    ambientG:         p.ambientColor[1],
-    ambientB:         p.ambientColor[2],
-    diffuse:          p.diffuse,
-    diffuseWrap:      p.diffuseWrap ?? 0.0,
-    bumpX:            p.bumpX ?? 1.0,
-    bumpY:            p.bumpY ?? 1.0,
-    parallax:         p.parallax,
-    ao:               p.ao,
-    cavityStrength:   p.cavityStrength ?? 0.0,
+    lightR:          p.lightColor ? p.lightColor[0] : 1.0,
+    lightG:          p.lightColor ? p.lightColor[1] : 1.0,
+    lightB:          p.lightColor ? p.lightColor[2] : 1.0,
+    lightStrength:   p.lightStrength ?? 1.0,
+    ambientStrength: p.ambient,
+    ambientR:        p.ambientColor[0],
+    ambientG:        p.ambientColor[1],
+    ambientB:        p.ambientColor[2],
+    diffuse:         p.diffuse,
+    diffuseWrap:     p.diffuseWrap ?? 0.0,
+    bumpX:           p.bumpX ?? 1.0,
+    bumpY:           p.bumpY ?? 1.0,
+    parallax:        p.parallax,
+    ao:              p.ao,
+    cavityStrength:  p.cavityStrength ?? 0.0,
 
-    roughnessMin:     p.roughnessMin,
-    roughnessMax:     p.roughnessMax,
+    roughnessMin:      p.roughnessMin,
+    roughnessMax:      p.roughnessMax,
     roughnessContrast: p.roughnessContrast ?? 1.0,
-    roughnessBias:     p.roughnessBias ?? 0.0,
+    roughnessBias:     p.roughnessBias     ?? 0.0,
 
-    specStrength:     p.specStrength,
-    specColorR:       p.specColor[0],
-    specColorG:       p.specColor[1],
-    specColorB:       p.specColor[2],
-    f0Dielectric:     p.f0Dielectric,
-    fresnelPower:     p.fresnelPower,
-    specAoMask:       p.specAoMask,
+    specStrength: p.specStrength,
+    specColorR:   p.specColor[0],
+    specColorG:   p.specColor[1],
+    specColorB:   p.specColor[2],
+    f0Dielectric: p.f0Dielectric,
+    fresnelPower: p.fresnelPower,
+    specAoMask:   p.specAoMask,
 
-    rimStrength:      p.rimStrength,
-    rimPower:         p.rimPower,
-    rimColorR:        p.rimColor[0],
-    rimColorG:        p.rimColor[1],
-    rimColorB:        p.rimColor[2],
+    rimStrength: p.rimStrength,
+    rimPower:    p.rimPower,
+    rimColorR:   p.rimColor[0],
+    rimColorG:   p.rimColor[1],
+    rimColorB:   p.rimColor[2],
 
-    maskR_effectType: p.maskR_effectType,
-    maskR_colorR:     p.maskR_color[0],
-    maskR_colorG:     p.maskR_color[1],
-    maskR_colorB:     p.maskR_color[2],
-    maskR_strength:   p.maskR_strength,
-    maskR_noiseCoupling: p.maskR_noiseCoupling,
+    // ── HRBA 路由 (v3.4) ────────────────────────────────────────────────────────
+    hrbaB_route: p.hrbaB_route ?? p.hrbaMetalnessEnabled ?? 1,
+    hrbaA_route: p.hrbaA_route ?? p.hrbaSssEnabled ?? 0,
+    hrbaMetalnessEnabled: p.hrbaB_route ?? p.hrbaMetalnessEnabled ?? 1,
+    hrbaSssEnabled: p.hrbaA_route ?? p.hrbaSssEnabled ?? 0,
+    // 向下兼容：旧 _flushParams() 读取 bMetalness/bSSS 等，Phase 2 前归零
+    bMetalness: 0, bAO: 0, bSSS: 0,
+    aMetalness: 0, aAO: 0, aSSS: 0,
 
-    maskG_effectType: p.maskG_effectType,
-    maskG_colorR:     p.maskG_color[0],
-    maskG_colorG:     p.maskG_color[1],
-    maskG_colorB:     p.maskG_color[2],
-    maskG_strength:   p.maskG_strength,
-    maskG_noiseCoupling: p.maskG_noiseCoupling,
+    // ── Mask 三路路由 (v3.3) ─────────────────────────────────────────────────────
+    maskR_effectType:    p.maskR_effectType    ?? 1,
+    maskR_colorR:        p.maskR_color ? p.maskR_color[0] : 1.0,
+    maskR_colorG:        p.maskR_color ? p.maskR_color[1] : 0.1,
+    maskR_colorB:        p.maskR_color ? p.maskR_color[2] : 0.05,
+    maskR_strength:      p.maskR_strength      ?? 1.0,
+    maskR_noiseCoupling: p.maskR_noiseCoupling ?? 0.5,
 
-    maskB_effectType: p.maskB_effectType,
-    maskB_colorR:     p.maskB_color[0],
-    maskB_colorG:     p.maskB_color[1],
-    maskB_colorB:     p.maskB_color[2],
-    maskB_strength:   p.maskB_strength,
-    maskB_noiseCoupling: p.maskB_noiseCoupling,
+    maskG_effectType:    p.maskG_effectType    ?? 0,
+    maskG_colorR:        p.maskG_color ? p.maskG_color[0] : 0.0,
+    maskG_colorG:        p.maskG_color ? p.maskG_color[1] : 1.0,
+    maskG_colorB:        p.maskG_color ? p.maskG_color[2] : 0.0,
+    maskG_strength:      p.maskG_strength      ?? 1.0,
+    maskG_noiseCoupling: p.maskG_noiseCoupling ?? 0.5,
 
-    baseBlur:         p.baseBlur,
-    bloomScale:       p.bloomScale ?? 1.0,
+    maskB_effectType:    p.maskB_effectType    ?? 0,
+    maskB_colorR:        p.maskB_color ? p.maskB_color[0] : 0.0,
+    maskB_colorG:        p.maskB_color ? p.maskB_color[1] : 0.0,
+    maskB_colorB:        p.maskB_color ? p.maskB_color[2] : 1.0,
+    maskB_strength:      p.maskB_strength      ?? 1.0,
+    maskB_noiseCoupling: p.maskB_noiseCoupling ?? 0.5,
 
-    noiseScale:       p.noiseScale,
-    noiseScale2:      p.noiseScale2 ?? 3.5,
-    noiseContrast:    p.noiseContrast,
-    noiseSpeedX:      p.noiseSpeedX,
-    noiseSpeedY:      p.noiseSpeedY,
-    noiseBlend:       p.noiseBlend ?? 0.0,
+    // ── 发光层基础参数 ───────────────────────────────────────────────────────────
+    maskIntensity: p.maskIntensity,
+    baseBlur:      p.baseBlur,
+    bloomScale:    p.bloomScale ?? 1.0,
+    maskBrightness: p.maskBrightness ?? 0.0,
+    maskContrast:   p.maskContrast ?? 1.0,
+    maskEdgeSoftness: p.maskEdgeSoftness ?? 0.0,
 
-    metalness:        p.metalness,
+    maskNoiseTex:  p.maskNoiseTex,
+    noiseScale:    p.noiseScale,
+    noiseScale2:   p.noiseScale2  ?? 3.5,
+    noiseContrast: p.noiseContrast,
+    noiseSpeedX:   p.noiseSpeedX,
+    noiseSpeedY:   p.noiseSpeedY,
+    noiseBlend:    p.noiseBlend  ?? 0.0,
+
     ...(p.sssStrength !== undefined && { sssStrength: p.sssStrength }),
     ...(p.sssColor    !== undefined && { sssR: p.sssColor[0], sssG: p.sssColor[1], sssB: p.sssColor[2] }),
   };

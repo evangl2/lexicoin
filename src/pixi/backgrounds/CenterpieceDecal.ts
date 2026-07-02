@@ -46,9 +46,9 @@ struct LightUniforms {
   uLightDir:     vec4<f32>,  // xyz=方向, w=备用
   uLightColor:   vec4<f32>,  // rgb=颜色, w=强度
   uAmbient:      vec4<f32>,  // rgb=环境光颜色, w=强度
-  uSurface:      vec4<f32>,  // x=漫反射强度, y=法线凹凸, z=视差, w=高度AO
+  uSurface:      vec4<f32>,  // x=漫反射强度, y=法线凹凸X, z=视差, w=高度AO
   uRoughness:    vec4<f32>,  // x=min, y=max, z=alphaClip, w=normalFlipY
-  uRoughnessAdj: vec4<f32>,  // x=contrast, y=bias, z=unused, w=unused
+  uRoughnessAdj: vec4<f32>,  // x=contrast, y=bias, z=法线凹凸Y, w=unused
   uSpec:         vec4<f32>,  // x=强度, y=f0, z=fresnelPower, w=specAoMask
   uSpecColor:    vec4<f32>,  // rgb=颜色
   uRim:          vec4<f32>,  // x=强度, y=幂次
@@ -56,21 +56,37 @@ struct LightUniforms {
   uDiffuseTint:  vec4<f32>,  // rgb=染色
   uSystem:       vec4<f32>,  // x=exposure, y=diffuseWrap, z=diffuseSaturation, w=cavityStrength
 }
-struct ChannelConfig {
-  uMetalness:   f32,
-  uSSSStrength: f32,
-  uIsFallback:  f32,
-  uPad2:        f32,
-  uSSSColor:    vec4<f32>,
+
+struct HRBAConfig {
+  uHRBAFlags:    vec4<f32>,  // x=metalnessEnabled, y=sssEnabled, zw=unused
+  uMetalness:    vec4<f32>,  // x=globalMetalness, yzw=unused
+  uSSSColor:     vec4<f32>,  // rgb=SSS颜色, w=全局SSS强度
 }
 
-@group(1) @binding(0) var<uniform> light:    LightUniforms;
-@group(1) @binding(1) var uDiffuse:           texture_2d<f32>;
-@group(1) @binding(2) var uSampler:           sampler;
-@group(1) @binding(3) var uNormalMap:         texture_2d<f32>;
-@group(1) @binding(4) var uHRBCMap:           texture_2d<f32>;
-@group(1) @binding(5) var uMaskMap:           texture_2d<f32>;
-@group(1) @binding(6) var<uniform> channel:  ChannelConfig;
+struct MaskUniforms {
+  maskR_effectColorAndType: vec4<f32>, // rgb=颜色, a=路由类型 (0=None, 1=Emissive, 2=ColorTint, 3=Rim, 4=SSS)
+  maskR_strengthAndNoise:   vec4<f32>, // x=强度, y=noiseCoupling, zw=unused
+  maskG_effectColorAndType: vec4<f32>,
+  maskG_strengthAndNoise:   vec4<f32>,
+  maskB_effectColorAndType: vec4<f32>,
+  maskB_strengthAndNoise:   vec4<f32>,
+  uNoiseCfg:  vec4<f32>,  // x=scale, y=contrast, z=speedX, w=speedY
+  uNoiseCfg2: vec4<f32>,  // x=scale2, y=blendMode, zw=unused
+  uMaskAdj:   vec4<f32>,  // x=brightness, y=contrast, z=softness, w=unused
+  uTime:      f32,
+  _pad1:      f32,
+  _pad2:      f32,
+  _pad3:      f32,
+}
+
+@group(1) @binding(0) var<uniform> light:      LightUniforms;
+@group(1) @binding(1) var uDiffuse:            texture_2d<f32>;
+@group(1) @binding(2) var uSampler:            sampler;
+@group(1) @binding(3) var uNormalMap:          texture_2d<f32>;
+@group(1) @binding(4) var uHRBAMap:            texture_2d<f32>;
+@group(1) @binding(5) var uMaskMap:            texture_2d<f32>;
+@group(1) @binding(6) var<uniform> hrbaConfig:  HRBAConfig;
+@group(1) @binding(7) var<uniform> maskConfig:  MaskUniforms;
 
 const PI: f32 = 3.14159265359;
 
@@ -104,19 +120,19 @@ fn adjust_contrast(v: f32, contrast: f32) -> f32 {
 @fragment
 fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
   let baseAlpha  = textureSample(uDiffuse, uSampler, uv).a;
-  let hrbc_base  = textureSample(uHRBCMap, uSampler, uv);
-  let h1         = hrbc_base.r;
+  let hrba_base  = textureSample(uHRBAMap, uSampler, uv);
+  let h1         = hrba_base.r;
   let L          = normalize(light.uLightDir.xyz);
   
   // 第一步估算视差位移
   let offset1    = -vec2<f32>(L.x, -L.y) * h1 * light.uSurface.z;
   
   // 第二步在估算坐标处进行二次采样，通过高度均值平滑
-  let hrbc_next  = textureSample(uHRBCMap, uSampler, uv + offset1);
-  let h2         = hrbc_next.r;
+  let hrba_next  = textureSample(uHRBAMap, uSampler, uv + offset1);
+  let h2         = hrba_next.r;
   let smoothH    = (h1 + h2) * 0.5;
   
-  // 凸起 3D 浮雕视差
+  // 凸起 3D 浮雕视差：与边界掩码 baseAlpha 解耦，保证纹理在边缘滑动的连续性与圆润感
   let pOffset    = -vec2<f32>(L.x, -L.y) * smoothH * light.uSurface.z;
   let pUV        = uv + pOffset;
 
@@ -132,17 +148,11 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
   diffuseColor = mix(vec3<f32>(luminance), diffuseColor, light.uSystem.z);
 
   let nRaw = textureSample(uNormalMap, uSampler, pUV);
-  let hrbc = textureSample(uHRBCMap, uSampler, pUV);
-  let height = hrbc.r;
-  
-  // hrbc.a is Curvature
-  var curvature = hrbc.a;
-  if (channel.uIsFallback > 0.5) {
-    curvature = 0.0;
-  }
+  let hrba = textureSample(uHRBAMap,    uSampler, pUV);
+  let height = hrba.r;
   
   // Roughness 调整
-  var roughness_base = hrbc.g;
+  var roughness_base = hrba.g;
   roughness_base = adjust_contrast(roughness_base + light.uRoughnessAdj.y, light.uRoughnessAdj.x);
   let roughness = mix(light.uRoughness.x, light.uRoughness.y, clamp(roughness_base, 0.0, 1.0));
 
@@ -150,17 +160,18 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
   if (light.uRoughness.w > 0.5) { N.y = -N.y; }
   N = normalize(vec3<f32>(N.x * light.uSurface.y, N.y * light.uRoughnessAdj.z, N.z));
 
-  // hrbc.b is Baked AO
-  var bakedAO = hrbc.b;
-  if (channel.uIsFallback > 0.5) {
-    bakedAO = hrbc.r; // Use height as AO proxy in PNG fallback mode
-  }
-  let ao = mix(1.0, bakedAO, light.uSurface.w);
+  let ao = mix(1.0, height, light.uSurface.w);
   let cavity = mix(1.0, height, light.uSystem.w);
   
   let ambient_term = light.uAmbient.rgb * light.uAmbient.w * ao * diffuseColor;
 
-  let metalness      = clamp(channel.uMetalness, 0.0, 1.0);
+  // Metalness 路由计算
+  var metalness = hrbaConfig.uMetalness.x; // 默认 0 = None (使用 flat constant)
+  if (hrbaConfig.uHRBAFlags.x > 0.5) { // 1.0 = Metalness (B channel)
+    metalness = hrba.b * hrbaConfig.uMetalness.x;
+  }
+  metalness = clamp(metalness, 0.0, 1.0);
+
   let f0             = mix(vec3<f32>(light.uSpec.y), diffuseColor, metalness);
   let diffuse_factor = 1.0 - metalness;
 
@@ -170,7 +181,7 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
   let n_dot_h     = max(dot(N, H), 0.0);
   let v_dot_h     = max(dot(V, H), 0.0);
   
-  // Diffuse Wrap
+  // Diffuse Wrap 处理
   let n_dot_l_raw = dot(N, L);
   let n_dot_l_wrap = max((n_dot_l_raw + light.uSystem.y) / (1.0 + light.uSystem.y), 0.0);
   let n_dot_l = max(n_dot_l_raw, 0.0);
@@ -184,29 +195,93 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
   let specMask    = mix(1.0, ao * cavity, light.uSpec.w);
   let specDenom   = 4.0 * n_dot_v * n_dot_l + 0.0001;
   let specular    = (D * F * G) / specDenom;
-  let spec_term   = light.uSpecColor.rgb * specular * specMask * light.uSpec.x * n_dot_l * light.uLightColor.rgb * light.uLightColor.w;
 
-  // Curvature based edge highlight enhancement
+  let curvature   = clamp(length(fwidth(N.xyz)) * 2.0, 0.0, 1.0);
+  let specStrength = light.uSpec.x * (1.0 + curvature * 1.5);
+  let spec_term   = light.uSpecColor.rgb * specular * specMask * specStrength * n_dot_l * light.uLightColor.rgb * light.uLightColor.w;
+
   let rim      = pow(clamp(1.0 - n_dot_v, 0.0, 1.0), light.uRim.y) * light.uRim.x * specMask;
-  let edgeHighlight = curvature * light.uRimColor.rgb * light.uRim.x * specMask;
-  let rim_term = light.uRimColor.rgb * rim + edgeHighlight;
+  var rim_term = light.uRimColor.rgb * rim;
 
-  // SSS Subsurface scattering using Mask Map's alpha channel (thickness)
-  let maskSample = textureSample(uMaskMap, uSampler, pUV);
-  var thickness = maskSample.a;
-  if (channel.uIsFallback > 0.5) {
-    thickness = 1.0 - hrbc.r; // thickness proxy in PNG fallback mode
+  // thickness and SSS/Transmission strength
+  var sss_strength: f32 = 0.0;
+  var transmission_strength: f32 = 0.0;
+
+  if (hrbaConfig.uHRBAFlags.y > 0.5 && hrbaConfig.uHRBAFlags.y < 1.5) { // 1.0 = SSS
+    sss_strength = hrba.a * hrbaConfig.uSSSColor.w;
+  } else if (hrbaConfig.uHRBAFlags.y > 1.5) { // 2.0 = Transmission
+    transmission_strength = hrba.a * hrbaConfig.uSSSColor.w;
   }
-  let sssAmount = (1.0 - thickness) * channel.uSSSStrength;
 
-  let sss_strength  = sssAmount;
+  // Mask 路由累加逻辑
+  let maskRGB = textureSample(uMaskMap, uSampler, pUV);
+
+  // Process Channel R
+  let maskR_val = maskRGB.r;
+  let maskR_type = u32(maskConfig.maskR_effectColorAndType.a + 0.5);
+  let maskR_color = maskConfig.maskR_effectColorAndType.rgb;
+  let maskR_strength = maskConfig.maskR_strengthAndNoise.x;
+  if (maskR_type == 2u) { // ColorTint
+    diffuseColor = mix(diffuseColor, diffuseColor * maskR_color, clamp(maskR_val * maskR_strength, 0.0, 1.0));
+  } else if (maskR_type == 3u) { // Rim
+    rim_term += maskR_color * rim * maskR_val * maskR_strength;
+  } else if (maskR_type == 4u) { // SSS
+    if (hrbaConfig.uHRBAFlags.y > 1.5) { // 2.0 = Transmission
+      transmission_strength += maskR_val * maskR_strength;
+    } else {
+      sss_strength += maskR_val * maskR_strength;
+    }
+  }
+
+  // Process Channel G
+  let maskG_val = maskRGB.g;
+  let maskG_type = u32(maskConfig.maskG_effectColorAndType.a + 0.5);
+  let maskG_color = maskConfig.maskG_effectColorAndType.rgb;
+  let maskG_strength = maskConfig.maskG_strengthAndNoise.x;
+  if (maskG_type == 2u) { // ColorTint
+    diffuseColor = mix(diffuseColor, diffuseColor * maskG_color, clamp(maskG_val * maskG_strength, 0.0, 1.0));
+  } else if (maskG_type == 3u) { // Rim
+    rim_term += maskG_color * rim * maskG_val * maskG_strength;
+  } else if (maskG_type == 4u) { // SSS
+    if (hrbaConfig.uHRBAFlags.y > 1.5) { // 2.0 = Transmission
+      transmission_strength += maskG_val * maskG_strength;
+    } else {
+      sss_strength += maskG_val * maskG_strength;
+    }
+  }
+
+  // Process Channel B
+  let maskB_val = maskRGB.b;
+  let maskB_type = u32(maskConfig.maskB_effectColorAndType.a + 0.5);
+  let maskB_color = maskConfig.maskB_effectColorAndType.rgb;
+  let maskB_strength = maskConfig.maskB_strengthAndNoise.x;
+  if (maskB_type == 2u) { // ColorTint
+    diffuseColor = mix(diffuseColor, diffuseColor * maskB_color, clamp(maskB_val * maskB_strength, 0.0, 1.0));
+  } else if (maskB_type == 3u) { // Rim
+    rim_term += maskB_color * rim * maskB_val * maskB_strength;
+  } else if (maskB_type == 4u) { // SSS
+    if (hrbaConfig.uHRBAFlags.y > 1.5) { // 2.0 = Transmission
+      transmission_strength += maskB_val * maskB_strength;
+    } else {
+      sss_strength += maskB_val * maskB_strength;
+    }
+  }
+
   let n_dot_l_final = max((n_dot_l_raw + sss_strength) / (1.0 + sss_strength), 0.0);
-  let sss_term = channel.uSSSColor.rgb * sss_strength * n_dot_l_final * light.uSurface.x;
+  let sss_color = mix(vec3<f32>(1.0), hrbaConfig.uSSSColor.rgb, clamp(sss_strength, 0.0, 1.0));
 
   let main_light_diffuse = light.uLightColor.rgb * light.uLightColor.w * n_dot_l_wrap * light.uSurface.x;
-  let diffuse_term = diffuseColor * diffuse_factor * main_light_diffuse + sss_term;
+  let diffuse_term = diffuseColor * diffuse_factor * (main_light_diffuse + n_dot_l_final * light.uSurface.x * sss_color);
 
-  var lit = ambient_term + diffuse_term + spec_term + rim_term;
+  // 背光物理透射 (Transmission)
+  var transmission_term: vec3<f32> = vec3<f32>(0.0);
+  if (transmission_strength > 0.0) {
+    let trans_light_dir = normalize(vec3<f32>(-L.x, -L.y, 1.0));
+    let trans_dot = max(dot(N, trans_light_dir), 0.0);
+    transmission_term = hrbaConfig.uSSSColor.rgb * transmission_strength * trans_dot * light.uLightColor.rgb * light.uLightColor.w;
+  }
+
+  var lit = ambient_term + diffuse_term + spec_term + rim_term + transmission_term;
   
   // 全局曝光
   lit *= light.uSystem.x;
@@ -217,191 +292,120 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
 `;
 
 const MASK_EMISSIVE_WGSL = `
-struct LightUniforms {
-  uLightDir:     vec4<f32>,
-  uLightColor:   vec4<f32>,
-  uAmbient:      vec4<f32>,
-  uSurface:      vec4<f32>,
-  uRoughness:    vec4<f32>,
-  uRoughnessAdj: vec4<f32>,
-  uSpec:         vec4<f32>,
-  uSpecColor:    vec4<f32>,
-  uRim:          vec4<f32>,
-  uRimColor:     vec4<f32>,
-  uDiffuseTint:  vec4<f32>,
-  uSystem:       vec4<f32>,
-}
-
 struct MaskUniforms {
-  // 16-byte aligned parameters (Grouped first)
-  maskR_colorAndType: vec4<f32>, // rgb=color, a=effectType
-  maskG_colorAndType: vec4<f32>,
-  maskB_colorAndType: vec4<f32>,
-  uNoiseCfg:          vec4<f32>, // x=scale, y=contrast, z=speedX, w=speedY
-  uNoiseCfg2:         vec4<f32>, // x=scale2, y=blendMode
-  
-  // 8-byte aligned parameters (Grouped second)
-  maskR_strengthAndNoise: vec2<f32>, // x=strength, y=noiseCoupling
-  maskG_strengthAndNoise: vec2<f32>,
-  maskB_strengthAndNoise: vec2<f32>,
-  
-  // 4-byte aligned parameters (Grouped last)
-  uTime: f32,
-  uIsFallback: f32,
+  maskR_effectColorAndType: vec4<f32>,
+  maskR_strengthAndNoise:   vec4<f32>,
+  maskG_effectColorAndType: vec4<f32>,
+  maskG_strengthAndNoise:   vec4<f32>,
+  maskB_effectColorAndType: vec4<f32>,
+  maskB_strengthAndNoise:   vec4<f32>,
+  uNoiseCfg:  vec4<f32>,
+  uNoiseCfg2: vec4<f32>,
+  uMaskAdj:   vec4<f32>,
+  uTime:      f32,
+  _pad1:      f32,
+  _pad2:      f32,
+  _pad3:      f32,
 }
-
-@group(1) @binding(0) var<uniform> cfg:       MaskUniforms;
-@group(1) @binding(1) var<uniform> light:     LightUniforms;
-@group(1) @binding(2) var uSampler:           sampler;
-@group(1) @binding(3) var uMaskMap:           texture_2d<f32>;
-@group(1) @binding(4) var uNoiseMap:          texture_2d<f32>;
-@group(1) @binding(5) var uDiffuse:           texture_2d<f32>;
-@group(1) @binding(6) var uNormalMap:         texture_2d<f32>;
+@group(1) @binding(0) var<uniform> maskConfig: MaskUniforms;
+@group(1) @binding(1) var uMaskMap:            texture_2d<f32>;
+@group(1) @binding(2) var uSampler:            sampler;
+@group(1) @binding(3) var uNoiseMap:           texture_2d<f32>;
 
 @fragment
 fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
-  let maskSample = textureSample(uMaskMap, uSampler, uv);
+  let maskRGB = textureSample(uMaskMap, uSampler, uv);
   
-  var rChannel = maskSample.r;
-  var gChannel = maskSample.g;
-  var bChannel = maskSample.b;
-  var thickness = maskSample.a;
-  
-  if (cfg.uIsFallback > 0.5) {
-    // In fallback PNG mode, maskSample is the HRD texture (r=height, g=roughness, b=emissive, a=specularAO)
-    rChannel = maskSample.b; // Route gold emissive (b) to R channel
-    gChannel = 0.0;
-    bChannel = 0.0;
-    thickness = 1.0 - maskSample.r; // Thickness = 1.0 - height
-  }
-  
-  let t = cfg.uTime;
+  let t = maskConfig.uTime;
   
   // Layer 1 Noise
-  let noiseUV1 = uv * cfg.uNoiseCfg.x + vec2<f32>(t * cfg.uNoiseCfg.z, t * cfg.uNoiseCfg.w);
+  let noiseUV1 = uv * maskConfig.uNoiseCfg.x + vec2<f32>(t * maskConfig.uNoiseCfg.z, t * maskConfig.uNoiseCfg.w);
   let n1 = textureSample(uNoiseMap, uSampler, noiseUV1).r;
   
   // Layer 2 Noise
-  let noiseUV2 = uv * cfg.uNoiseCfg2.x - vec2<f32>(t * cfg.uNoiseCfg.z * 0.25, t * cfg.uNoiseCfg.w * 1.5);
+  let noiseUV2 = uv * maskConfig.uNoiseCfg2.x - vec2<f32>(t * maskConfig.uNoiseCfg.z * 0.25, t * maskConfig.uNoiseCfg.w * 1.5);
   let n2 = textureSample(uNoiseMap, uSampler, noiseUV2).r;
   
   var combinedNoise: f32;
-  if (cfg.uNoiseCfg2.y < 0.25) { // Mul
+  if (maskConfig.uNoiseCfg2.y < 0.25) { // Mul
     combinedNoise = n1 * n2;
-  } else if (cfg.uNoiseCfg2.y < 0.75) { // Lerp
+  } else if (maskConfig.uNoiseCfg2.y < 0.75) { // Lerp
     combinedNoise = mix(n1, n2, 0.5);
   } else { // Add
     combinedNoise = clamp(n1 + n2, 0.0, 1.0);
   }
-  combinedNoise = pow(combinedNoise, cfg.uNoiseCfg.y) * 5.0;
+  combinedNoise = pow(combinedNoise, maskConfig.uNoiseCfg.y) * 5.0;
   
-  if (cfg.uNoiseCfg.x <= 0.0) { combinedNoise = 1.0; }
+  if (maskConfig.uNoiseCfg.x <= 0.0) { combinedNoise = 1.0; }
 
-  // Sample Normal and Diffuse to support ColorTint, Rim, and SSS
-  let diffuseColor = textureSample(uDiffuse, uSampler, uv).rgb;
-  let rawN = textureSample(uNormalMap, uSampler, uv).rgb * 2.0 - 1.0;
-  let N = normalize(vec3<f32>(rawN.x * light.uSurface.y, rawN.y, rawN.z));
-  let V = vec3<f32>(0.0, 0.0, 1.0);
-  let L = normalize(light.uLightDir.xyz);
-  let n_dot_v = max(dot(N, V), 0.0);
-
-  var litAccum = vec3<f32>(0.0);
-  var alphaAccum = 0.0;
-
-  // --- Channel R Routing ---
-  {
-    let maskVal = rChannel;
-    let effectType = round(cfg.maskR_colorAndType.a);
-    let color = cfg.maskR_colorAndType.rgb;
-    let strength = cfg.maskR_strengthAndNoise.x;
-    let noiseCoupling = cfg.maskR_strengthAndNoise.y;
-    let noiseMod = mix(1.0, combinedNoise, noiseCoupling);
-    let finalIntensity = strength * maskVal * noiseMod;
-    
-    if (finalIntensity > 0.0) {
-      if (effectType == 0.0) { // Emissive
-        litAccum += color * finalIntensity;
-        alphaAccum += finalIntensity;
-      } else if (effectType == 1.0) { // ColorTint
-        litAccum += diffuseColor * color * finalIntensity;
-        alphaAccum += finalIntensity;
-      } else if (effectType == 2.0) { // Rim
-        let rim = pow(clamp(1.0 - n_dot_v, 0.0, 1.0), light.uRim.y);
-        litAccum += color * rim * finalIntensity;
-        alphaAccum += finalIntensity * rim;
-      } else if (effectType == 3.0) { // SSS
-        let n_dot_l_sss = max((dot(N, L) + 0.5) / 1.5, 0.0);
-        let sss = (1.0 - thickness) * n_dot_l_sss;
-        litAccum += color * sss * finalIntensity;
-        alphaAccum += finalIntensity * sss;
-      }
+  var finalColor: vec3<f32> = vec3<f32>(0.0);
+  var finalAlpha: f32 = 0.0;
+  
+  // Process Channel R
+  let maskR_val = maskRGB.r;
+  let maskR_type = u32(maskConfig.maskR_effectColorAndType.a + 0.5);
+  let maskR_color = maskConfig.maskR_effectColorAndType.rgb;
+  let maskR_strength = maskConfig.maskR_strengthAndNoise.x;
+  let maskR_noiseCoupling = maskConfig.maskR_strengthAndNoise.y;
+  
+  if (maskR_type == 1u) { // Emissive
+    var mR = saturate(maskR_val * maskConfig.uMaskAdj.y + maskConfig.uMaskAdj.x);
+    if (maskConfig.uMaskAdj.z > 0.0) {
+      mR = pow(mR, 1.0 + maskConfig.uMaskAdj.z * 5.0);
+    }
+    let edgeMaskR = smoothstep(0.0, 0.015, mR);
+    if (edgeMaskR > 0.0) {
+      let noiseMod = mix(1.0, combinedNoise, maskR_noiseCoupling);
+      let alphaR = mR * noiseMod * maskR_strength * edgeMaskR;
+      finalColor += maskR_color * alphaR;
+      finalAlpha = max(finalAlpha, alphaR);
+    }
+  }
+  
+  // Process Channel G
+  let maskG_val = maskRGB.g;
+  let maskG_type = u32(maskConfig.maskG_effectColorAndType.a + 0.5);
+  let maskG_color = maskConfig.maskG_effectColorAndType.rgb;
+  let maskG_strength = maskConfig.maskG_strengthAndNoise.x;
+  let maskG_noiseCoupling = maskConfig.maskG_strengthAndNoise.y;
+  
+  if (maskG_type == 1u) { // Emissive
+    var mG = saturate(maskG_val * maskConfig.uMaskAdj.y + maskConfig.uMaskAdj.x);
+    if (maskConfig.uMaskAdj.z > 0.0) {
+      mG = pow(mG, 1.0 + maskConfig.uMaskAdj.z * 5.0);
+    }
+    let edgeMaskG = smoothstep(0.0, 0.015, mG);
+    if (edgeMaskG > 0.0) {
+      let noiseMod = mix(1.0, combinedNoise, maskG_noiseCoupling);
+      let alphaG = mG * noiseMod * maskG_strength * edgeMaskG;
+      finalColor += maskG_color * alphaG;
+      finalAlpha = max(finalAlpha, alphaG);
     }
   }
 
-  // --- Channel G Routing ---
-  {
-    let maskVal = gChannel;
-    let effectType = round(cfg.maskG_colorAndType.a);
-    let color = cfg.maskG_colorAndType.rgb;
-    let strength = cfg.maskG_strengthAndNoise.x;
-    let noiseCoupling = cfg.maskG_strengthAndNoise.y;
-    let noiseMod = mix(1.0, combinedNoise, noiseCoupling);
-    let finalIntensity = strength * maskVal * noiseMod;
-    
-    if (finalIntensity > 0.0) {
-      if (effectType == 0.0) { // Emissive
-        litAccum += color * finalIntensity;
-        alphaAccum += finalIntensity;
-      } else if (effectType == 1.0) { // ColorTint
-        litAccum += diffuseColor * color * finalIntensity;
-        alphaAccum += finalIntensity;
-      } else if (effectType == 2.0) { // Rim
-        let rim = pow(clamp(1.0 - n_dot_v, 0.0, 1.0), light.uRim.y);
-        litAccum += color * rim * finalIntensity;
-        alphaAccum += finalIntensity * rim;
-      } else if (effectType == 3.0) { // SSS
-        let n_dot_l_sss = max((dot(N, L) + 0.5) / 1.5, 0.0);
-        let sss = (1.0 - thickness) * n_dot_l_sss;
-        litAccum += color * sss * finalIntensity;
-        alphaAccum += finalIntensity * sss;
-      }
+  // Process Channel B
+  let maskB_val = maskRGB.b;
+  let maskB_type = u32(maskConfig.maskB_effectColorAndType.a + 0.5);
+  let maskB_color = maskConfig.maskB_effectColorAndType.rgb;
+  let maskB_strength = maskConfig.maskB_strengthAndNoise.x;
+  let maskB_noiseCoupling = maskConfig.maskB_strengthAndNoise.y;
+  
+  if (maskB_type == 1u) { // Emissive
+    var mB = saturate(maskB_val * maskConfig.uMaskAdj.y + maskConfig.uMaskAdj.x);
+    if (maskConfig.uMaskAdj.z > 0.0) {
+      mB = pow(mB, 1.0 + maskConfig.uMaskAdj.z * 5.0);
+    }
+    let edgeMaskB = smoothstep(0.0, 0.015, mB);
+    if (edgeMaskB > 0.0) {
+      let noiseMod = mix(1.0, combinedNoise, maskB_noiseCoupling);
+      let alphaB = mB * noiseMod * maskB_strength * edgeMaskB;
+      finalColor += maskB_color * alphaB;
+      finalAlpha = max(finalAlpha, alphaB);
     }
   }
-
-  // --- Channel B Routing ---
-  {
-    let maskVal = bChannel;
-    let effectType = round(cfg.maskB_colorAndType.a);
-    let color = cfg.maskB_colorAndType.rgb;
-    let strength = cfg.maskB_strengthAndNoise.x;
-    let noiseCoupling = cfg.maskB_strengthAndNoise.y;
-    let noiseMod = mix(1.0, combinedNoise, noiseCoupling);
-    let finalIntensity = strength * maskVal * noiseMod;
-    
-    if (finalIntensity > 0.0) {
-      if (effectType == 0.0) { // Emissive
-        litAccum += color * finalIntensity;
-        alphaAccum += finalIntensity;
-      } else if (effectType == 1.0) { // ColorTint
-        litAccum += diffuseColor * color * finalIntensity;
-        alphaAccum += finalIntensity;
-      } else if (effectType == 2.0) { // Rim
-        let rim = pow(clamp(1.0 - n_dot_v, 0.0, 1.0), light.uRim.y);
-        litAccum += color * rim * finalIntensity;
-        alphaAccum += finalIntensity * rim;
-      } else if (effectType == 3.0) { // SSS
-        let n_dot_l_sss = max((dot(N, L) + 0.5) / 1.5, 0.0);
-        let sss = (1.0 - thickness) * n_dot_l_sss;
-        litAccum += color * sss * finalIntensity;
-        alphaAccum += finalIntensity * sss;
-      }
-    }
-  }
-
-  let finalAlpha = clamp(alphaAccum, 0.0, 1.0);
+  
   if (finalAlpha <= 0.0) { discard; }
-
-  return vec4<f32>(litAccum * finalAlpha, finalAlpha);
+  return vec4<f32>(finalColor, finalAlpha);
 }
 `;
 
@@ -416,15 +420,13 @@ export class CenterpieceDecal {
   private _blurFilter: BlurFilter | null = null;
   private _cameraUniforms:  UniformGroup | null = null;
   private _lightUniforms:   UniformGroup | null = null;
-  private _channelConfig:   UniformGroup | null = null;
+  private _hrbaConfig:      UniformGroup | null = null;
   private _maskUniforms:    UniformGroup | null = null;
   private _debugPanel:      unknown      | null = null;
   private _personaUnsubscribe: (() => void) | null = null;
   private _time = 0;
-  private _animMult = 1.0;
   private _lastWorldW = 0;
   private _lastWorldH = 0;
-  private _isFallback = 0.0;
   
   private _currentNoiseTexKey = '';
 
@@ -471,27 +473,36 @@ export class CenterpieceDecal {
     rimPower: 3.0,
     rimColorR: 1.0, rimColorG: 0.4, rimColorB: 0.1,
 
-    // --- Mask R Routing ---
-    maskR_effectType: 0,
+    // --- HRBA Controls ---
+    hrbaB_route: 1, // 0 = None, 1 = Metalness
+    hrbaA_route: 0, // 0 = None, 1 = SSS, 2 = Transmission
+    hrbaMetalnessEnabled: 1, // keep for compatibility
+    hrbaSssEnabled: 0, // keep for compatibility
+    globalMetalness: 1.0,
+
+    // --- Mask Channels (v3.3 Universal Mask Routing) ---
+    maskR_effectType: 1,
     maskR_colorR: 1.0, maskR_colorG: 0.1, maskR_colorB: 0.05,
     maskR_strength: 1.0,
     maskR_noiseCoupling: 0.5,
 
-    // --- Mask G Routing ---
-    maskG_effectType: 1,
+    maskG_effectType: 0,
     maskG_colorR: 0.0, maskG_colorG: 1.0, maskG_colorB: 0.0,
-    maskG_strength: 0.0,
-    maskG_noiseCoupling: 0.0,
+    maskG_strength: 1.0,
+    maskG_noiseCoupling: 0.5,
 
-    // --- Mask B Routing ---
-    maskB_effectType: 2,
+    maskB_effectType: 0,
     maskB_colorR: 0.0, maskB_colorG: 0.0, maskB_colorB: 1.0,
-    maskB_strength: 0.0,
-    maskB_noiseCoupling: 0.0,
+    maskB_strength: 1.0,
+    maskB_noiseCoupling: 0.5,
 
-    // --- Global Mask Post-process ---
+    // --- Mask Emissive & Adjustments ---
     maskAnimMode: 1, 
     maskAnimSpeed: 1.0,
+    maskIntensity: 1.0,
+    maskBrightness: 0.0,
+    maskContrast: 1.0,
+    maskEdgeSoftness: 0.0,
     baseBlur: 14.0,
     bloomScale: 1.0,
 
@@ -505,8 +516,7 @@ export class CenterpieceDecal {
     noiseBlend: 0.0, // 0=Mul, 0.5=Lerp, 1=Add
 
     // --- SSS ---
-    metalness: 0.0,
-    sssR: 0.8, sssG: 0.6, sssB: 0.5, sssStrength: 0.5,
+    sssR: 0.8, sssG: 0.6, sssB: 0.5, sssStrength: 0.0,
   };
 
   constructor() {
@@ -519,39 +529,13 @@ export class CenterpieceDecal {
 
     try {
       this._currentNoiseTexKey = this._params.maskNoiseTex;
-      
-      let diffuse: Texture;
-      let normal: Texture;
-      let hrbc: Texture;
-      let noise: Texture;
-      let maskMap: Texture;
-      let isFallback = 0.0;
-
-      try {
-        [diffuse, normal, hrbc, noise, maskMap] = await Promise.all([
-          Assets.load<Texture>('/assets/canvas/decals/alchemist-centerpiece-1.ktx2'),
-          Assets.load<Texture>('/assets/canvas/decals/alchemist-centerpiece-1-normal.ktx2'),
-          Assets.load<Texture>('/assets/canvas/decals/alchemist-centerpiece-1-hrbc.ktx2'),
-          Assets.load<Texture>(this._currentNoiseTexKey),
-          Assets.load<Texture>('/assets/canvas/decals/alchemist-centerpiece-mask.ktx2'),
-        ]);
-      } catch (e) {
-        console.warn('[CenterpieceDecal] KTX2 load failed (unsupported ASTC on Windows). Falling back to high-res PNGs:', e);
-        isFallback = 1.0;
-        const [diffusePng, normalPng, hrdPng, noisePng] = await Promise.all([
-          Assets.load<Texture>('/assets/canvas/decals/alchemist-centerpiece-1.png'),
-          Assets.load<Texture>('/assets/canvas/decals/alchemist-centerpiece-1-normal.png'),
-          Assets.load<Texture>('/assets/canvas/decals/alchemist-centerpiece-1-hrd.png'),
-          Assets.load<Texture>(this._currentNoiseTexKey),
-        ]);
-        diffuse = diffusePng;
-        normal = normalPng;
-        hrbc = hrdPng;
-        maskMap = hrdPng; // PNG hrd is used for both PBR HRBC map and Mask map
-        noise = noisePng;
-      }
-
-      this._isFallback = isFallback;
+      const [diffuse, normal, hrba, mask, noise] = await Promise.all([
+        Assets.load<Texture>('/assets/canvas/decals/alchemist-centerpiece-1.png'),
+        Assets.load<Texture>('/assets/canvas/decals/alchemist-centerpiece-1-normal.png'),
+        Assets.load<Texture>('/assets/canvas/decals/alchemist-centerpiece-1-hrba.png'),
+        Assets.load<Texture>('/assets/canvas/decals/alchemist-centerpiece-1-mask.png'),
+        Assets.load<Texture>(this._currentNoiseTexKey),
+      ]);
 
       const half = SIZE / 2;
       const geometry = new Geometry({
@@ -584,25 +568,26 @@ export class CenterpieceDecal {
         uSystem:       { value: [1.0, 0.0, 1.0, 0.0], type: 'vec4<f32>' },
       });
 
-      this._channelConfig = new UniformGroup({
-        uMetalness:   { value: 0.0, type: 'f32' },
-        uSSSStrength: { value: 0.5, type: 'f32' },
-        uIsFallback:  { value: this._isFallback, type: 'f32' },
-        uPad2:        { value: 0.0, type: 'f32' },
-        uSSSColor:    { value: [0.8, 0.6, 0.5, 0.0], type: 'vec4<f32>' },
+      this._hrbaConfig = new UniformGroup({
+        uHRBAFlags: { value: [0.0, 0.0, 0.0, 0.0], type: 'vec4<f32>' },
+        uMetalness: { value: [1.0, 0.0, 0.0, 0.0], type: 'vec4<f32>' },
+        uSSSColor:  { value: [0.8, 0.6, 0.5, 0.0], type: 'vec4<f32>' },
       });
 
       this._maskUniforms = new UniformGroup({
-        maskR_colorAndType:     { value: [1.0, 0.1, 0.05, 0.0], type: 'vec4<f32>' },
-        maskG_colorAndType:     { value: [0.0, 1.0, 0.0, 1.0], type: 'vec4<f32>' },
-        maskB_colorAndType:     { value: [0.0, 0.0, 1.0, 2.0], type: 'vec4<f32>' },
-        uNoiseCfg:              { value: [2.5, 1.2, 0.02, 0.01], type: 'vec4<f32>' },
-        uNoiseCfg2:             { value: [3.5, 0.0, 0.0, 0.0], type: 'vec4<f32>' },
-        maskR_strengthAndNoise: { value: [1.0, 0.5], type: 'vec2<f32>' },
-        maskG_strengthAndNoise: { value: [0.0, 0.0], type: 'vec2<f32>' },
-        maskB_strengthAndNoise: { value: [0.0, 0.0], type: 'vec2<f32>' },
-        uTime:                  { value: 0.0, type: 'f32' },
-        uIsFallback:            { value: this._isFallback, type: 'f32' },
+        maskR_effectColorAndType: { value: [1.0, 0.1, 0.05, 1.0], type: 'vec4<f32>' },
+        maskR_strengthAndNoise:   { value: [1.0, 0.5, 0.0, 0.0], type: 'vec4<f32>' },
+        maskG_effectColorAndType: { value: [0.0, 1.0, 0.0, 0.0], type: 'vec4<f32>' },
+        maskG_strengthAndNoise:   { value: [1.0, 0.5, 0.0, 0.0], type: 'vec4<f32>' },
+        maskB_effectColorAndType: { value: [0.0, 0.0, 1.0, 0.0], type: 'vec4<f32>' },
+        maskB_strengthAndNoise:   { value: [1.0, 0.5, 0.0, 0.0], type: 'vec4<f32>' },
+        uNoiseCfg:  { value: [2.5, 1.2, 0.02, 0.01], type: 'vec4<f32>' },
+        uNoiseCfg2: { value: [3.5, 0.0, 0.0, 0.0], type: 'vec4<f32>' },
+        uMaskAdj:   { value: [0.0, 1.0, 0.0, 0.0], type: 'vec4<f32>' },
+        uTime:      { value: 0.0, type: 'f32' },
+        _pad1:      { value: 0.0, type: 'f32' },
+        _pad2:      { value: 0.0, type: 'f32' },
+        _pad3:      { value: 0.0, type: 'f32' },
       });
 
       const shader = Shader.from({
@@ -613,9 +598,10 @@ export class CenterpieceDecal {
           uDiffuse:   diffuse.source,
           uSampler:   diffuse.source.style,
           uNormalMap: normal.source,
-          uHRBCMap:   hrbc.source,
-          uMaskMap:   maskMap.source,
-          channel:    this._channelConfig,
+          uHRBAMap:   hrba.source,
+          uMaskMap:   mask.source,
+          hrbaConfig: this._hrbaConfig,
+          maskConfig: this._maskUniforms,
         }
       });
       this._mesh = new Mesh({ geometry, shader, label: 'centerpiece-metal-mesh' });
@@ -624,13 +610,10 @@ export class CenterpieceDecal {
         gpu: { vertex: { source: VERT_WGSL, entryPoint: 'main' }, fragment: { source: MASK_EMISSIVE_WGSL, entryPoint: 'main' } },
         resources: {
           cam:        this._cameraUniforms,
-          cfg:        this._maskUniforms,
-          light:      this._lightUniforms,
-          uSampler:   diffuse.source.style,
-          uMaskMap:   maskMap.source,
+          maskConfig: this._maskUniforms,
+          uMaskMap:   mask.source,
+          uSampler:   mask.source.style,
           uNoiseMap:  noise.source,
-          uDiffuse:   diffuse.source,
-          uNormalMap: normal.source,
         }
       });
 
@@ -719,7 +702,18 @@ export class CenterpieceDecal {
         }
       }
 
-      this._animMult = animMult;
+      const finalIntensityR = Math.max(0.0, Math.min(5.0, animMult * this._params.maskR_strength * this._params.maskIntensity));
+      const finalIntensityG = Math.max(0.0, Math.min(5.0, animMult * this._params.maskG_strength * this._params.maskIntensity));
+      const finalIntensityB = Math.max(0.0, Math.min(5.0, animMult * this._params.maskB_strength * this._params.maskIntensity));
+
+      this._maskUniforms.uniforms.maskR_effectColorAndType = [this._params.maskR_colorR, this._params.maskR_colorG, this._params.maskR_colorB, this._params.maskR_effectType];
+      this._maskUniforms.uniforms.maskR_strengthAndNoise   = [finalIntensityR, this._params.maskR_noiseCoupling, 0, 0];
+
+      this._maskUniforms.uniforms.maskG_effectColorAndType = [this._params.maskG_colorR, this._params.maskG_colorG, this._params.maskG_colorB, this._params.maskG_effectType];
+      this._maskUniforms.uniforms.maskG_strengthAndNoise   = [finalIntensityG, this._params.maskG_noiseCoupling, 0, 0];
+
+      this._maskUniforms.uniforms.maskB_effectColorAndType = [this._params.maskB_colorR, this._params.maskB_colorG, this._params.maskB_colorB, this._params.maskB_effectType];
+      this._maskUniforms.uniforms.maskB_strengthAndNoise   = [finalIntensityB, this._params.maskB_noiseCoupling, 0, 0];
       
       this._blurFilter.strength = (this._params.baseBlur + blurExtra) * this._viewport.scale.x;
       const s = this._params.bloomScale + scaleExtra;
@@ -772,7 +766,7 @@ export class CenterpieceDecal {
   }
 
   private _flushParams(): void {
-    if (!this._lightUniforms || !this._channelConfig || !this._maskUniforms) return;
+    if (!this._lightUniforms || !this._hrbaConfig || !this._maskUniforms) return;
     const lu = this._lightUniforms.uniforms as any;
     lu.uLightColor = [this._params.lightR, this._params.lightG, this._params.lightB, this._params.lightStrength];
     lu.uAmbient    = [this._params.ambientR, this._params.ambientG, this._params.ambientB, this._params.ambientStrength];
@@ -789,24 +783,15 @@ export class CenterpieceDecal {
     // 注入法线强度修正
     lu.uSurface[1] = this._params.bumpX;
 
-    const cc = this._channelConfig.uniforms;
-    cc.uMetalness   = this._params.metalness;
-    cc.uSSSStrength = this._params.sssStrength;
-    cc.uIsFallback  = this._isFallback;
-    cc.uSSSColor    = [this._params.sssR, this._params.sssG, this._params.sssB, 0];
+    const hrb = this._hrbaConfig.uniforms;
+    hrb.uHRBAFlags = [this._params.hrbaB_route, this._params.hrbaA_route, 0, 0];
+    hrb.uMetalness = [this._params.globalMetalness, 0, 0, 0];
+    hrb.uSSSColor  = [this._params.sssR, this._params.sssG, this._params.sssB, this._params.sssStrength];
 
     const mu = this._maskUniforms.uniforms;
-    mu.maskR_colorAndType = [this._params.maskR_colorR, this._params.maskR_colorG, this._params.maskR_colorB, this._params.maskR_effectType];
-    mu.maskG_colorAndType = [this._params.maskG_colorR, this._params.maskG_colorG, this._params.maskG_colorB, this._params.maskG_effectType];
-    mu.maskB_colorAndType = [this._params.maskB_colorR, this._params.maskB_colorG, this._params.maskB_colorB, this._params.maskB_effectType];
-    
     mu.uNoiseCfg  = [this._params.noiseScale, this._params.noiseContrast, this._params.noiseSpeedX, this._params.noiseSpeedY];
     mu.uNoiseCfg2 = [this._params.noiseScale2, this._params.noiseBlend, 0, 0];
-    mu.uIsFallback = this._isFallback;
-    
-    mu.maskR_strengthAndNoise = [this._params.maskR_strength * this._animMult, this._params.maskR_noiseCoupling];
-    mu.maskG_strengthAndNoise = [this._params.maskG_strength * this._animMult, this._params.maskG_noiseCoupling];
-    mu.maskB_strengthAndNoise = [this._params.maskB_strength * this._animMult, this._params.maskB_noiseCoupling];
+    mu.uMaskAdj   = [this._params.maskBrightness, this._params.maskContrast, this._params.maskEdgeSoftness, 0];
   }
 
   async loadMaskNoiseTexture(texturePath: string): Promise<void> {
@@ -859,7 +844,7 @@ export class CenterpieceDecal {
     // 1. 载入或从本地草稿恢复当前 Persona 的各子阶段预设
     loadPresetsForPersona(theme);
 
-    // 2. 获取该主题下上一次处于激活状态 of 子阶段
+    // 2. 获取该主题下上一次处于激活状态的子阶段
     const activeSubPhase = localStorage.getItem(`centerpiece-active-subphase-${theme}`) || 'rubedo';
 
     // 3. 应用该预设数据覆盖当前 _params（瞬间覆盖，不使用 Tween，防止重载时跳动）
