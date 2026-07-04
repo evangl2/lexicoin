@@ -1,6 +1,6 @@
 import {
   Container, Assets, Mesh, Geometry, Shader, UniformGroup,
-  type Texture, Sprite, BlurFilter, Buffer
+  Texture, Sprite, BlurFilter, Buffer
 } from 'pixi.js';
 import type { Viewport } from 'pixi-viewport';
 import gsap from 'gsap';
@@ -65,7 +65,7 @@ struct HRBAConfig {
 
 struct MaskUniforms {
   maskR_effectColorAndType: vec4<f32>, // rgb=颜色, a=路由类型 (0=None, 1=Emissive, 2=ColorTint, 3=Rim, 4=SSS)
-  maskR_strengthAndNoise:   vec4<f32>, // x=强度, y=noiseCoupling, zw=unused
+  maskR_strengthAndNoise:   vec4<f32>, // x=发光强度(已应用动画/总强度,供发光层用), y=noiseCoupling, z=材质路由强度(未动画,供染色/边缘光/SSS用), w=unused
   maskG_effectColorAndType: vec4<f32>,
   maskG_strengthAndNoise:   vec4<f32>,
   maskB_effectColorAndType: vec4<f32>,
@@ -220,7 +220,7 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
   let maskR_val = maskRGB.r;
   let maskR_type = u32(maskConfig.maskR_effectColorAndType.a + 0.5);
   let maskR_color = maskConfig.maskR_effectColorAndType.rgb;
-  let maskR_strength = maskConfig.maskR_strengthAndNoise.x;
+  let maskR_strength = maskConfig.maskR_strengthAndNoise.z;
   if (maskR_type == 2u) { // ColorTint
     diffuseColor = mix(diffuseColor, diffuseColor * maskR_color, clamp(maskR_val * maskR_strength, 0.0, 1.0));
   } else if (maskR_type == 3u) { // Rim
@@ -237,7 +237,7 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
   let maskG_val = maskRGB.g;
   let maskG_type = u32(maskConfig.maskG_effectColorAndType.a + 0.5);
   let maskG_color = maskConfig.maskG_effectColorAndType.rgb;
-  let maskG_strength = maskConfig.maskG_strengthAndNoise.x;
+  let maskG_strength = maskConfig.maskG_strengthAndNoise.z;
   if (maskG_type == 2u) { // ColorTint
     diffuseColor = mix(diffuseColor, diffuseColor * maskG_color, clamp(maskG_val * maskG_strength, 0.0, 1.0));
   } else if (maskG_type == 3u) { // Rim
@@ -254,7 +254,7 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
   let maskB_val = maskRGB.b;
   let maskB_type = u32(maskConfig.maskB_effectColorAndType.a + 0.5);
   let maskB_color = maskConfig.maskB_effectColorAndType.rgb;
-  let maskB_strength = maskConfig.maskB_strengthAndNoise.x;
+  let maskB_strength = maskConfig.maskB_strengthAndNoise.z;
   if (maskB_type == 2u) { // ColorTint
     diffuseColor = mix(diffuseColor, diffuseColor * maskB_color, clamp(maskB_val * maskB_strength, 0.0, 1.0));
   } else if (maskB_type == 3u) { // Rim
@@ -285,6 +285,287 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
   
   // 全局曝光
   lit *= light.uSystem.x;
+
+  let finalAlpha = rawDiffuse.a * edgeAlpha * baseAlpha;
+  return vec4<f32>(lit * finalAlpha, finalAlpha);
+}
+`;
+
+// ─── WGSL: PBR v4 Fragment (线性工作流 + Tonemap + Matcap 环境反射 + 双材质模型) ──
+// 与 v3 共享全部 UniformGroup;新增 v4(参数) 与 uEnvMap(matcap 环境图) 两个绑定。
+// 材质模型: uV4A.x = 0 → PBR(宝石/血肉/植物/金属), 1 → Stylized(手绘/纸板/少女)。
+
+const FRAG_WGSL_V4 = `
+struct LightUniforms {
+  uLightDir:     vec4<f32>,
+  uLightColor:   vec4<f32>,
+  uAmbient:      vec4<f32>,
+  uSurface:      vec4<f32>,
+  uRoughness:    vec4<f32>,
+  uRoughnessAdj: vec4<f32>,
+  uSpec:         vec4<f32>,
+  uSpecColor:    vec4<f32>,
+  uRim:          vec4<f32>,
+  uRimColor:     vec4<f32>,
+  uDiffuseTint:  vec4<f32>,
+  uSystem:       vec4<f32>,
+}
+
+struct HRBAConfig {
+  uHRBAFlags:    vec4<f32>,
+  uMetalness:    vec4<f32>,
+  uSSSColor:     vec4<f32>,
+}
+
+struct MaskUniforms {
+  maskR_effectColorAndType: vec4<f32>,
+  maskR_strengthAndNoise:   vec4<f32>,
+  maskG_effectColorAndType: vec4<f32>,
+  maskG_strengthAndNoise:   vec4<f32>,
+  maskB_effectColorAndType: vec4<f32>,
+  maskB_strengthAndNoise:   vec4<f32>,
+  uNoiseCfg:  vec4<f32>,
+  uNoiseCfg2: vec4<f32>,
+  uMaskAdj:   vec4<f32>,
+  uTime:      f32,
+  _pad1:      f32,
+  _pad2:      f32,
+  _pad3:      f32,
+}
+
+struct V4Uniforms {
+  uV4A: vec4<f32>,  // x=materialModel(0=PBR,1=Stylized), y=tonemapMode(0=None,1=Reinhard,2=ACES), z=envStrength, w=unpremultiply
+  uV4B: vec4<f32>,  // x=normalFlipX, y=normalBiasX, z=normalBiasY, w=heightInvert
+  uV4C: vec4<f32>,  // x=curvatureScale, y=curvatureBoost, z=rampSoftness, w=rampSteps
+  uV4D: vec4<f32>,  // x=envRoughFade, yzw=reserved
+}
+
+@group(1) @binding(0) var<uniform> light:      LightUniforms;
+@group(1) @binding(1) var uDiffuse:            texture_2d<f32>;
+@group(1) @binding(2) var uSampler:            sampler;
+@group(1) @binding(3) var uNormalMap:          texture_2d<f32>;
+@group(1) @binding(4) var uHRBAMap:            texture_2d<f32>;
+@group(1) @binding(5) var uMaskMap:            texture_2d<f32>;
+@group(1) @binding(6) var<uniform> hrbaConfig:  HRBAConfig;
+@group(1) @binding(7) var<uniform> maskConfig:  MaskUniforms;
+@group(1) @binding(8) var<uniform> v4:          V4Uniforms;
+@group(1) @binding(9) var uEnvMap:              texture_2d<f32>;
+
+const PI: f32 = 3.14159265359;
+
+// sRGB ↔ 线性空间(2.2 近似,美术管线足够)
+fn s2l(c: vec3<f32>) -> vec3<f32> { return pow(max(c, vec3<f32>(0.0)), vec3<f32>(2.2)); }
+fn l2s(c: vec3<f32>) -> vec3<f32> { return pow(max(c, vec3<f32>(0.0)), vec3<f32>(1.0 / 2.2)); }
+
+// ACES 近似 (Narkowicz)
+fn aces(x: vec3<f32>) -> vec3<f32> {
+  let a = 2.51; let b = 0.03; let c = 2.43; let d = 0.59; let e = 0.14;
+  return clamp((x * (a * x + b)) / (x * (c * x + d) + e), vec3<f32>(0.0), vec3<f32>(1.0));
+}
+
+fn ggx_ndf(n_dot_h: f32, roughness: f32) -> f32 {
+    let a     = roughness * roughness;
+    let a2    = a * a;
+    let denom = n_dot_h * n_dot_h * (a2 - 1.0) + 1.0;
+    return a2 / (PI * denom * denom);
+}
+
+fn fresnel_schlick(v_dot_h: f32, f0: vec3<f32>, power: f32) -> vec3<f32> {
+    return f0 + (1.0 - f0) * pow(clamp(1.0 - v_dot_h, 0.0, 1.0), power);
+}
+
+fn geometry_schlick_ggx(n_dot_v: f32, roughness: f32) -> f32 {
+    let r = roughness + 1.0;
+    let k = (r * r) / 8.0;
+    return n_dot_v / (n_dot_v * (1.0 - k) + k);
+}
+
+fn geometry_smith(n_dot_v: f32, n_dot_l: f32, roughness: f32) -> f32 {
+    return geometry_schlick_ggx(n_dot_v, roughness) * geometry_schlick_ggx(n_dot_l, roughness);
+}
+
+fn adjust_contrast(v: f32, contrast: f32) -> f32 {
+    return (v - 0.5) * contrast + 0.5;
+}
+
+@fragment
+fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
+  let baseAlpha  = textureSample(uDiffuse, uSampler, uv).a;
+  let hrba_base  = textureSample(uHRBAMap, uSampler, uv);
+  var h1         = hrba_base.r;
+  if (v4.uV4B.w > 0.5) { h1 = 1.0 - h1; }
+  let L          = normalize(light.uLightDir.xyz);
+
+  // 光驱动视差(2.5D 技巧,沿用 v3;高度经过 invert 调理)
+  let offset1    = -vec2<f32>(L.x, -L.y) * h1 * light.uSurface.z;
+  var h2         = textureSample(uHRBAMap, uSampler, uv + offset1).r;
+  if (v4.uV4B.w > 0.5) { h2 = 1.0 - h2; }
+  let smoothH    = (h1 + h2) * 0.5;
+  let pOffset    = -vec2<f32>(L.x, -L.y) * smoothH * light.uSurface.z;
+  let pUV        = uv + pOffset;
+
+  let rawDiffuse = textureSample(uDiffuse, uSampler, pUV);
+  let clipThreshold = light.uRoughness.z;
+  let edgeAlpha = smoothstep(clipThreshold - 0.008, clipThreshold + 0.008, rawDiffuse.a);
+  if (edgeAlpha <= 0.0) { discard; }
+
+  // 反预乘(修 v3 的边缘双乘 alpha 暗边)→ 解码到线性空间
+  var albedo = rawDiffuse.rgb;
+  if (v4.uV4A.w > 0.5) { albedo = albedo / max(rawDiffuse.a, 0.0001); }
+  albedo = s2l(albedo);
+  var diffuseColor = albedo * s2l(light.uDiffuseTint.rgb);
+
+  // 饱和度(线性空间)
+  let luminance = dot(diffuseColor, vec3<f32>(0.2126, 0.7152, 0.0722));
+  diffuseColor = mix(vec3<f32>(luminance), diffuseColor, light.uSystem.z);
+
+  let nRaw = textureSample(uNormalMap, uSampler, pUV);
+  let hrba = textureSample(uHRBAMap,    uSampler, pUV);
+  var height = hrba.r;
+  if (v4.uV4B.w > 0.5) { height = 1.0 - height; }
+
+  var roughness_base = hrba.g;
+  roughness_base = adjust_contrast(roughness_base + light.uRoughnessAdj.y, light.uRoughnessAdj.x);
+  let roughness = mix(light.uRoughness.x, light.uRoughness.y, clamp(roughness_base, 0.0, 1.0));
+
+  // 法线解码 + 资材调理(轴向翻转 / 偏置校正,吸收推理资材的系统性误差)
+  var N = nRaw.rgb * 2.0 - 1.0;
+  if (light.uRoughness.w > 0.5) { N.y = -N.y; }
+  if (v4.uV4B.x > 0.5)          { N.x = -N.x; }
+  N.x = N.x - v4.uV4B.y;
+  N.y = N.y - v4.uV4B.z;
+  N = normalize(vec3<f32>(N.x * light.uSurface.y, N.y * light.uRoughnessAdj.z, N.z));
+
+  let ao = mix(1.0, height, light.uSurface.w);
+  let cavity = mix(1.0, height, light.uSystem.w);
+
+  let ambient_term = s2l(light.uAmbient.rgb) * light.uAmbient.w * ao * diffuseColor;
+
+  var metalness = hrbaConfig.uMetalness.x;
+  if (hrbaConfig.uHRBAFlags.x > 0.5) {
+    metalness = hrba.b * hrbaConfig.uMetalness.x;
+  }
+  metalness = clamp(metalness, 0.0, 1.0);
+
+  let f0             = mix(vec3<f32>(light.uSpec.y), diffuseColor, metalness);
+  let diffuse_factor = 1.0 - metalness;
+
+  let V           = vec3<f32>(0.0, 0.0, 1.0);
+  let H           = normalize(L + V);
+  let n_dot_v     = max(dot(N, V), 0.0);
+  let n_dot_h     = max(dot(N, H), 0.0);
+  let v_dot_h     = max(dot(V, H), 0.0);
+
+  let n_dot_l_raw = dot(N, L);
+  let n_dot_l_wrap = max((n_dot_l_raw + light.uSystem.y) / (1.0 + light.uSystem.y), 0.0);
+  let n_dot_l = max(n_dot_l_raw, 0.0);
+
+  let roughness_c = clamp(roughness, 0.05, 1.0);
+
+  let D = ggx_ndf(n_dot_h, roughness_c);
+  let F = fresnel_schlick(v_dot_h, f0, light.uSpec.z);
+  let G = geometry_smith(n_dot_v, n_dot_l, roughness_c);
+
+  let specMask    = mix(1.0, ao * cavity, light.uSpec.w);
+  let specDenom   = 4.0 * n_dot_v * n_dot_l + 0.0001;
+  let specular    = (D * F * G) / specDenom;
+
+  // 曲率高光(系数滑块化,v3 硬编码 2.0/1.5)
+  let curvature   = clamp(length(fwidth(N.xyz)) * v4.uV4C.x, 0.0, 1.0);
+  let specStrength = light.uSpec.x * (1.0 + curvature * v4.uV4C.y);
+  let lightLin    = s2l(light.uLightColor.rgb) * light.uLightColor.w;
+  let spec_term   = s2l(light.uSpecColor.rgb) * specular * specMask * specStrength * n_dot_l * lightLin;
+
+  let rim      = pow(clamp(1.0 - n_dot_v, 0.0, 1.0), light.uRim.y) * light.uRim.x * specMask;
+  var rim_term = s2l(light.uRimColor.rgb) * rim;
+
+  var sss_strength: f32 = 0.0;
+  var transmission_strength: f32 = 0.0;
+  if (hrbaConfig.uHRBAFlags.y > 0.5 && hrbaConfig.uHRBAFlags.y < 1.5) {
+    sss_strength = hrba.a * hrbaConfig.uSSSColor.w;
+  } else if (hrbaConfig.uHRBAFlags.y > 1.5) {
+    transmission_strength = hrba.a * hrbaConfig.uSSSColor.w;
+  }
+
+  // Mask 三路路由(与 v3 相同逻辑,颜色转线性)
+  let maskRGB = textureSample(uMaskMap, uSampler, pUV);
+
+  let maskR_val = maskRGB.r;
+  let maskR_type = u32(maskConfig.maskR_effectColorAndType.a + 0.5);
+  let maskR_color = s2l(maskConfig.maskR_effectColorAndType.rgb);
+  let maskR_strength = maskConfig.maskR_strengthAndNoise.z;
+  if (maskR_type == 2u) {
+    diffuseColor = mix(diffuseColor, diffuseColor * maskR_color, clamp(maskR_val * maskR_strength, 0.0, 1.0));
+  } else if (maskR_type == 3u) {
+    rim_term += maskR_color * rim * maskR_val * maskR_strength;
+  } else if (maskR_type == 4u) {
+    if (hrbaConfig.uHRBAFlags.y > 1.5) { transmission_strength += maskR_val * maskR_strength; }
+    else { sss_strength += maskR_val * maskR_strength; }
+  }
+
+  let maskG_val = maskRGB.g;
+  let maskG_type = u32(maskConfig.maskG_effectColorAndType.a + 0.5);
+  let maskG_color = s2l(maskConfig.maskG_effectColorAndType.rgb);
+  let maskG_strength = maskConfig.maskG_strengthAndNoise.z;
+  if (maskG_type == 2u) {
+    diffuseColor = mix(diffuseColor, diffuseColor * maskG_color, clamp(maskG_val * maskG_strength, 0.0, 1.0));
+  } else if (maskG_type == 3u) {
+    rim_term += maskG_color * rim * maskG_val * maskG_strength;
+  } else if (maskG_type == 4u) {
+    if (hrbaConfig.uHRBAFlags.y > 1.5) { transmission_strength += maskG_val * maskG_strength; }
+    else { sss_strength += maskG_val * maskG_strength; }
+  }
+
+  let maskB_val = maskRGB.b;
+  let maskB_type = u32(maskConfig.maskB_effectColorAndType.a + 0.5);
+  let maskB_color = s2l(maskConfig.maskB_effectColorAndType.rgb);
+  let maskB_strength = maskConfig.maskB_strengthAndNoise.z;
+  if (maskB_type == 2u) {
+    diffuseColor = mix(diffuseColor, diffuseColor * maskB_color, clamp(maskB_val * maskB_strength, 0.0, 1.0));
+  } else if (maskB_type == 3u) {
+    rim_term += maskB_color * rim * maskB_val * maskB_strength;
+  } else if (maskB_type == 4u) {
+    if (hrbaConfig.uHRBAFlags.y > 1.5) { transmission_strength += maskB_val * maskB_strength; }
+    else { sss_strength += maskB_val * maskB_strength; }
+  }
+
+  // Matcap 环境反射(把材质从"一盏灯"世界带进"有环境"世界)
+  let muv = vec2<f32>(N.x, -N.y) * 0.5 + 0.5;
+  let envCol = s2l(textureSample(uEnvMap, uSampler, muv).rgb);
+  let envFresnel = fresnel_schlick(n_dot_v, f0, light.uSpec.z);
+  let envFade = clamp(1.0 - roughness * v4.uV4D.x, 0.0, 1.0);
+  let env_term = envCol * v4.uV4A.z * envFresnel * envFade * specMask;
+
+  let n_dot_l_final = max((n_dot_l_raw + sss_strength) / (1.0 + sss_strength), 0.0);
+  let sss_color = mix(vec3<f32>(1.0), s2l(hrbaConfig.uSSSColor.rgb), clamp(sss_strength, 0.0, 1.0));
+
+  var transmission_term: vec3<f32> = vec3<f32>(0.0);
+  if (transmission_strength > 0.0) {
+    let trans_light_dir = normalize(vec3<f32>(-L.x, -L.y, 1.0));
+    let trans_dot = max(dot(N, trans_light_dir), 0.0);
+    transmission_term = s2l(hrbaConfig.uSSSColor.rgb) * transmission_strength * trans_dot * lightLin;
+  }
+
+  var lit: vec3<f32>;
+  if (v4.uV4A.x < 0.5) {
+    // ── 材质模型 PBR:宝石/血肉/植物/金属 ──
+    let main_light_diffuse = lightLin * n_dot_l_wrap * light.uSurface.x;
+    let diffuse_term = diffuseColor * diffuse_factor * (main_light_diffuse + n_dot_l_final * light.uSurface.x * sss_color);
+    lit = ambient_term + diffuse_term + spec_term + rim_term + transmission_term + env_term;
+  } else {
+    // ── 材质模型 Stylized:手绘/纸板/少女(色阶化柔光,不做物理高光) ──
+    let steps = max(v4.uV4C.w, 1.0);
+    let posterized = clamp(floor(n_dot_l_wrap * steps + 0.5) / steps, 0.0, 1.0);
+    let ramp = mix(posterized, n_dot_l_wrap, v4.uV4C.z);
+    let main_light = lightLin * ramp * light.uSurface.x;
+    lit = ambient_term + diffuseColor * main_light + rim_term + env_term;
+  }
+
+  // 曝光(线性)→ 色调映射 → 编码回 sRGB
+  lit *= light.uSystem.x;
+  if (v4.uV4A.y > 1.5)      { lit = aces(lit); }
+  else if (v4.uV4A.y > 0.5) { lit = lit / (vec3<f32>(1.0) + lit); }
+  lit = l2s(lit);
 
   let finalAlpha = rawDiffuse.a * edgeAlpha * baseAlpha;
   return vec4<f32>(lit * finalAlpha, finalAlpha);
@@ -334,7 +615,7 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
   } else { // Add
     combinedNoise = clamp(n1 + n2, 0.0, 1.0);
   }
-  combinedNoise = pow(combinedNoise, maskConfig.uNoiseCfg.y) * 5.0;
+  combinedNoise = pow(combinedNoise, maskConfig.uNoiseCfg.y) * max(maskConfig._pad1, 0.0);
   
   if (maskConfig.uNoiseCfg.x <= 0.0) { combinedNoise = 1.0; }
 
@@ -353,7 +634,7 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
     if (maskConfig.uMaskAdj.z > 0.0) {
       mR = pow(mR, 1.0 + maskConfig.uMaskAdj.z * 5.0);
     }
-    let edgeMaskR = smoothstep(0.0, 0.015, mR);
+    let edgeMaskR = smoothstep(0.0, max(maskConfig.uMaskAdj.w, 0.0005), mR);
     if (edgeMaskR > 0.0) {
       let noiseMod = mix(1.0, combinedNoise, maskR_noiseCoupling);
       let alphaR = mR * noiseMod * maskR_strength * edgeMaskR;
@@ -374,7 +655,7 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
     if (maskConfig.uMaskAdj.z > 0.0) {
       mG = pow(mG, 1.0 + maskConfig.uMaskAdj.z * 5.0);
     }
-    let edgeMaskG = smoothstep(0.0, 0.015, mG);
+    let edgeMaskG = smoothstep(0.0, max(maskConfig.uMaskAdj.w, 0.0005), mG);
     if (edgeMaskG > 0.0) {
       let noiseMod = mix(1.0, combinedNoise, maskG_noiseCoupling);
       let alphaG = mG * noiseMod * maskG_strength * edgeMaskG;
@@ -395,7 +676,7 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
     if (maskConfig.uMaskAdj.z > 0.0) {
       mB = pow(mB, 1.0 + maskConfig.uMaskAdj.z * 5.0);
     }
-    let edgeMaskB = smoothstep(0.0, 0.015, mB);
+    let edgeMaskB = smoothstep(0.0, max(maskConfig.uMaskAdj.w, 0.0005), mB);
     if (edgeMaskB > 0.0) {
       let noiseMod = mix(1.0, combinedNoise, maskB_noiseCoupling);
       let alphaB = mB * noiseMod * maskB_strength * edgeMaskB;
@@ -422,6 +703,11 @@ export class CenterpieceDecal {
   private _lightUniforms:   UniformGroup | null = null;
   private _hrbaConfig:      UniformGroup | null = null;
   private _maskUniforms:    UniformGroup | null = null;
+  private _v4Uniforms:      UniformGroup | null = null;
+  private _shaderV3:        Shader | null = null;
+  private _shaderV4:        Shader | null = null;
+  private _activeShaderVersion = -1;
+  private _currentEnvTexKey = '';
   private _debugPanel:      unknown      | null = null;
   private _personaUnsubscribe: (() => void) | null = null;
   private _time = 0;
@@ -431,6 +717,27 @@ export class CenterpieceDecal {
   private _currentNoiseTexKey = '';
 
   private _params = {
+    // --- V4 Pipeline ---
+    shaderVersion: 1,       // 0 = v3(legacy), 1 = v4(线性工作流)
+    materialModel: 0,       // 0 = PBR, 1 = Stylized
+    tonemapMode: 2,         // 0 = None, 1 = Reinhard, 2 = ACES
+    envStrength: 0.0,       // matcap 环境反射强度(默认关,不改变迁移前观感)
+    envRoughFade: 0.5,      // 粗糙度对环境反射的衰减
+    unpremultiply: 1,       // 反预乘修正(修 v3 边缘暗圈)
+    rampSoftness: 1.0,      // Stylized: 色阶柔化(1=平滑)
+    rampSteps: 4,           // Stylized: 色阶数
+    envTex: '',             // matcap 贴图路径(空 = 程序生成的默认棚光)
+
+    // --- Asset Conditioning(资材调理:吸收推理贴图的系统性误差) ---
+    normalFlipX: 0,
+    normalBiasX: 0.0,
+    normalBiasY: 0.0,
+    heightInvert: 0,
+    curvatureScale: 2.0,    // v3 硬编码 2.0
+    curvatureBoost: 1.5,    // v3 硬编码 1.5
+    emissiveNoiseGain: 5.0, // v3 硬编码 5.0
+    emissiveEdgeWidth: 0.015, // v3 硬编码 0.015
+
     // --- System & Global ---
     exposure: 1.0,
     baseAlpha: 1.0,
@@ -590,7 +897,16 @@ export class CenterpieceDecal {
         _pad3:      { value: 0.0, type: 'f32' },
       });
 
-      const shader = Shader.from({
+      this._v4Uniforms = new UniformGroup({
+        uV4A: { value: [0.0, 2.0, 0.0, 1.0], type: 'vec4<f32>' },
+        uV4B: { value: [0.0, 0.0, 0.0, 0.0], type: 'vec4<f32>' },
+        uV4C: { value: [2.0, 1.5, 1.0, 4.0], type: 'vec4<f32>' },
+        uV4D: { value: [0.5, 0.0, 0.0, 0.0], type: 'vec4<f32>' },
+      });
+
+      const envTexture = this._createDefaultMatcap();
+
+      this._shaderV3 = Shader.from({
         gpu: { vertex: { source: VERT_WGSL, entryPoint: 'main' }, fragment: { source: FRAG_WGSL, entryPoint: 'main' } },
         resources: {
           cam:        this._cameraUniforms,
@@ -604,7 +920,27 @@ export class CenterpieceDecal {
           maskConfig: this._maskUniforms,
         }
       });
-      this._mesh = new Mesh({ geometry, shader, label: 'centerpiece-metal-mesh' });
+
+      this._shaderV4 = Shader.from({
+        gpu: { vertex: { source: VERT_WGSL, entryPoint: 'main' }, fragment: { source: FRAG_WGSL_V4, entryPoint: 'main' } },
+        resources: {
+          cam:        this._cameraUniforms,
+          light:      this._lightUniforms,
+          uDiffuse:   diffuse.source,
+          uSampler:   diffuse.source.style,
+          uNormalMap: normal.source,
+          uHRBAMap:   hrba.source,
+          uMaskMap:   mask.source,
+          hrbaConfig: this._hrbaConfig,
+          maskConfig: this._maskUniforms,
+          v4:         this._v4Uniforms,
+          uEnvMap:    envTexture.source,
+        }
+      });
+
+      const initialShader = this._params.shaderVersion >= 1 ? this._shaderV4 : this._shaderV3;
+      this._activeShaderVersion = this._params.shaderVersion >= 1 ? 1 : 0;
+      this._mesh = new Mesh({ geometry, shader: initialShader, label: 'centerpiece-metal-mesh' });
 
       const maskShader = Shader.from({
         gpu: { vertex: { source: VERT_WGSL, entryPoint: 'main' }, fragment: { source: MASK_EMISSIVE_WGSL, entryPoint: 'main' } },
@@ -706,14 +1042,16 @@ export class CenterpieceDecal {
       const finalIntensityG = Math.max(0.0, Math.min(5.0, animMult * this._params.maskG_strength * this._params.maskIntensity));
       const finalIntensityB = Math.max(0.0, Math.min(5.0, animMult * this._params.maskB_strength * this._params.maskIntensity));
 
+      // z 槽位存未动画的原始强度,供主体材质(染色/边缘光/SSS 路由)使用,
+      // 与发光层的 x(已叠加呼吸/闪烁/脉搏动画与总强度)解耦——见 ADR-006 附录。
       this._maskUniforms.uniforms.maskR_effectColorAndType = [this._params.maskR_colorR, this._params.maskR_colorG, this._params.maskR_colorB, this._params.maskR_effectType];
-      this._maskUniforms.uniforms.maskR_strengthAndNoise   = [finalIntensityR, this._params.maskR_noiseCoupling, 0, 0];
+      this._maskUniforms.uniforms.maskR_strengthAndNoise   = [finalIntensityR, this._params.maskR_noiseCoupling, this._params.maskR_strength, 0];
 
       this._maskUniforms.uniforms.maskG_effectColorAndType = [this._params.maskG_colorR, this._params.maskG_colorG, this._params.maskG_colorB, this._params.maskG_effectType];
-      this._maskUniforms.uniforms.maskG_strengthAndNoise   = [finalIntensityG, this._params.maskG_noiseCoupling, 0, 0];
+      this._maskUniforms.uniforms.maskG_strengthAndNoise   = [finalIntensityG, this._params.maskG_noiseCoupling, this._params.maskG_strength, 0];
 
       this._maskUniforms.uniforms.maskB_effectColorAndType = [this._params.maskB_colorR, this._params.maskB_colorG, this._params.maskB_colorB, this._params.maskB_effectType];
-      this._maskUniforms.uniforms.maskB_strengthAndNoise   = [finalIntensityB, this._params.maskB_noiseCoupling, 0, 0];
+      this._maskUniforms.uniforms.maskB_strengthAndNoise   = [finalIntensityB, this._params.maskB_noiseCoupling, this._params.maskB_strength, 0];
       
       this._blurFilter.strength = (this._params.baseBlur + blurExtra) * this._viewport.scale.x;
       const s = this._params.bloomScale + scaleExtra;
@@ -779,9 +1117,21 @@ export class CenterpieceDecal {
     lu.uRimColor   = [this._params.rimColorR, this._params.rimColorG, this._params.rimColorB, 0];
     lu.uDiffuseTint = [this._params.diffuseTintR, this._params.diffuseTintG, this._params.diffuseTintB, 0];
     lu.uSystem     = [this._params.exposure, this._params.diffuseWrap, this._params.diffuseSaturation, this._params.cavityStrength];
-    
-    // 注入法线强度修正
-    lu.uSurface[1] = this._params.bumpX;
+
+    if (this._v4Uniforms) {
+      const v4 = this._v4Uniforms.uniforms;
+      v4.uV4A = [this._params.materialModel, this._params.tonemapMode, this._params.envStrength, this._params.unpremultiply];
+      v4.uV4B = [this._params.normalFlipX, this._params.normalBiasX, this._params.normalBiasY, this._params.heightInvert];
+      v4.uV4C = [this._params.curvatureScale, this._params.curvatureBoost, this._params.rampSoftness, this._params.rampSteps];
+      v4.uV4D = [this._params.envRoughFade, 0, 0, 0];
+    }
+
+    // shader 版本切换(v3 ↔ v4)
+    const wantVersion = this._params.shaderVersion >= 0.5 ? 1 : 0;
+    if (wantVersion !== this._activeShaderVersion && this._mesh && this._shaderV3 && this._shaderV4) {
+      this._mesh.shader = wantVersion === 1 ? this._shaderV4 : this._shaderV3;
+      this._activeShaderVersion = wantVersion;
+    }
 
     const hrb = this._hrbaConfig.uniforms;
     hrb.uHRBAFlags = [this._params.hrbaB_route, this._params.hrbaA_route, 0, 0];
@@ -791,7 +1141,46 @@ export class CenterpieceDecal {
     const mu = this._maskUniforms.uniforms;
     mu.uNoiseCfg  = [this._params.noiseScale, this._params.noiseContrast, this._params.noiseSpeedX, this._params.noiseSpeedY];
     mu.uNoiseCfg2 = [this._params.noiseScale2, this._params.noiseBlend, 0, 0];
-    mu.uMaskAdj   = [this._params.maskBrightness, this._params.maskContrast, this._params.maskEdgeSoftness, 0];
+    mu.uMaskAdj   = [this._params.maskBrightness, this._params.maskContrast, this._params.maskEdgeSoftness, this._params.emissiveEdgeWidth];
+    mu._pad1      = this._params.emissiveNoiseGain;
+  }
+
+  /**
+   * 程序生成默认 matcap 环境图(左上棚光 + 底部反光的标准球),
+   * 让 envStrength 在没有外部贴图时开箱即用;persona 可用 envTex 换成 AI 生成的 matcap。
+   */
+  private _createDefaultMatcap(): Texture {
+    const size = 256;
+    const canvas = document.createElement('canvas');
+    canvas.width = size; canvas.height = size;
+    const ctx = canvas.getContext('2d')!;
+    ctx.fillStyle = '#101014';
+    ctx.fillRect(0, 0, size, size);
+    // 主棚光(左上)
+    const key = ctx.createRadialGradient(size * 0.35, size * 0.3, size * 0.02, size * 0.35, size * 0.3, size * 0.75);
+    key.addColorStop(0, 'rgba(255,255,255,0.95)');
+    key.addColorStop(0.25, 'rgba(200,200,210,0.5)');
+    key.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = key;
+    ctx.fillRect(0, 0, size, size);
+    // 底部冷色反光
+    const fill = ctx.createRadialGradient(size * 0.7, size * 0.85, size * 0.05, size * 0.7, size * 0.85, size * 0.6);
+    fill.addColorStop(0, 'rgba(90,110,140,0.5)');
+    fill.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = fill;
+    ctx.fillRect(0, 0, size, size);
+    return Texture.from(canvas);
+  }
+
+  async loadEnvTexture(texturePath: string): Promise<void> {
+    if (!texturePath || this._currentEnvTexKey === texturePath || !this._shaderV4) return;
+    try {
+      const tex = await Assets.load<Texture>(texturePath);
+      (this._shaderV4 as any).resources.uEnvMap = tex.source;
+      this._currentEnvTexKey = texturePath;
+    } catch (e) {
+      console.error('Failed to load env/matcap texture:', texturePath, e);
+    }
   }
 
   async loadMaskNoiseTexture(texturePath: string): Promise<void> {
@@ -806,10 +1195,15 @@ export class CenterpieceDecal {
     }
   }
 
-  applyPreset(preset: Partial<typeof this._params> & { maskNoiseTex?: string }, duration = 1.0): void {
+  applyPreset(preset: Partial<typeof this._params> & { maskNoiseTex?: string; envTex?: string }, duration = 1.0): void {
     if (preset.maskNoiseTex) {
       this.loadMaskNoiseTexture(preset.maskNoiseTex);
       delete preset.maskNoiseTex;
+    }
+    if (preset.envTex !== undefined) {
+      if (preset.envTex) this.loadEnvTexture(preset.envTex);
+      this._params.envTex = preset.envTex;
+      delete preset.envTex;
     }
     
     // 杀死当前正在对 _params 进行的 tween，防止冲突并能立刻响应新指令
@@ -853,6 +1247,9 @@ export class CenterpieceDecal {
       Object.assign(this._params, presetToParams(preset as any));
       if (preset.maskNoiseTex) {
         this.loadMaskNoiseTexture(preset.maskNoiseTex);
+      }
+      if ((preset as any).envTex) {
+        this.loadEnvTexture((preset as any).envTex);
       }
     }
 

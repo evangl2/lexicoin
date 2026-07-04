@@ -34,12 +34,10 @@
 *   **Y轴反转错误**：PixiJS 的 Y 轴向下，而标准法线贴图（OpenGL）的 Y 轴向上。
     *   **修正**：计算方向矢量时，必须对 `dy` 取反 (`ly = -dy`)，否则光照效果会产生垂直方向的逻辑错误（即鼠标向上移动时光照反而向下倾斜）。
 
-### C. 艺术家驱动的 GGX PBR
-*   **坑位**：标准物理守恒的 GGX 会导致 2D 资产在凸起处显得暗淡。
-*   **对策**：采用 **Artist-Driven** 模式。
-    *   **保留**：GGX 的 $D$ 项（法线分布函数），以获得高级的高光拖尾。
-    *   **剔除**：分母中的能量守恒因子 ($4 \cdot N \cdot L \cdot N \cdot V$) 和 $\pi$ 归一化项。
-    *   **结果**：高光极度闪耀且质感丝滑，同时不会因为物理规则被压暗。
+### C. GGX PBR 实现(2026-07-03 修正)
+*   ~~早期文档记载"剔除能量守恒分母"的 Artist-Driven 模式~~——**此描述与代码不符,已修正**:实际代码(v3 与 v4)均为完整 Cook-Torrance($D \cdot F \cdot G \ / \ 4 \cdot N{\cdot}V \cdot N{\cdot}L$),"艺术家驱动"体现在 specStrength/fresnelPower/曲率增强等滑块上,而非删改公式。
+*   **v4 管线**(现默认,见 [ADR-006](../../docs/decisions/ADR-006-material-model-family.md)):光照计算全部在**线性空间**进行(diffuse 采样后反预乘 + sRGB 解码),末端经曝光 → 色调映射(None/Reinhard/ACES 可选)→ 编码回 sRGB。此前 v3 在 gamma 空间直接做光照数学,是"中间调发闷、高光糊成死白"的根因。
+*   v4 新增 **matcap 环境反射**(uEnvMap,默认程序生成棚光,persona 可提供 AI 生成的 matcap 球贴图)与**资材调理参数**(normalFlipX/Y、normalBiasX/Y、heightInvert),用于吸收推理贴图的系统性误差。
 
 ---
 

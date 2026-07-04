@@ -8,6 +8,8 @@
  *   npm run assets -- normal --in height.png --out foo-normal.png [--strength 2]
  *   npm run assets -- hrba --height h.png [--rough r.png|0.5] [--metal m.png|0] [--thickness t.png] --out foo-hrba.png
  *   npm run assets -- mask [--r a.png|0] [--g b.png|0] [--b c.png|0] --out foo-mask.png
+ *   npm run assets -- check --height h.png --normal n.png    # 高度↔法线一致性校验(ADR-005)
+ *   npm run assets -- flip --in n.png --axis x|y|xy [--out foo.png]   # 翻转法线图轴向约定
  *
  * 通道参数既可以是 PNG 路径,也可以是 0~1 的常数(整张图填同一个值)。
  * 所有输入图必须同尺寸;灰度图取 R 通道。
@@ -184,6 +186,93 @@ function cmdMask(opts) {
   console.log(`   通道: R=${opts.r ?? 0} G=${opts.g ?? 0} B=${opts.b ?? 0}(路由含义见 Assets-guide.md §6.B)`);
 }
 
+// ---------- check: 高度↔法线一致性校验(ADR-005) ----------
+
+/** 用与 cmdNormal 相同的 Sobel 计算高度图在 (x,y) 处的期望法线 xy 分量(未归一化,相关系数对缩放不敏感)。 */
+function expectedNormalXY(src, w, h, x, y) {
+  const at = (px, py) => {
+    const cx = Math.min(w - 1, Math.max(0, px));
+    const cy = Math.min(h - 1, Math.max(0, py));
+    return src.data[(cy * w + cx) * 4] / 255;
+  };
+  const tl = at(x - 1, y - 1), t = at(x, y - 1), tr = at(x + 1, y - 1);
+  const l  = at(x - 1, y),                        r  = at(x + 1, y);
+  const bl = at(x - 1, y + 1), b = at(x, y + 1), br = at(x + 1, y + 1);
+  const dhdx = (tr + 2 * r + br - tl - 2 * l - bl) / 8;
+  const dhdy = (bl + 2 * b + br - tl - 2 * t - tr) / 8;
+  return [-dhdx, dhdy]; // OpenGL Y+ 约定,与 cmdNormal 一致
+}
+
+function pearson(xs, ys) {
+  const n = xs.length;
+  let sx = 0, sy = 0, sxx = 0, syy = 0, sxy = 0;
+  for (let i = 0; i < n; i++) {
+    sx += xs[i]; sy += ys[i]; sxx += xs[i] * xs[i]; syy += ys[i] * ys[i]; sxy += xs[i] * ys[i];
+  }
+  const cov = sxy / n - (sx / n) * (sy / n);
+  const vx = sxx / n - (sx / n) ** 2;
+  const vy = syy / n - (sy / n) ** 2;
+  return vx > 0 && vy > 0 ? cov / Math.sqrt(vx * vy) : 0;
+}
+
+function cmdCheck(opts) {
+  if (!opts.height || !opts.normal) fail("check 需要 --height <高度图.png> --normal <法线图.png>");
+  const hPng = readPng(opts.height);
+  const nPng = readPng(opts.normal);
+  if (hPng.width !== nPng.width || hPng.height !== nPng.height) {
+    fail(`尺寸不一致: 高度 ${hPng.width}x${hPng.height} vs 法线 ${nPng.width}x${nPng.height}`);
+  }
+  const w = hPng.width, h = hPng.height;
+  const exX = [], exY = [], acX = [], acY = [];
+  let sumR = 0, sumG = 0;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const [ex, ey] = expectedNormalXY(hPng, w, h, x, y);
+      const i = (y * w + x) * 4;
+      exX.push(ex); exY.push(ey);
+      acX.push(nPng.data[i] - 127.5); acY.push(nPng.data[i + 1] - 127.5);
+      sumR += nPng.data[i]; sumG += nPng.data[i + 1];
+    }
+  }
+  const n = w * h;
+  const corrR = pearson(exX, acX);
+  const corrG = pearson(exY, acY);
+  const meanR = sumR / n, meanG = sumG / n;
+
+  console.log(`高度↔法线一致性校验(期望值按 OpenGL Y+ 约定推导)`);
+  console.log(`  R 通道相关系数: ${corrR.toFixed(3)}   G 通道相关系数: ${corrG.toFixed(3)}`);
+  console.log(`  法线均值: R=${meanR.toFixed(1)} G=${meanG.toFixed(1)}(平坦资产应接近 127.5)`);
+
+  const verdicts = [];
+  if (corrR < -0.15) verdicts.push("⚠️ X 轴疑似翻转(可用 flip --axis x 修正后复测)");
+  if (corrG < -0.15) verdicts.push("⚠️ Y 轴疑似 DirectX 约定(可用 flip --axis y 或 shader 的 normalFlipY 修正)");
+  if (Math.abs(meanR - 127.5) > 8 || Math.abs(meanG - 127.5) > 8) {
+    verdicts.push("⚠️ 法线存在整体方向偏置,疑似原画烘焙光影被推理模型误读为坡度");
+  }
+  const agree = Math.max(Math.abs(corrR), Math.abs(corrG));
+  if (agree >= 0.6) verdicts.push("✅ 形状一致性良好");
+  else if (agree >= 0.3) verdicts.push("🟡 形状一致性弱——两图可能来自不同推理模型,建议改为单一真相源(ADR-005)");
+  else verdicts.push("🔴 两图基本描述了不同的形状,禁止混用(ADR-005)");
+  for (const v of verdicts) console.log(`  ${v}`);
+}
+
+// ---------- flip: 翻转法线图轴向约定 ----------
+
+function cmdFlip(opts) {
+  const inFile = opts.in ?? fail("flip 需要 --in <法线图.png>");
+  const axis = opts.axis ?? fail("flip 需要 --axis x|y|xy");
+  if (!["x", "y", "xy"].includes(axis)) fail(`--axis 只接受 x / y / xy,收到 ${axis}`);
+  const outFile = opts.out ?? inFile.replace(/\.png$/i, `-flip${axis}.png`);
+
+  const png = readPng(inFile);
+  for (let i = 0; i < png.data.length; i += 4) {
+    if (axis.includes("x")) png.data[i] = 255 - png.data[i];
+    if (axis.includes("y")) png.data[i + 1] = 255 - png.data[i + 1];
+  }
+  writePng(outFile, png);
+  console.log(`   已翻转 ${axis.toUpperCase()} 轴(通道取反)`);
+}
+
 // ---------- CLI ----------
 
 const HELP = `Lexicoin 资产预处理
@@ -195,6 +284,10 @@ const HELP = `Lexicoin 资产预处理
           npm run assets -- hrba --height h.png [--rough r.png|0.5] [--metal 0] [--thickness t.png] --out foo-hrba.png
   mask    打包三路 Universal Mask
           npm run assets -- mask [--r a.png] [--g b.png] [--b c.png] --out foo-mask.png
+  check   高度↔法线一致性校验(ADR-005:混用推理产物前必须校验)
+          npm run assets -- check --height h.png --normal n.png
+  flip    翻转法线图轴向约定
+          npm run assets -- flip --in n.png --axis x|y|xy [--out foo.png]
 
 通道参数可以是 PNG 路径或 0~1 常数。灰度图取 R 通道。所有输入图必须同尺寸。`;
 
@@ -210,6 +303,8 @@ const { values, positionals } = parseArgs({
     r: { type: "string" },
     g: { type: "string" },
     b: { type: "string" },
+    normal: { type: "string" },
+    axis: { type: "string" },
     help: { type: "boolean" },
   },
   allowPositionals: true,
@@ -225,5 +320,7 @@ switch (cmd) {
   case "normal": cmdNormal(values); break;
   case "hrba": cmdHrba(values); break;
   case "mask": cmdMask(values); break;
+  case "check": cmdCheck(values); break;
+  case "flip": cmdFlip(values); break;
   default: fail(`未知命令 "${cmd}"\n\n${HELP}`);
 }

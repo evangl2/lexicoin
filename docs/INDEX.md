@@ -37,7 +37,8 @@
 | [ADR-002](decisions/ADR-002-stay-on-web-stack.md) | 留在 Web 技术栈,不迁移 Godot 等原生引擎 |
 | [ADR-003](decisions/ADR-003-text-layering.md) | 文字分层:Pixi Text + React DOM 混合,禁用 BitmapText |
 | [ADR-004](decisions/ADR-004-shader-budget-and-tuning-workflow.md) | 视觉三层预算 + "AI 写管线、人调滑块"分工 |
-| [ADR-005](decisions/ADR-005-asset-preprocessing-pipeline.md) | 法线图从高度图脚本推导,不由 AI 生成 |
+| [ADR-005](decisions/ADR-005-asset-preprocessing-pipeline.md) | 高度/法线单一真相源,混用前必须一致性校验 |
+| [ADR-006](decisions/ADR-006-material-model-family.md) | Centerpiece v4:共享骨架 + 可插拔材质模型家族(线性工作流/tonemap/matcap) |
 
 ### workflow/ — 开发流程
 
@@ -51,6 +52,7 @@
 | 文件 | 内容 | 状态 |
 |---|---|---|
 | [roadmap.md](refactor-pixi/roadmap.md) | Stage 路线图 | 现行,⚠️ Stage 状态标记滞后,收尾时更新 |
+| [plan-centerpiece-workbench.md](refactor-pixi/plan-centerpiece-workbench.md) | 光照重做 + 面板工作台化实施计划(第一包任务书) | 现行(待实施,完成后归档) |
 | [text-guidelines.md](refactor-pixi/text-guidelines.md) | 文字分层规范 | 现行 |
 | [Assets-guide.md](refactor-pixi/Assets-guide.md) | 材质/shader 制作指南(HRBA/Mask 规范) | 现行 |
 | [Coordinate-Systems.md](refactor-pixi/Coordinate-Systems.md) | 坐标系说明 | 现行 |

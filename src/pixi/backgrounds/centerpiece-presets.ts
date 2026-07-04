@@ -17,6 +17,27 @@ import cyberpunkJson from './presets/cyberpunk.json';
 export interface CenterpiecePreset {
   label: string;
 
+  // ── V4 管线(线性工作流 + 材质模型,见 ADR-006) ──────────────────────────────
+  shaderVersion?:  number;  // 0 = v3(legacy), 1 = v4
+  materialModel?:  number;  // 0 = PBR, 1 = Stylized
+  tonemapMode?:    number;  // 0 = None, 1 = Reinhard, 2 = ACES
+  envStrength?:    number;
+  envRoughFade?:   number;
+  envTex?:         string;  // matcap 贴图路径(空 = 程序默认棚光)
+  unpremultiply?:  number;
+  rampSoftness?:   number;
+  rampSteps?:      number;
+
+  // ── 资材调理(吸收推理贴图的系统性误差) ─────────────────────────────────────
+  normalFlipX?:       number;
+  normalBiasX?:       number;
+  normalBiasY?:       number;
+  heightInvert?:      number;
+  curvatureScale?:    number;
+  curvatureBoost?:    number;
+  emissiveNoiseGain?: number;
+  emissiveEdgeWidth?: number;
+
   // ── 系统基础 ─────────────────────────────────────────────────────────────────
   exposure?:        number;
   baseAlpha?:       number;
@@ -171,6 +192,26 @@ export function loadPresetsForPersona(personaName: string): void {
 export function paramsToPreset(params: Record<string, any>, base: CenterpiecePreset): CenterpiecePreset {
   return {
     label: base.label,
+
+    shaderVersion:     params.shaderVersion,
+    materialModel:     params.materialModel,
+    tonemapMode:       params.tonemapMode,
+    envStrength:       params.envStrength,
+    envRoughFade:      params.envRoughFade,
+    envTex:            params.envTex,
+    unpremultiply:     params.unpremultiply,
+    rampSoftness:      params.rampSoftness,
+    rampSteps:         params.rampSteps,
+
+    normalFlipX:       params.normalFlipX,
+    normalBiasX:       params.normalBiasX,
+    normalBiasY:       params.normalBiasY,
+    heightInvert:      params.heightInvert,
+    curvatureScale:    params.curvatureScale,
+    curvatureBoost:    params.curvatureBoost,
+    emissiveNoiseGain: params.emissiveNoiseGain,
+    emissiveEdgeWidth: params.emissiveEdgeWidth,
+
     exposure:          params.exposure,
     baseAlpha:         params.baseAlpha,
     alphaClip:         params.alphaClip,
@@ -257,6 +298,25 @@ export function paramsToPreset(params: Record<string, any>, base: CenterpiecePre
 
 export function presetToParams(p: CenterpiecePreset): Record<string, number | string> {
   return {
+    shaderVersion:     p.shaderVersion     ?? 1,
+    materialModel:     p.materialModel     ?? 0,
+    tonemapMode:       p.tonemapMode       ?? 2,
+    envStrength:       p.envStrength       ?? 0.0,
+    envRoughFade:      p.envRoughFade      ?? 0.5,
+    envTex:            p.envTex            ?? '',
+    unpremultiply:     p.unpremultiply     ?? 1,
+    rampSoftness:      p.rampSoftness      ?? 1.0,
+    rampSteps:         p.rampSteps         ?? 4,
+
+    normalFlipX:       p.normalFlipX       ?? 0,
+    normalBiasX:       p.normalBiasX       ?? 0.0,
+    normalBiasY:       p.normalBiasY       ?? 0.0,
+    heightInvert:      p.heightInvert      ?? 0,
+    curvatureScale:    p.curvatureScale    ?? 2.0,
+    curvatureBoost:    p.curvatureBoost    ?? 1.5,
+    emissiveNoiseGain: p.emissiveNoiseGain ?? 5.0,
+    emissiveEdgeWidth: p.emissiveEdgeWidth ?? 0.015,
+
     exposure:          p.exposure ?? 1.0,
     baseAlpha:         p.baseAlpha ?? 1.0,
     alphaClip:         p.alphaClip,

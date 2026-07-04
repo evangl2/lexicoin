@@ -46,7 +46,11 @@
       "PowerShell(node -e \"const fs=require\\('fs'\\);const {PNG}=require\\('pngjs'\\);const src=PNG.sync.read\\(fs.readFileSync\\('public/assets/canvas/decals/alchemist-centerpiece-1-hrba.png'\\)\\);const out=new PNG\\({width:src.width,height:src.height}\\);for\\(let i=0;i<src.data.length;i+=4\\){const v=src.data[i];out.data[i]=v;out.data[i+1]=v;out.data[i+2]=v;out.data[i+3]=255;}fs.writeFileSync\\('C:/Users/admin/AppData/Local/Temp/claude/A--lexicoin-lexicoin/b8de9def-2076-4ff2-ae34-c6e98898ae90/scratchpad/test-height.png',PNG.sync.write\\(out\\)\\);console.log\\('extracted',src.width,'x',src.height\\)\")",
       "PowerShell(npm run assets -- normal --in \"C:/Users/admin/AppData/Local/Temp/claude/A--lexicoin-lexicoin/b8de9def-2076-4ff2-ae34-c6e98898ae90/scratchpad/test-height.png\" --out \"C:/Users/admin/AppData/Local/Temp/claude/A--lexicoin-lexicoin/b8de9def-2076-4ff2-ae34-c6e98898ae90/scratchpad/test-normal.png\" --strength 2)",
       "PowerShell(npm run assets -- hrba --height \"C:/Users/admin/AppData/Local/Temp/claude/A--lexicoin-lexicoin/b8de9def-2076-4ff2-ae34-c6e98898ae90/scratchpad/test-height.png\" --rough 0.4 --metal 0.8 --out \"C:/Users/admin/AppData/Local/Temp/claude/A--lexicoin-lexicoin/b8de9def-2076-4ff2-ae34-c6e98898ae90/scratchpad/test-hrba.png\")",
-      "PowerShell(Get-ChildItem -Recurse A:\\\\lexicoin\\\\lexicoin\\\\docs -File | Select-Object -ExpandProperty FullName | ForEach-Object { $_.Replace\\('A:\\\\lexicoin\\\\lexicoin\\\\',''\\) })"
+      "PowerShell(Get-ChildItem -Recurse A:\\\\lexicoin\\\\lexicoin\\\\docs -File | Select-Object -ExpandProperty FullName | ForEach-Object { $_.Replace\\('A:\\\\lexicoin\\\\lexicoin\\\\',''\\) })",
+      "PowerShell(npm run assets -- check --height public/assets/canvas/decals/alchemist-centerpiece-1-hrba.png --normal public/assets/canvas/decals/alchemist-centerpiece-1-normal.png)",
+      "PowerShell(Copy-Item public/assets/canvas/decals/alchemist-centerpiece-1-normal.png public/assets/canvas/decals/alchemist-centerpiece-1-normal-A-original.png)",
+      "PowerShell(npm run assets -- normal --in public/assets/canvas/decals/alchemist-centerpiece-1-hrba.png --out public/assets/canvas/decals/alchemist-centerpiece-1-normal-B-derived.png --strength 6)",
+      "PowerShell(npm run assets -- flip --in public/assets/canvas/decals/alchemist-centerpiece-1-normal.png --axis x --out public/assets/canvas/decals/alchemist-centerpiece-1-normal-C-flipx.png)"
     ]
   }
 }

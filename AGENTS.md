@@ -4,7 +4,7 @@
 
 1. **视觉分工**:AI 只写渲染管线/调试面板/preset 导出,不许盲改数字"调效果";视觉参数由用户拖滑块调定
 2. **Shader 预算**:视觉效果优先烘焙进贴图 → 其次 pixi-filters → 自研 shader 须用户明确批准
-3. **法线图**:不由 AI 生成,用 `npm run assets -- normal` 从高度图推导
+3. **高度/法线单一真相源**:只推理其中一张,另一张用 `npm run assets -- normal` 推导;混用推理产物前必须 `npm run assets -- check` 校验(见 ADR-005)
 4. **文字**:遵守 [docs/refactor-pixi/text-guidelines.md](docs/refactor-pixi/text-guidelines.md);`BitmapText` 全面禁用
 5. **文档同步**:改代码同一个 commit 更新对应文档;新文档登记进 [docs/INDEX.md](docs/INDEX.md);不得推翻 [docs/decisions/](docs/decisions/) 中的现行 ADR
 6. **语言**:始终用简体中文与用户交流;前端视觉验证由用户负责

@@ -28,14 +28,14 @@ AI **永远不许**通过盲改数字来"调效果"。用户描述"高光太散/
 | 1 | pixi-filters 现成滤镜 | 动态但通用的效果(glow、bloom、displacement) |
 | 2 | 自研 shader | 仅限游戏招牌视觉,**新增自研 shader 必须经用户明确批准** |
 
-Persona 的视觉多样性来自"换贴图 + 换 preset JSON",**不来自新 shader**。现有自研 shader 只有 WGSL(WebGPU-only);目标平台含手机,新写 shader 要控制特性复杂度,为将来补 GLSL 双后端留余地。
+Persona 的视觉多样性来自"换贴图 + 换 preset JSON",**不来自新 shader**。当前阶段不为手机端预留设计约束,shader 可以是 WGSL-only(WebGPU-only);移动端适配(GLSL 双后端、降级路径)是待桌面效果定型后的独立后续阶段(见 [ADR-004](docs/decisions/ADR-004-shader-budget-and-tuning-workflow.md))。
 
-## 铁律三:法线图不由 AI 生成
+## 铁律三:高度/法线只能有一个真相源
 
-AI 图像模型画的法线图物理上不可靠(Y 方向不一致、与高度图对不上)。流程:
+高度图与法线图若来自两次独立的模型推理,形状意见会互相矛盾,shader 混用后效果永远调不干净(数据佐证见 [ADR-005](docs/decisions/ADR-005-asset-preprocessing-pipeline.md))。流程:
 
-1. AI 只生成 diffuse(提示词要求平光/albedo,无烘焙光影)和高度图
-2. 法线图用脚本从高度图推导:`npm run assets -- normal --in height.png`
+1. diffuse 生成时要求平光/albedo(无烘焙光影);高度或法线只推理**其中一张**
+2. 另一张用脚本推导:`npm run assets -- normal --in height.png`;若两张都是推理产物,接入前必须 `npm run assets -- check` 校验一致性
 3. HRBA / Mask 打包同样走脚本:`npm run assets`(用法见 [scripts/assets/preprocess.mjs](scripts/assets/preprocess.mjs) 头注释)
 
 材质通道规范见 [docs/refactor-pixi/Assets-guide.md](docs/refactor-pixi/Assets-guide.md) §6。
