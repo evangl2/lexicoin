@@ -338,8 +338,23 @@ struct V4Uniforms {
   uV4B: vec4<f32>,  // x=normalFlipX, y=normalBiasX, z=normalBiasY, w=heightInvert
   uV4C: vec4<f32>,  // x=curvatureScale, y=curvatureBoost, z=rampSoftness, w=rampSteps
   uV4D: vec4<f32>,  // x=envRoughFade, yzw=reserved
+  // ── 光照系统重做新增(计划: plan-centerpiece-workbench.md §1) ──
+  uV4E: vec4<f32>,  // x=lightType(0=平行光,1=点光), y=pointFalloffRadius, z=pointFalloffCurve, w=envUniformity
+  uV4F: vec4<f32>,  // xy=lightPosUV(点光位置/方向驱动向量+0.5), z=parallaxFollow(0=跟随光,1=跟随鼠标), w=ditherStrength
+  uV4G: vec4<f32>,  // xy=mouseOffsetUV(原始鼠标偏移,供视差跟随鼠标专用,与光照驱动模式无关), zw=reserved
+  uV4H: vec4<f32>,  // x=reliefShadowStrength, y=reliefShadowLength, z=reliefShadowSoftness, w=reserved
+  uV4I: vec4<f32>,  // rgb=fillColor(副光颜色), w=fillStrength(副光强度)
+  uV4J: vec4<f32>,  // xyz=fillDir(副光方向,TS 预计算未归一化分量), w=reserved
 }
 
+struct CameraUniforms {
+  uResolution: vec2<f32>,
+  uViewPos:    vec2<f32>,
+  uWorldSize:  vec2<f32>,
+  uZoom:       f32,
+}
+
+@group(0) @binding(0) var<uniform> cam:        CameraUniforms;
 @group(1) @binding(0) var<uniform> light:      LightUniforms;
 @group(1) @binding(1) var uDiffuse:            texture_2d<f32>;
 @group(1) @binding(2) var uSampler:            sampler;
@@ -356,6 +371,13 @@ const PI: f32 = 3.14159265359;
 // sRGB ↔ 线性空间(2.2 近似,美术管线足够)
 fn s2l(c: vec3<f32>) -> vec3<f32> { return pow(max(c, vec3<f32>(0.0)), vec3<f32>(2.2)); }
 fn l2s(c: vec3<f32>) -> vec3<f32> { return pow(max(c, vec3<f32>(0.0)), vec3<f32>(1.0 / 2.2)); }
+
+// 去色带用整数散列噪声(屏幕空间,不随缩放/平移漂移)
+fn hash21(p: vec2<f32>) -> f32 {
+  var p3 = fract(vec3<f32>(p.xyx) * 0.1031);
+  p3 = p3 + dot(p3, p3.yzx + 33.33);
+  return fract((p3.x + p3.y) * p3.z);
+}
 
 // ACES 近似 (Narkowicz)
 fn aces(x: vec3<f32>) -> vec3<f32> {
@@ -394,19 +416,36 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
   let hrba_base  = textureSample(uHRBAMap, uSampler, uv);
   var h1         = hrba_base.r;
   if (v4.uV4B.w > 0.5) { h1 = 1.0 - h1; }
-  let L          = normalize(light.uLightDir.xyz);
+
+  // 光源方向:平行光(现状)或点光(逐像素方向 + 距离衰减)
+  var L: vec3<f32>;
+  var lightAtten: f32 = 1.0;
+  if (v4.uV4E.x > 0.5) {
+    let toLightUV = v4.uV4F.xy - uv;
+    let dist = length(toLightUV);
+    lightAtten = pow(clamp(1.0 - dist / max(v4.uV4E.y, 0.001), 0.0, 1.0), max(v4.uV4E.z, 0.01));
+    let pointDirRaw = vec3<f32>(toLightUV.x, -toLightUV.y, light.uLightDir.z);
+    L = normalize(select(vec3<f32>(0.0, 0.0, 1.0), pointDirRaw, length(pointDirRaw) > 0.0001));
+  } else {
+    L = normalize(light.uLightDir.xyz);
+  }
+
+  // 视差驱动向量:跟随光(现状)或跟随鼠标(资材调理:视差跟随)
+  let parallaxDriver = select(vec2<f32>(L.x, -L.y), vec2<f32>(v4.uV4G.x, -v4.uV4G.y), v4.uV4F.z > 0.5);
 
   // 光驱动视差(2.5D 技巧,沿用 v3;高度经过 invert 调理)
-  let offset1    = -vec2<f32>(L.x, -L.y) * h1 * light.uSurface.z;
+  let offset1    = -parallaxDriver * h1 * light.uSurface.z;
   var h2         = textureSample(uHRBAMap, uSampler, uv + offset1).r;
   if (v4.uV4B.w > 0.5) { h2 = 1.0 - h2; }
   let smoothH    = (h1 + h2) * 0.5;
-  let pOffset    = -vec2<f32>(L.x, -L.y) * smoothH * light.uSurface.z;
+  let pOffset    = -parallaxDriver * smoothH * light.uSurface.z;
   let pUV        = uv + pOffset;
 
   let rawDiffuse = textureSample(uDiffuse, uSampler, pUV);
   let clipThreshold = light.uRoughness.z;
-  let edgeAlpha = smoothstep(clipThreshold - 0.008, clipThreshold + 0.008, rawDiffuse.a);
+  // 边缘抗锯齿:过渡带宽度跟随屏幕像素导数,任意缩放倍率下都恰好一个像素左右的柔和过渡
+  let edgeAAWidth = max(fwidth(rawDiffuse.a), 0.0001);
+  let edgeAlpha = smoothstep(clipThreshold - edgeAAWidth, clipThreshold + edgeAAWidth, rawDiffuse.a);
   if (edgeAlpha <= 0.0) { discard; }
 
   // 反预乘(修 v3 的边缘双乘 alpha 暗边)→ 解码到线性空间
@@ -441,6 +480,23 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
 
   let ambient_term = s2l(light.uAmbient.rgb) * light.uAmbient.w * ao * diffuseColor;
 
+  // 浮雕投影:沿光方向在高度图上采样,遮挡则压暗(默认 strength=0 完全旁路)
+  var reliefShadowFactor = 1.0;
+  if (v4.uV4H.x > 0.0) {
+    let shadowDir = vec2<f32>(L.x, -L.y);
+    let sLen = v4.uV4H.y;
+    var h_s1 = textureSample(uHRBAMap, uSampler, pUV + shadowDir * sLen * 0.33).r;
+    var h_s2 = textureSample(uHRBAMap, uSampler, pUV + shadowDir * sLen * 0.66).r;
+    var h_s3 = textureSample(uHRBAMap, uSampler, pUV + shadowDir * sLen).r;
+    if (v4.uV4B.w > 0.5) { h_s1 = 1.0 - h_s1; h_s2 = 1.0 - h_s2; h_s3 = 1.0 - h_s3; }
+    let soft = v4.uV4H.z;
+    let d1 = clamp((h_s1 - height - 0.033) * 4.0, 0.0, 1.0);
+    let d2 = clamp((h_s2 - height - 0.066) * 4.0, 0.0, 1.0) * (1.0 - soft * 0.3);
+    let d3 = clamp((h_s3 - height - 0.100) * 4.0, 0.0, 1.0) * (1.0 - soft * 0.6);
+    let occlusion = max(d1, max(d2, d3)) * v4.uV4H.x;
+    reliefShadowFactor = 1.0 - occlusion;
+  }
+
   var metalness = hrbaConfig.uMetalness.x;
   if (hrbaConfig.uHRBAFlags.x > 0.5) {
     metalness = hrba.b * hrbaConfig.uMetalness.x;
@@ -449,6 +505,13 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
 
   let f0             = mix(vec3<f32>(light.uSpec.y), diffuseColor, metalness);
   let diffuse_factor = 1.0 - metalness;
+
+  // 副光(职责=托暗部,仅参与漫反射;默认 fillStrength=0 完全旁路)
+  // 零向量兜底,避免 lightHeight=0 等边界情况下 normalize(0) 产生 NaN 污染画面
+  let fillDirRaw   = v4.uV4J.xyz;
+  let fillDirN     = normalize(select(vec3<f32>(0.0, 0.0, 1.0), fillDirRaw, length(fillDirRaw) > 0.0001));
+  let fill_n_dot_l = max(dot(N, fillDirN), 0.0);
+  let fill_term    = diffuseColor * diffuse_factor * s2l(v4.uV4I.rgb) * v4.uV4I.w * fill_n_dot_l;
 
   let V           = vec3<f32>(0.0, 0.0, 1.0);
   let H           = normalize(L + V);
@@ -473,8 +536,8 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
   // 曲率高光(系数滑块化,v3 硬编码 2.0/1.5)
   let curvature   = clamp(length(fwidth(N.xyz)) * v4.uV4C.x, 0.0, 1.0);
   let specStrength = light.uSpec.x * (1.0 + curvature * v4.uV4C.y);
-  let lightLin    = s2l(light.uLightColor.rgb) * light.uLightColor.w;
-  let spec_term   = s2l(light.uSpecColor.rgb) * specular * specMask * specStrength * n_dot_l * lightLin;
+  let lightLin    = s2l(light.uLightColor.rgb) * light.uLightColor.w * lightAtten;
+  let spec_term   = s2l(light.uSpecColor.rgb) * specular * specMask * specStrength * n_dot_l * lightLin * reliefShadowFactor;
 
   let rim      = pow(clamp(1.0 - n_dot_v, 0.0, 1.0), light.uRim.y) * light.uRim.x * specMask;
   var rim_term = s2l(light.uRimColor.rgb) * rim;
@@ -533,8 +596,9 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
   let muv = vec2<f32>(N.x, -N.y) * 0.5 + 0.5;
   let envCol = s2l(textureSample(uEnvMap, uSampler, muv).rgb);
   let envFresnel = fresnel_schlick(n_dot_v, f0, light.uSpec.z);
+  let envGate = mix(envFresnel, vec3<f32>(1.0), v4.uV4E.w);
   let envFade = clamp(1.0 - roughness * v4.uV4D.x, 0.0, 1.0);
-  let env_term = envCol * v4.uV4A.z * envFresnel * envFade * specMask;
+  let env_term = envCol * v4.uV4A.z * envGate * envFade * specMask;
 
   let n_dot_l_final = max((n_dot_l_raw + sss_strength) / (1.0 + sss_strength), 0.0);
   let sss_color = mix(vec3<f32>(1.0), s2l(hrbaConfig.uSSSColor.rgb), clamp(sss_strength, 0.0, 1.0));
@@ -550,15 +614,15 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
   if (v4.uV4A.x < 0.5) {
     // ── 材质模型 PBR:宝石/血肉/植物/金属 ──
     let main_light_diffuse = lightLin * n_dot_l_wrap * light.uSurface.x;
-    let diffuse_term = diffuseColor * diffuse_factor * (main_light_diffuse + n_dot_l_final * light.uSurface.x * sss_color);
-    lit = ambient_term + diffuse_term + spec_term + rim_term + transmission_term + env_term;
+    let diffuse_term = diffuseColor * diffuse_factor * (main_light_diffuse + n_dot_l_final * light.uSurface.x * sss_color) * cavity * reliefShadowFactor;
+    lit = ambient_term + diffuse_term + spec_term + rim_term + transmission_term + env_term + fill_term;
   } else {
     // ── 材质模型 Stylized:手绘/纸板/少女(色阶化柔光,不做物理高光) ──
     let steps = max(v4.uV4C.w, 1.0);
     let posterized = clamp(floor(n_dot_l_wrap * steps + 0.5) / steps, 0.0, 1.0);
     let ramp = mix(posterized, n_dot_l_wrap, v4.uV4C.z);
-    let main_light = lightLin * ramp * light.uSurface.x;
-    lit = ambient_term + diffuseColor * main_light + rim_term + env_term;
+    let main_light = lightLin * ramp * light.uSurface.x * cavity * reliefShadowFactor;
+    lit = ambient_term + diffuseColor * main_light + rim_term + env_term + fill_term;
   }
 
   // 曝光(线性)→ 色调映射 → 编码回 sRGB
@@ -566,6 +630,10 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
   if (v4.uV4A.y > 1.5)      { lit = aces(lit); }
   else if (v4.uV4A.y > 0.5) { lit = lit / (vec3<f32>(1.0) + lit); }
   lit = l2s(lit);
+
+  // 去色带:屏幕空间散列噪声,人眼不可见,消除暗部渐变的色带(默认 ditherStrength=1.0)
+  let ditherNoise = (hash21(uv * cam.uResolution) - 0.5) / 255.0 * v4.uV4F.w;
+  lit = lit + vec3<f32>(ditherNoise);
 
   let finalAlpha = rawDiffuse.a * edgeAlpha * baseAlpha;
   return vec4<f32>(lit * finalAlpha, finalAlpha);
@@ -708,6 +776,21 @@ export class CenterpieceDecal {
   private _shaderV4:        Shader | null = null;
   private _activeShaderVersion = -1;
   private _currentEnvTexKey = '';
+  private _defaultMatcapSource: unknown = null;
+  // 光照驱动的平滑状态(lightSmoothing);与瞬时目标值分离,避免每帧重新计算导致跳变
+  private _smoothDriveX = 0;
+  private _smoothDriveY = 0;
+  private _driveInited = false;
+  // 以下均为 update() 每帧算好、供 _flushParams() 统一写入 uniform 的动态派生量。
+  // 运行时调制(摇曳/接近发光)只在这里相乘,绝不写回 _params,避免污染草稿与改动高亮。
+  private _flickerMult = 1.0;
+  private _lightPosUVX = 0.5;
+  private _lightPosUVY = 0.5;
+  private _mouseOffsetX = 0;
+  private _mouseOffsetY = 0;
+  private _fillDirX = 0;
+  private _fillDirY = 0;
+  private _fillDirZ = 1.0;
   private _debugPanel:      unknown      | null = null;
   private _personaUnsubscribe: (() => void) | null = null;
   private _time = 0;
@@ -753,6 +836,33 @@ export class CenterpieceDecal {
     lightOrbitRadiusX: 0.4,
     lightOrbitRadiusY: 0.3,
     mouseInfluence: 0.5,
+
+    // --- Light System Rework(plan-centerpiece-workbench.md §1) ---
+    lightType: 0,           // 0=平行光, 1=点光
+    lightDrive: 3,          // 0=固定, 1=自动公转, 2=跟随鼠标, 3=公转+鼠标混合(现状默认)
+    fixedLightAngle: 0,     // 固定+平行光:方位角(度)
+    fixedLightX: 0,         // 固定+点光:位置 X(-1~1,相对法阵中心)
+    fixedLightY: 0,         // 固定+点光:位置 Y(-1~1)
+    mouseRange: 1000,       // 鼠标灵敏度分母(替换原硬编码 /1000)
+    lightSmoothing: 0,      // 光追鼠标的阻尼,0=瞬移(现状)
+    pointFalloffRadius: 0.6,
+    pointFalloffCurve: 2.0,
+    lightFlickerAmp: 0,     // 摇曳幅度(运行时调制光强,不写回本对象)
+    lightFlickerSpeed: 1.0,
+    fillLightStrength: 0,
+    fillLightColorR: 0.6, fillLightColorG: 0.7, fillLightColorB: 0.9,
+    fillLightAngle: 180,
+    fillLightAutoOppose: 1,
+    reliefShadowStrength: 0,
+    reliefShadowLength: 0.02,
+    reliefShadowSoftness: 0.5,
+    hoverGlowRadius: 0,
+    hoverGlowStrength: 1.0,
+    maskAnimDepth: 1.0,
+    parallaxFollow: 0,      // 0=跟随光(现状), 1=跟随鼠标
+    envUniformity: 0,
+    ditherStrength: 1.0,
+
     diffuse: 0.8,
     diffuseWrap: 0.0,
     diffuseSaturation: 1.0,
@@ -902,9 +1012,16 @@ export class CenterpieceDecal {
         uV4B: { value: [0.0, 0.0, 0.0, 0.0], type: 'vec4<f32>' },
         uV4C: { value: [2.0, 1.5, 1.0, 4.0], type: 'vec4<f32>' },
         uV4D: { value: [0.5, 0.0, 0.0, 0.0], type: 'vec4<f32>' },
+        uV4E: { value: [0.0, 0.6, 2.0, 0.0], type: 'vec4<f32>' },
+        uV4F: { value: [0.5, 0.5, 0.0, 1.0], type: 'vec4<f32>' },
+        uV4G: { value: [0.0, 0.0, 0.0, 0.0], type: 'vec4<f32>' },
+        uV4H: { value: [0.0, 0.02, 0.5, 0.0], type: 'vec4<f32>' },
+        uV4I: { value: [0.6, 0.7, 0.9, 0.0], type: 'vec4<f32>' },
+        uV4J: { value: [0.0, 0.0, 1.0, 0.0], type: 'vec4<f32>' },
       });
 
       const envTexture = this._createDefaultMatcap();
+      this._defaultMatcapSource = envTexture.source;
 
       this._shaderV3 = Shader.from({
         gpu: { vertex: { source: VERT_WGSL, entryPoint: 'main' }, fragment: { source: FRAG_WGSL, entryPoint: 'main' } },
@@ -995,6 +1112,26 @@ export class CenterpieceDecal {
 
   update(delta: number): void {
     this._time += delta * 0.01 * this._params.maskAnimSpeed;
+    const dt = delta / 60;
+
+    // 鼠标世界坐标 + 相对法阵中心的偏移,供光照驱动、视差跟随鼠标、鼠标接近发光共用
+    let haveMouse = false;
+    let targetLX = 0, targetLY = 0;
+    let mouseWorldDX = 0, mouseWorldDY = 0;
+    if (this._viewport) {
+      const app = getPixiApp();
+      const pointer = app?.renderer?.events?.pointer;
+      if (pointer) {
+        const worldPos = this._viewport.toWorld(pointer.global.x, pointer.global.y);
+        const centerX = this._viewport.worldWidth * 0.5;
+        const centerY = this._viewport.worldHeight * 0.5;
+        mouseWorldDX = worldPos.x - centerX;
+        mouseWorldDY = worldPos.y - centerY;
+        targetLX = mouseWorldDX / this._params.mouseRange;
+        targetLY = -mouseWorldDY / this._params.mouseRange;
+        haveMouse = true;
+      }
+    }
 
     if (this._runeGlowMesh && this._runeMesh && this._maskUniforms && this._blurFilter && this._viewport) {
       this._maskUniforms.uniforms.uTime = this._time;
@@ -1038,9 +1175,21 @@ export class CenterpieceDecal {
         }
       }
 
-      const finalIntensityR = Math.max(0.0, Math.min(5.0, animMult * this._params.maskR_strength * this._params.maskIntensity));
-      const finalIntensityG = Math.max(0.0, Math.min(5.0, animMult * this._params.maskG_strength * this._params.maskIntensity));
-      const finalIntensityB = Math.max(0.0, Math.min(5.0, animMult * this._params.maskB_strength * this._params.maskIntensity));
+      // 动画幅度:1=现状,越低动画越接近静止,越高越剧烈
+      animMult = 1.0 + (animMult - 1.0) * this._params.maskAnimDepth;
+
+      // 鼠标接近发光:0=关(现状)
+      let hoverBoost = 1.0;
+      if (this._params.hoverGlowRadius > 0 && haveMouse) {
+        const dist = Math.hypot(mouseWorldDX, mouseWorldDY);
+        const t = Math.max(0, Math.min(1, 1 - dist / this._params.hoverGlowRadius));
+        const smoothT = t * t * (3 - 2 * t);
+        hoverBoost = 1 + this._params.hoverGlowStrength * smoothT;
+      }
+
+      const finalIntensityR = Math.max(0.0, Math.min(5.0, animMult * this._params.maskR_strength * this._params.maskIntensity * hoverBoost));
+      const finalIntensityG = Math.max(0.0, Math.min(5.0, animMult * this._params.maskG_strength * this._params.maskIntensity * hoverBoost));
+      const finalIntensityB = Math.max(0.0, Math.min(5.0, animMult * this._params.maskB_strength * this._params.maskIntensity * hoverBoost));
 
       // z 槽位存未动画的原始强度,供主体材质(染色/边缘光/SSS 路由)使用,
       // 与发光层的 x(已叠加呼吸/闪烁/脉搏动画与总强度)解耦——见 ADR-006 附录。
@@ -1077,27 +1226,85 @@ export class CenterpieceDecal {
     }
 
     if (this._lightUniforms && this._viewport) {
-      const app = getPixiApp();
-      const pointer = app?.renderer?.events?.pointer;
-      
-      // 基础公转
-      let lx = Math.cos(this._time * this._params.lightOrbitSpeed) * this._params.lightOrbitRadiusX;
-      let ly = Math.sin(this._time * this._params.lightOrbitSpeed) * this._params.lightOrbitRadiusY;
-
-      // 鼠标影响
-      if (pointer) {
-        const worldPos = this._viewport.toWorld(pointer.global.x, pointer.global.y);
-        const centerX = this._viewport.worldWidth * 0.5;
-        const centerY = this._viewport.worldHeight * 0.5;
-        const targetLX = (worldPos.x - centerX) / 1000;
-        const targetLY = -(worldPos.y - centerY) / 1000;
-        
-        lx = mix_num(lx, targetLX, this._params.mouseInfluence);
-        ly = mix_num(ly, targetLY, this._params.mouseInfluence);
+      // ── 光照驱动:两个独立选择题(光源类型 × 驱动方式)算出的目标方向/位置 ──
+      let driveX = 0, driveY = 0;
+      switch (this._params.lightDrive) {
+        case 0: { // 固定
+          if (this._params.lightType === 0) {
+            const rad = (this._params.fixedLightAngle * Math.PI) / 180;
+            driveX = Math.cos(rad);
+            driveY = Math.sin(rad);
+          } else {
+            driveX = this._params.fixedLightX;
+            driveY = this._params.fixedLightY;
+          }
+          break;
+        }
+        case 1: { // 自动公转
+          driveX = Math.cos(this._time * this._params.lightOrbitSpeed) * this._params.lightOrbitRadiusX;
+          driveY = Math.sin(this._time * this._params.lightOrbitSpeed) * this._params.lightOrbitRadiusY;
+          break;
+        }
+        case 2: { // 跟随鼠标
+          driveX = haveMouse ? targetLX : 0;
+          driveY = haveMouse ? targetLY : 0;
+          break;
+        }
+        default: { // 公转 + 鼠标混合(现状默认)
+          const ox = Math.cos(this._time * this._params.lightOrbitSpeed) * this._params.lightOrbitRadiusX;
+          const oy = Math.sin(this._time * this._params.lightOrbitSpeed) * this._params.lightOrbitRadiusY;
+          driveX = haveMouse ? mix_num(ox, targetLX, this._params.mouseInfluence) : ox;
+          driveY = haveMouse ? mix_num(oy, targetLY, this._params.mouseInfluence) : oy;
+          break;
+        }
       }
-      this._lightUniforms.uniforms.uLightDir = [lx, ly, this._params.lightHeight, 0.0];
+
+      // 光照跟随平滑(lightSmoothing):0=瞬移(现状);首帧直接对齐,避免开场从 (0,0) 飞入的跳变
+      if (!this._driveInited) {
+        this._smoothDriveX = driveX;
+        this._smoothDriveY = driveY;
+        this._driveInited = true;
+      } else if (this._params.lightSmoothing > 0) {
+        const alpha = 1 - Math.exp(-dt * this._params.lightSmoothing * 10);
+        this._smoothDriveX = mix_num(this._smoothDriveX, driveX, alpha);
+        this._smoothDriveY = mix_num(this._smoothDriveY, driveY, alpha);
+      } else {
+        this._smoothDriveX = driveX;
+        this._smoothDriveY = driveY;
+      }
+
+      this._lightUniforms.uniforms.uLightDir = [this._smoothDriveX, this._smoothDriveY, this._params.lightHeight, 0.0];
+
+      // 点光位置(与方向驱动共用同一套 fixed/orbit/mouse/mixed 计算,+0.5 换算到 UV 中心原点)
+      this._lightPosUVX = 0.5 + this._smoothDriveX;
+      this._lightPosUVY = 0.5 + this._smoothDriveY;
+
+      // 视差跟随鼠标专用的原始鼠标偏移(不受 lightDrive/lightSmoothing 影响,鼠标不在画布上时回落为 0)
+      this._mouseOffsetX = haveMouse ? targetLX : 0;
+      this._mouseOffsetY = haveMouse ? targetLY : 0;
+
+      // 摇曳(flicker):三个不同频率的正弦波叠加出的平滑噪声,幅度和归一化为 1
+      if (this._params.lightFlickerAmp > 0) {
+        const t = this._time * this._params.lightFlickerSpeed;
+        const n = Math.sin(t * 3.1) * 0.5 + Math.sin(t * 7.3) * 0.3 + Math.sin(t * 13.7) * 0.2;
+        this._flickerMult = 1.0 + n * this._params.lightFlickerAmp;
+      } else {
+        this._flickerMult = 1.0;
+      }
+
+      // 副光方向:自动对位(与主光方向相反,同高度)或手动方位角
+      if (this._params.fillLightAutoOppose) {
+        this._fillDirX = -this._smoothDriveX;
+        this._fillDirY = -this._smoothDriveY;
+        this._fillDirZ = this._params.lightHeight;
+      } else {
+        const rad = (this._params.fillLightAngle * Math.PI) / 180;
+        this._fillDirX = Math.cos(rad);
+        this._fillDirY = Math.sin(rad);
+        this._fillDirZ = this._params.lightHeight;
+      }
     }
-    
+
     this.container.alpha = this._params.baseAlpha;
 
     this._flushParams();
@@ -1106,7 +1313,8 @@ export class CenterpieceDecal {
   private _flushParams(): void {
     if (!this._lightUniforms || !this._hrbaConfig || !this._maskUniforms) return;
     const lu = this._lightUniforms.uniforms as any;
-    lu.uLightColor = [this._params.lightR, this._params.lightG, this._params.lightB, this._params.lightStrength];
+    // 摇曳(flicker)运行时调制,只在这里相乘进 uLightColor.w,不改 _params.lightStrength 本身
+    lu.uLightColor = [this._params.lightR, this._params.lightG, this._params.lightB, this._params.lightStrength * this._flickerMult];
     lu.uAmbient    = [this._params.ambientR, this._params.ambientG, this._params.ambientB, this._params.ambientStrength];
     lu.uSurface    = [this._params.diffuse, this._params.bumpX, this._params.parallax, this._params.ao];
     lu.uRoughness  = [this._params.roughnessMin, this._params.roughnessMax, this._params.alphaClip, this._params.normalFlipY];
@@ -1124,6 +1332,12 @@ export class CenterpieceDecal {
       v4.uV4B = [this._params.normalFlipX, this._params.normalBiasX, this._params.normalBiasY, this._params.heightInvert];
       v4.uV4C = [this._params.curvatureScale, this._params.curvatureBoost, this._params.rampSoftness, this._params.rampSteps];
       v4.uV4D = [this._params.envRoughFade, 0, 0, 0];
+      v4.uV4E = [this._params.lightType, this._params.pointFalloffRadius, this._params.pointFalloffCurve, this._params.envUniformity];
+      v4.uV4F = [this._lightPosUVX, this._lightPosUVY, this._params.parallaxFollow, this._params.ditherStrength];
+      v4.uV4G = [this._mouseOffsetX, this._mouseOffsetY, 0, 0];
+      v4.uV4H = [this._params.reliefShadowStrength, this._params.reliefShadowLength, this._params.reliefShadowSoftness, 0];
+      v4.uV4I = [this._params.fillLightColorR, this._params.fillLightColorG, this._params.fillLightColorB, this._params.fillLightStrength];
+      v4.uV4J = [this._fillDirX, this._fillDirY, this._fillDirZ, 0];
     }
 
     // shader 版本切换(v3 ↔ v4)
@@ -1183,6 +1397,14 @@ export class CenterpieceDecal {
     }
   }
 
+  /** 切回程序生成的默认 matcap(圆形缩略图网格的"默认"项,以及 preset 里 envTex='' 时使用) */
+  resetEnvToDefault(): void {
+    if (this._shaderV4 && this._defaultMatcapSource) {
+      (this._shaderV4 as any).resources.uEnvMap = this._defaultMatcapSource;
+    }
+    this._currentEnvTexKey = '';
+  }
+
   async loadMaskNoiseTexture(texturePath: string): Promise<void> {
     if (this._currentNoiseTexKey === texturePath || !this._runeGlowMesh) return;
     try {
@@ -1202,6 +1424,7 @@ export class CenterpieceDecal {
     }
     if (preset.envTex !== undefined) {
       if (preset.envTex) this.loadEnvTexture(preset.envTex);
+      else this.resetEnvToDefault();
       this._params.envTex = preset.envTex;
       delete preset.envTex;
     }
@@ -1250,6 +1473,8 @@ export class CenterpieceDecal {
       }
       if ((preset as any).envTex) {
         this.loadEnvTexture((preset as any).envTex);
+      } else {
+        this.resetEnvToDefault();
       }
     }
 

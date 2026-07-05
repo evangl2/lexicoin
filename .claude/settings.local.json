@@ -50,7 +50,8 @@
       "PowerShell(npm run assets -- check --height public/assets/canvas/decals/alchemist-centerpiece-1-hrba.png --normal public/assets/canvas/decals/alchemist-centerpiece-1-normal.png)",
       "PowerShell(Copy-Item public/assets/canvas/decals/alchemist-centerpiece-1-normal.png public/assets/canvas/decals/alchemist-centerpiece-1-normal-A-original.png)",
       "PowerShell(npm run assets -- normal --in public/assets/canvas/decals/alchemist-centerpiece-1-hrba.png --out public/assets/canvas/decals/alchemist-centerpiece-1-normal-B-derived.png --strength 6)",
-      "PowerShell(npm run assets -- flip --in public/assets/canvas/decals/alchemist-centerpiece-1-normal.png --axis x --out public/assets/canvas/decals/alchemist-centerpiece-1-normal-C-flipx.png)"
+      "PowerShell(npm run assets -- flip --in public/assets/canvas/decals/alchemist-centerpiece-1-normal.png --axis x --out public/assets/canvas/decals/alchemist-centerpiece-1-normal-C-flipx.png)",
+      "Bash(node -e ' *)"
     ]
   }
 }

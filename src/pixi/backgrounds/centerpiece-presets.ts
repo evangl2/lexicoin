@@ -38,6 +38,32 @@ export interface CenterpiecePreset {
   emissiveNoiseGain?: number;
   emissiveEdgeWidth?: number;
 
+  // ── 光照系统重做(plan-centerpiece-workbench.md §1) ──────────────────────────
+  lightType?:            number; // 0=平行光, 1=点光
+  lightDrive?:           number; // 0=固定, 1=自动公转, 2=跟随鼠标, 3=公转+鼠标混合
+  fixedLightAngle?:      number;
+  fixedLightX?:          number;
+  fixedLightY?:          number;
+  mouseRange?:           number;
+  lightSmoothing?:       number;
+  pointFalloffRadius?:   number;
+  pointFalloffCurve?:    number;
+  lightFlickerAmp?:      number;
+  lightFlickerSpeed?:    number;
+  fillLightStrength?:    number;
+  fillLightColor?:       [number, number, number];
+  fillLightAngle?:       number;
+  fillLightAutoOppose?:  number;
+  reliefShadowStrength?: number;
+  reliefShadowLength?:   number;
+  reliefShadowSoftness?: number;
+  hoverGlowRadius?:      number;
+  hoverGlowStrength?:    number;
+  maskAnimDepth?:        number;
+  parallaxFollow?:       number; // 0=跟随光, 1=跟随鼠标
+  envUniformity?:        number;
+  ditherStrength?:       number;
+
   // ── 系统基础 ─────────────────────────────────────────────────────────────────
   exposure?:        number;
   baseAlpha?:       number;
@@ -212,6 +238,31 @@ export function paramsToPreset(params: Record<string, any>, base: CenterpiecePre
     emissiveNoiseGain: params.emissiveNoiseGain,
     emissiveEdgeWidth: params.emissiveEdgeWidth,
 
+    lightType:            params.lightType,
+    lightDrive:           params.lightDrive,
+    fixedLightAngle:      params.fixedLightAngle,
+    fixedLightX:          params.fixedLightX,
+    fixedLightY:          params.fixedLightY,
+    mouseRange:           params.mouseRange,
+    lightSmoothing:       params.lightSmoothing,
+    pointFalloffRadius:   params.pointFalloffRadius,
+    pointFalloffCurve:    params.pointFalloffCurve,
+    lightFlickerAmp:      params.lightFlickerAmp,
+    lightFlickerSpeed:    params.lightFlickerSpeed,
+    fillLightStrength:    params.fillLightStrength,
+    fillLightColor:       [params.fillLightColorR, params.fillLightColorG, params.fillLightColorB],
+    fillLightAngle:       params.fillLightAngle,
+    fillLightAutoOppose:  params.fillLightAutoOppose,
+    reliefShadowStrength: params.reliefShadowStrength,
+    reliefShadowLength:   params.reliefShadowLength,
+    reliefShadowSoftness: params.reliefShadowSoftness,
+    hoverGlowRadius:      params.hoverGlowRadius,
+    hoverGlowStrength:    params.hoverGlowStrength,
+    maskAnimDepth:        params.maskAnimDepth,
+    parallaxFollow:       params.parallaxFollow,
+    envUniformity:        params.envUniformity,
+    ditherStrength:       params.ditherStrength,
+
     exposure:          params.exposure,
     baseAlpha:         params.baseAlpha,
     alphaClip:         params.alphaClip,
@@ -316,6 +367,33 @@ export function presetToParams(p: CenterpiecePreset): Record<string, number | st
     curvatureBoost:    p.curvatureBoost    ?? 1.5,
     emissiveNoiseGain: p.emissiveNoiseGain ?? 5.0,
     emissiveEdgeWidth: p.emissiveEdgeWidth ?? 0.015,
+
+    lightType:            p.lightType            ?? 0,
+    lightDrive:           p.lightDrive           ?? 3,
+    fixedLightAngle:      p.fixedLightAngle      ?? 0,
+    fixedLightX:          p.fixedLightX          ?? 0,
+    fixedLightY:          p.fixedLightY          ?? 0,
+    mouseRange:           p.mouseRange           ?? 1000,
+    lightSmoothing:       p.lightSmoothing       ?? 0,
+    pointFalloffRadius:   p.pointFalloffRadius   ?? 0.6,
+    pointFalloffCurve:    p.pointFalloffCurve    ?? 2.0,
+    lightFlickerAmp:      p.lightFlickerAmp      ?? 0,
+    lightFlickerSpeed:    p.lightFlickerSpeed    ?? 1.0,
+    fillLightStrength:    p.fillLightStrength    ?? 0,
+    fillLightColorR:      p.fillLightColor ? p.fillLightColor[0] : 0.6,
+    fillLightColorG:      p.fillLightColor ? p.fillLightColor[1] : 0.7,
+    fillLightColorB:      p.fillLightColor ? p.fillLightColor[2] : 0.9,
+    fillLightAngle:       p.fillLightAngle       ?? 180,
+    fillLightAutoOppose:  p.fillLightAutoOppose  ?? 1,
+    reliefShadowStrength: p.reliefShadowStrength ?? 0,
+    reliefShadowLength:   p.reliefShadowLength   ?? 0.02,
+    reliefShadowSoftness: p.reliefShadowSoftness ?? 0.5,
+    hoverGlowRadius:      p.hoverGlowRadius      ?? 0,
+    hoverGlowStrength:    p.hoverGlowStrength    ?? 1.0,
+    maskAnimDepth:        p.maskAnimDepth        ?? 1.0,
+    parallaxFollow:       p.parallaxFollow       ?? 0,
+    envUniformity:        p.envUniformity        ?? 0,
+    ditherStrength:       p.ditherStrength       ?? 1.0,
 
     exposure:          p.exposure ?? 1.0,
     baseAlpha:         p.baseAlpha ?? 1.0,

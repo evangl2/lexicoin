@@ -10,6 +10,7 @@
 | 你要做的事 | 必读 |
 |---|---|
 | 任何会话开局 | `CLAUDE.md` → 本文件 → [workflow/session-protocol.md](workflow/session-protocol.md) |
+| 把握方向 / 规划下一步 / 新 AI 接班 | [strategic-command.md](strategic-command.md)(战略简报,事实部分用前先实勘) |
 | 推进 Pixi 重构 | [refactor-pixi/roadmap.md](refactor-pixi/roadmap.md) + 当前 Stage 相关指南 |
 | 写/改 shader 或视觉效果 | [decisions/ADR-004](decisions/ADR-004-shader-budget-and-tuning-workflow.md) + [refactor-pixi/Assets-guide.md](refactor-pixi/Assets-guide.md) |
 | 处理游戏资材 | [decisions/ADR-005](decisions/ADR-005-asset-preprocessing-pipeline.md) + `scripts/assets/preprocess.mjs` 头注释 |
@@ -28,6 +29,12 @@
 | `AGENTS.md` | 铁律摘要,给非 Claude 系 AI 工具的通用入口(Antigravity v1.20.3+ 原生读取) |
 | `.agents/rules/project-rules.md` | Antigravity workspace 规则(兼容不认 AGENTS.md 的旧版),内容为铁律速览 |
 | `README.md` | 人类门面:项目简介、当前状态、常用命令 |
+
+### 战略
+
+| 文件 | 内容 |
+|---|---|
+| [strategic-command.md](strategic-command.md) | 战略指挥简报:工作次序、坑雷图、接班协议(2026-07-05 代码实勘产出) |
 
 ### decisions/ — 决策记录(ADR)
 
@@ -52,7 +59,7 @@
 | 文件 | 内容 | 状态 |
 |---|---|---|
 | [roadmap.md](refactor-pixi/roadmap.md) | Stage 路线图 | 现行,⚠️ Stage 状态标记滞后,收尾时更新 |
-| [plan-centerpiece-workbench.md](refactor-pixi/plan-centerpiece-workbench.md) | 光照重做 + 面板工作台化实施计划(第一包任务书) | 现行(待实施,完成后归档) |
+| [plan-centerpiece-workbench.md](refactor-pixi/plan-centerpiece-workbench.md) | 光照重做 + 面板工作台化实施计划(第一包任务书) | 第一包已实施(见 ADR-006 补充),第二包(图层/演出页签)待另立计划 |
 | [text-guidelines.md](refactor-pixi/text-guidelines.md) | 文字分层规范 | 现行 |
 | [Assets-guide.md](refactor-pixi/Assets-guide.md) | 材质/shader 制作指南(HRBA/Mask 规范) | 现行 |
 | [Coordinate-Systems.md](refactor-pixi/Coordinate-Systems.md) | 坐标系说明 | 现行 |
