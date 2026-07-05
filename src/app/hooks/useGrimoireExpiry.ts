@@ -55,5 +55,5 @@ export function useGrimoireExpiry() {
 
         const timer = setInterval(check, GRIMOIRE_EXPIRY_POLL_INTERVAL_MS);
         return () => clearInterval(timer);
-    }, []); // eslint-disable-line react-hooks/exhaustive-deps — intentionally stable, reads store directly
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps -- intentionally stable, reads store directly
 }

@@ -10,6 +10,7 @@
 | 你要做的事 | 必读 |
 |---|---|
 | 任何会话开局 | `CLAUDE.md` → 本文件 → [workflow/session-protocol.md](workflow/session-protocol.md) |
+| 隔段时间回来 / 重新上手项目 | [NOW.md](NOW.md)(1 分钟)→ [PROJECT-ATLAS.md](PROJECT-ATLAS.md)(全貌与系统总账) |
 | 把握方向 / 规划下一步 / 新 AI 接班 | [strategic-command.md](strategic-command.md)(战略简报,事实部分用前先实勘) |
 | 推进 Pixi 重构 | [refactor-pixi/roadmap.md](refactor-pixi/roadmap.md) + 当前 Stage 相关指南 |
 | 写/改 shader 或视觉效果 | [decisions/ADR-004](decisions/ADR-004-shader-budget-and-tuning-workflow.md) + [refactor-pixi/Assets-guide.md](refactor-pixi/Assets-guide.md) |
@@ -34,6 +35,8 @@
 
 | 文件 | 内容 |
 |---|---|
+| [NOW.md](NOW.md) | 驾驶舱:上次/进行中/下一步/待决策。每次会话收尾更新,一屏上限 |
+| [PROJECT-ATLAS.md](PROJECT-ATLAS.md) | 项目全貌:愿景与玩家体验蓝图 + 系统总账(预期 vs 现状)+ 技术地图 + 黑话词汇表 |
 | [strategic-command.md](strategic-command.md) | 战略指挥简报:工作次序、坑雷图、接班协议(2026-07-05 代码实勘产出) |
 
 ### decisions/ — 决策记录(ADR)
@@ -46,6 +49,8 @@
 | [ADR-004](decisions/ADR-004-shader-budget-and-tuning-workflow.md) | 视觉三层预算 + "AI 写管线、人调滑块"分工 |
 | [ADR-005](decisions/ADR-005-asset-preprocessing-pipeline.md) | 高度/法线单一真相源,混用前必须一致性校验 |
 | [ADR-006](decisions/ADR-006-material-model-family.md) | Centerpiece v4:共享骨架 + 可插拔材质模型家族(线性工作流/tonemap/matcap) |
+| [ADR-007](decisions/ADR-007-memory-model-and-review.md) | 记忆模型取代耐久度(遗忘曲线/新颖度经济/复习三层/画布"位置归玩家"设计律) |
+| [ADR-008](decisions/ADR-008-persona-direction.md) | Persona 方向(evalBias 黑箱+存在感提示/Resonance 关系质感/三系统主从/阵容冻结) |
 
 ### workflow/ — 开发流程
 
@@ -79,18 +84,37 @@
 
 ### prompts/ — AI 提示词模板
 
-`SensePrompt.txt` / `SynthesisPrompt.txt` / `VisualPrompt.txt` / `perf-audit.md` — 现行,游戏运行时依赖。
+`SensePrompt.txt` / `SynthesisPrompt.txt` / `VisualPrompt.txt` / `perf-audit.md` — ⚠️ 原标注"游戏运行时依赖"经 2026-07-05 核验**失实**:src 中无任何引用,运行时 prompt 全部内置于 `supabase/functions/` 各 Edge Function。这些 txt 是历史底稿,归档候选;改 prompt 请直接改 Edge Function(注意 lib 双份同步)。
 
-## 存量文档(待迁移,读前先核对状态)
+## 存量文档(root 平铺,2026-07-05 批量整理后)
 
-### root 平铺系统文档(约 28 份)
+> 原"约 28 份 + 9 份漏网"已实勘分流:11 份确认结构性失实/局部过期的移入 `archive/legacy-2026-04/`(下表);其余 17 份保留在 root,状态如下表标注。**不再有"待迁移,状态未核"的模糊地带**——本表即当前唯一真相。
 
-⚠️ **大部分写于 React UI 时代(2026-04 前),UI 相关部分已失实**;数据层部分(store/schema/pipeline)仍有参考价值。碰到对应模块时按规范 §5 处置。已知问题(摘自旧审计):
+| 文件 | 状态 | 备注 |
+|---|---|---|
+| `SenseEntity.md` | 🟢 较可信 | 被 ATLAS/ADR-007 交叉引用 |
+| `SynthesisSystem.md` | 🟢 较可信 | 被 ATLAS 交叉引用 |
+| `SynthesisDataFlow.md` | 🟢 较可信 | 数据层 |
+| `card-data-pipeline.md` | 🟢 较可信 | 数据层 |
+| `DB-schema-maintenance.md` | 🟢 较可信 | 数据层 |
+| `storage-system.md` | 🟢 较可信 | 数据层 |
+| `RepositorySystem.md` | 🟢 较可信 | 数据层 |
+| `PersistenceSystem.md` | 🟢 较可信 | 数据层 |
+| `InflectionSystem.md` | 🟢 较可信 | 数据层 |
+| `LevelingSystem.md` | 🟢 较可信 | 数据层 |
+| `persona-system.md` | 🟢 较可信 | 数据层;与 ADR-008 方向对照读 |
+| `gameconfig.md` | 🟢 较可信 | 数据层 |
+| `MessageBus-maintenance.md` | 🟡 未核 | 2026-07-05 才登记;呼应 [CLAUDE.md](../CLAUDE.md) 铁律六(状态归 store,通知归 MessageBus) |
+| `genui-architecture.md` | 🟡 未核,方向待定 | 描述的"校验层/安全扫描"**与实际实现不符**(见 [strategic-command.md](strategic-command.md) §3.8),GenUI 去留待 ADR 决断 |
+| `visual-pipeline.md` | 🟡 未核 | 同上,GenUI 管线一部分 |
+| `performance-optimizations.md` | 🟡 未核 | 同上,含 sucrase 编译细节 |
+| `tts-analysis.md` | 🟡 未核 | 被 ATLAS §3 引用;C7 定案后(发音进 v1)应据此推进 |
+| `DurabilityLifecycle.md` | ⚠️ 已重写 | 整体改为**待实施规格**(记忆模型取代耐久度,见 [ADR-007](decisions/ADR-007-memory-model-and-review.md)),不再是现状描述 |
+| `technical/callAI.md` | — | 自动生成 |
 
-- 🔴 结构性失实:`CompactModeSystem.md`、`infrastructure_wbs.md`、`frontend_analysis.md`(旧 React UI)
-- 🟡 局部过期:`BackendSchema.md`、`DataManagement.md`(版本号错误)
-- 数据层类(相对可信):`card-data-pipeline.md`、`DB-schema-maintenance.md`、`storage-system.md`、`PersistenceSystem.md`、`SynthesisDataFlow.md`、`SenseEntity.md`、`InflectionSystem.md`、`LevelingSystem.md`、`persona-system.md`、`gameconfig.md` 等
-- `technical/callAI.md` — 自动生成
+### archive/legacy-2026-04/ — 已归档(2026-07-05,C9 授权批量处置)
+
+结构性失实或局部过期,不再维护,只读留存:`CompactModeSystem.md`、`infrastructure_wbs.md`、`frontend_analysis.md`(旧 React UI)、`BackendSchema.md`、`DataManagement.md`(版本号错误)、`infrastructure_prd.md`、`infrastructure_tdd.md`、`dynamic_text_feature.md`、`MergeSplitSystem.md`、`PixiJS-HMR-Remediation.md`、`file-structure-2026-03.md`。
 
 ### 已停用体系(冻结,只读,不再写入)
 

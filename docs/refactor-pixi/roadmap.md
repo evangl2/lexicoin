@@ -1,6 +1,6 @@
 # Lexicoin · PixiJS v8 Roadmap
 
-完整方案见 `~/.claude/plans/unmount-pixijs-v8-toasty-sonnet.md`（用户机器本地）。本文是公开 roadmap。
+本文是公开 roadmap。（原引用的 `~/.claude/plans/unmount-pixijs-v8-toasty-sonnet.md` 经 2026-07-05 核验已不存在，本文即唯一方案文档。）
 
 ## Stage 列表
 
@@ -10,9 +10,9 @@
 | B | ✅ 已完成 | 安装 PixiJS v8 + GSAP + pixi-viewport，建立 `src/pixi/` 骨架 |
 | C | ✅ 已完成 | 挂载空白 PixiRoot（bgVoid 背景 + Stats overlay） |
 | D | ✅ 已完成 | Camera 系统（pixi-viewport：pan / zoom / clamp） |
-| E | ⏳ 进行中 | Persona Bridge + 背景层（IBackground 接口）；Centerpiece 材质系统见 [Assets-guide.md](Assets-guide.md)，shader 预算规则见 [ADR-004](../decisions/ADR-004-shader-budget-and-tuning-workflow.md) |
-| F | 待开始 | 卡片 Sprite（占位色块、坐标桥、Variant Stack、LOD） |
-| G | 待开始 | Hover 交互 + HTMLText 文字层 |
+| E | ⏳ 进行中 | Persona Bridge + 背景层（IBackground 接口）；Centerpiece 材质系统见 [Assets-guide.md](Assets-guide.md)，shader 预算规则见 [ADR-004](../decisions/ADR-004-shader-budget-and-tuning-workflow.md)。**封版 DoD（2026-07-05 作者定案）**：① CHILD/GARDENER/ALCHEMIST 三个 Persona 各导出一个氛围 preset；② 调试面板功能冻结（此后只修 bug，不加新滑块）；③ 本行状态改 ✅ 并记录封版日期。三条齐全即完成，不得追加范围 |
+| F | 待开始 | 卡片 Sprite（占位色块、坐标桥、Variant Stack、LOD）；坐标契约需落实 ADR-007 画布设计律（位置属于玩家，外观属于系统） |
+| G | 待开始 | Hover 交互 + HTMLText 文字层；**发音顺带接入**（作者 2026-07-05 定案进 v1：卡片交互时用浏览器原生 SpeechSynthesis 朗读词形，零成本零延迟，见 [PROJECT-ATLAS.md](../PROJECT-ATLAS.md) §2/§3） |
 | H | 待开始 | InspectOverlay（DOM 检视态） |
 | I | 待开始 | 拖拽系统（PixiJS Pointer events + Edge Pan） |
 | J | 待开始 | 落点检测（Grid Snap + 设备碰撞） |
@@ -31,4 +31,4 @@
 - `main.tsx → App.tsx → app/App.tsx` 链路上不 import 任何旧 UI 组件
 - 旧组件文件保留在磁盘但无人引用 → Vite/Rollup 不会打包，dev server 不会加载
 - 数据/逻辑层（store、services、modules、Dexie）继续运转，被新画布消费
-- react-dnd 体系彻底移除（删除 `<DndProvider>`），任何后续误引用会立刻 throw
+- `<DndProvider>` 已从运行链删除；⚠️ 但 react-dnd 仍在 package.json dependencies 且被 7 个断链文件 import——**误引用不会 throw,会静默工作**。Stage O 时从依赖中移除（届时孤儿文件的 TS 报错恰好充当警报），在那之前隔离只靠"没人 import"

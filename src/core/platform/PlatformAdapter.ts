@@ -58,7 +58,7 @@ class PlatformAdapter {
     private detectPlatform(): Platform {
         // Check if running in Electron or similar desktop environment
         if (typeof window !== 'undefined') {
-            // @ts-ignore - Check for Electron
+            // @ts-expect-error - Check for Electron
             if (window.electron || window.require) {
                 return 'DESKTOP';
             }

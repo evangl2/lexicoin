@@ -244,7 +244,7 @@ export function useCardAnimation({
       wrapper.style.transform = promoted ? `scale(${v}) translateZ(0)` : `scale(${v})`;
     };
 
-    promoted ? applyPromoted() : applyDemoted();
+    if (promoted) { applyPromoted(); } else { applyDemoted(); }
     const unsubPromotion = promotionSource.on('change', sync);
     const unsubVisual = visualScale === promotionSource
       ? () => {}

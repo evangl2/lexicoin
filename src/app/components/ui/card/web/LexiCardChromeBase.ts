@@ -86,7 +86,6 @@ export abstract class LexiCardChromeBase extends HTMLElement {
     }
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   attributeChangedCallback(
     _name: string,
     _oldValue: string | null,

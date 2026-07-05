@@ -1,6 +1,7 @@
 import { Application, Container } from 'pixi.js';
 import { Viewport } from 'pixi-viewport';
 import { WORLD_W, WORLD_H, GRID_CELL_W, GRID_CELL_H } from '@/config/canvas';
+import { cameraSystem } from './CameraSystem';
 
 export class WorldSystem {
   private _viewport: Viewport | null = null;
@@ -79,8 +80,7 @@ export class WorldSystem {
     this._contentLayer.position.set(finalW / 2, finalH / 2);
 
     // 通知相机系统更新物理边界
-    const { cameraSystem } = require('./CameraSystem'); // 避开循环引用
-    cameraSystem.getInstance().updateWorldBounds();
+    cameraSystem.updateWorldBounds();
   }
 
   public destroy(): void {

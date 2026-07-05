@@ -56,3 +56,12 @@ Persona 的视觉多样性来自"换贴图 + 换 preset JSON",**不来自新 sha
 - 新文档必须登记进 [docs/INDEX.md](docs/INDEX.md) 并带文档头,否则视为不存在
 - 发现过期文档:当场修正或标记归档,禁止以"现行"状态留存
 - 方向性决策必须写 ADR(`docs/decisions/`);**AI 不得擅自推翻现行 ADR**,有异议向用户提出
+
+## 铁律六:状态归 Store,通知归 MessageBus
+
+跨模块要传的东西分两类,新功能落笔前先问自己属于哪一类:
+
+- **业务事实**(游戏状态、判定结果、任何"之后还要读"的数据)→ **必须**写进 Zustand store,单一可查询的真相源
+- **一次性通知**("发生了一件事,谁关心谁去处理")→ 走 `MessageBus`,订阅方各自决定要不要做什么
+
+**业务事实不允许只活在消息里而不落 store。** summonerStatus 曾经因为这条规则被违反过一次(用 local state 代替 store,装置视觉与逻辑脱节,见 [strategic-command.md](docs/strategic-command.md) §3.10);新增 store 字段时,收尾清单默认问一句"进 partialize 白名单吗"(见 [session-protocol.md](docs/workflow/session-protocol.md))。

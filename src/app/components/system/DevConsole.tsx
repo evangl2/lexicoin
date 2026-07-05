@@ -32,6 +32,7 @@ import { DebugSystem } from '@/pixi/systems/DebugSystem';
 import { worldSystem } from '@/pixi/systems/WorldSystem';
 import { getPixiApp } from '@/pixi/core/globalApp';
 import { GRID_CELL_W, GRID_CELL_H } from '@/config/canvas';
+import { AI_MODELS } from '@/config/constants';
 import './DevConsole.css';
 
 type TabType = 'messages' | 'state' | 'telemetry' | 'inject' | 'logs' | 'system' | 'cheat' | 'debug';
@@ -115,6 +116,8 @@ export const DevConsole: React.FC = () => {
     const clearAllGrimoires = useGameStore(s => s.clearAllGrimoires);
     const uiTheme = useGameStore(s => s.uiTheme);
     const setUiTheme = useGameStore(s => s.setUiTheme);
+    const activeModelId = useGameStore(s => s.activeModelId);
+    const setActiveModelId = useGameStore(s => s.setActiveModelId);
     const [messageFilter, setMessageFilter] = useState('');
     const [autoScroll, setAutoScroll] = useState(true);
     const [isPaused, setIsPaused] = useState(false);
@@ -550,6 +553,19 @@ export const DevConsole: React.FC = () => {
                                         <option value="cyberpunk">cyberpunk</option>
                                     </select>
                                     <span style={{ opacity: 0.5, fontSize: '11px' }}>current: {uiTheme}</span>
+                                </label>
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px' }}>
+                                    <span>AI Model</span>
+                                    <select
+                                        value={activeModelId}
+                                        onChange={(e) => setActiveModelId(e.target.value)}
+                                        style={{ background: '#1a1a2e', color: '#ccc', border: '1px solid #444', borderRadius: '4px', padding: '2px 6px', fontSize: '12px' }}
+                                    >
+                                        {AI_MODELS.map((m) => (
+                                            <option key={m.id} value={m.id}>{m.label}</option>
+                                        ))}
+                                    </select>
+                                    <span style={{ opacity: 0.5, fontSize: '11px' }}>current: {activeModelId}</span>
                                 </label>
                             </div>
 

@@ -7,6 +7,7 @@
 3. **高度/法线单一真相源**:只推理其中一张,另一张用 `npm run assets -- normal` 推导;混用推理产物前必须 `npm run assets -- check` 校验(见 ADR-005)
 4. **文字**:遵守 [docs/refactor-pixi/text-guidelines.md](docs/refactor-pixi/text-guidelines.md);`BitmapText` 全面禁用
 5. **文档同步**:改代码同一个 commit 更新对应文档;新文档登记进 [docs/INDEX.md](docs/INDEX.md);不得推翻 [docs/decisions/](docs/decisions/) 中的现行 ADR
-6. **语言**:始终用简体中文与用户交流;前端视觉验证由用户负责
+6. **状态归属**:业务事实(游戏状态、判定结果)必须写进 Zustand store;`MessageBus` 只用于一次性通知,不许把该持久化的事实只放在消息里
+7. **语言**:始终用简体中文与用户交流;前端视觉验证由用户负责
 
 会话开局/收尾清单:[docs/workflow/session-protocol.md](docs/workflow/session-protocol.md)。

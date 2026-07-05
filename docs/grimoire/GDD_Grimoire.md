@@ -1,5 +1,7 @@
 # Lexicoin Grimoire: Complete Game Design Document (GDD)
 
+> 修订记录:2026-07-05 —— 依据 [ADR-007](../decisions/ADR-007-memory-model-and-review.md)(记忆模型与复习)、[ADR-008](../decisions/ADR-008-persona-direction.md)(Persona 方向)更新 §2.6、§4.4、§4.5、§4.7(新增)、§8.5、§9.3。作者与 Claude Fable 5 讨论定案,修订内容以本记录覆盖处为准。
+
 ---
 
 ## 📑 Table of Contents
@@ -165,7 +167,7 @@
 | 触发方式 | 将 Sense 卡拖入 Grimoire Summoner 槽位，或触发随机选种（仅从当前 Canvas 选取） |
 | 前置条件 | 体力充足；上一本魔典已生成完成（自然冷却） |
 | 体力消耗 | 中等（含生成 + 预留评判配额，与 AI token 消耗正相关） |
-| AI 输出 | 主题标题、主题描述、GrimoireType、explicitInstruction、槽位数量（3–6）、槽位标签、隐藏标准答案组 |
+| AI 输出 | 主题标题、叙事场景（personaQuest）、explicitInstruction、隐藏标准答案组（validationTags）；槽位数量（3–6）由服务端随机、AI 原样回填。**GrimoireType 由前端选定后传入（非 AI 输出）；槽位无标签**（§6.5/§10 设计原则，2026-07-05 修正本行与其矛盾的旧表述） |
 | Seed 命运 | 生成完成后弹回 Canvas；Seed 词可被填入魔典自身的槽位 |
 | 冷却逻辑 | 非固定计时器；上一次生成的 AI 请求返回后方可触发下一次 |
 
@@ -224,8 +226,9 @@
 |------|------|
 | Library 容量 | 上限 99 本（已完成魔典） |
 | 查看内容 | 主题、Persona、各槽词语、评语、最终评级 |
-| Echo 次数 | 每日 3 次（跨所有已归档魔典共享） |
-| Echo 机制 | 从该魔典的隐藏标准答案组中随机抽取一个词，生成对应 Sense 卡到 Canvas |
+| Echo 次数 | 每日 3 次（跨所有已归档魔典共享,含下方两种模式） |
+| Echo · 发现 | 从该魔典的隐藏标准答案组中随机抽取一个词，生成对应 Sense 卡到 Canvas |
+| Echo · 回放（新增,ADR-007） | 重新展开一本旧魔典,当年填入的词被雾遮蔽,凭记忆重新指认——是复习在本系统里的仪式化呈现,详见 §8.5.2 |
 | 隐藏答案 | 由 AI 在生成阶段同步产出，对玩家全程不可见 |
 
 ---
@@ -365,6 +368,8 @@ Persona 的世界观与偏好影响魔典主题的生成方向，但不限制槽
 | `evalPrompt` | 定义 Persona 的评判视角与核心标准 |
 | `evalBias` | 描述 Persona 的偏好偏向（提升或降低特定词语的评级）|
 
+**偏好的可见性（ADR-008）**：`evalBias` 的具体数值与方向**不直接展示**给玩家。Persona 功能说明(全局 Persona 介绍面板,见 §11)应明确提示"每位 Persona 有自己的评判偏好"，引导玩家从评语与评级差异中自行体会,而非通过界面数值获知——偏见是活人裁判的一部分,不是需要摊开的公式。
+
 **评语（Commentary）**：Persona 以自身语言风格生成逐槽评语。评语是碎片化叙事工具，以界面语言输出，目的是呈现角色个性，游戏叙事和提供魔典任务完成反馈（语言学习功能）。
 
 ---
@@ -377,16 +382,17 @@ Persona 的世界观与偏好影响魔典主题的生成方向，但不限制槽
 |------|------|
 | Resonance 性质 | Persona 的专属 XP，与玩家 XP 独立 |
 | 获得时机 | 玩家在 Library 领取奖励时，按最终评级发放 |
-| Resonance 总量与评级的关系 | 与最终评级正相关（具体倍率见 §10 奖励系统） |
+| Resonance 总量与评级的关系 | 与最终评级正相关（具体数值见 §7.5） |
 | 等级上限 | 无上限，持续累积升级 |
-| 等级解锁内容 | 待后续版本定义，现阶段占位 |
+| 里程碑兑现物 | personaStory 阶段推进 + 关系记忆（见下，ADR-008），而非纯数字/进度条 |
 
-**解锁机制（占位）**：
-```typescript
-// TODO: 实现 Persona 等级解锁内容
-// 每个 Persona 的 resonanceLevel 提升时触发
-// 预计解锁：Lore 碎片 / 道具 / 奖励内容
-```
+**里程碑设计原则（ADR-008）**：Resonance 数字本身不是奖励，里程碑必须兑换成可感知的关系变化，按优先级：
+
+1. **personaStory 阶段推进**：里程碑触发 `personaStage` 变迁，改变后续生成时 Persona 的叙事姿态（呼应 §9.2 `personaStory.stage`）。
+2. **Persona 记得你**：系统记录少量结构化事件（如首次获得 S++、最常使用的词、连败后的翻盘），生成新魔典时将其注入 prompt，使 Persona 的叙事引用玩家与自己的共同经历——这是静态内容无法复制的个性化，优先级高于阵容扩充。
+3. 新叙事形式（narrativeForm）解锁，作为里程碑的补充产出。
+
+具体阈值与兑现内容的映射表待排期实现，现阶段占位。
 
 ---
 
@@ -398,6 +404,16 @@ Persona 的世界观与偏好影响魔典主题的生成方向，但不限制槽
 // 计划：达到特定玩家等级后解锁对应 Persona
 // 参考：CHILD (Lv.5), GARDENER (Lv.7), ALCHEMIST (Lv.40)
 ```
+
+---
+
+## 4.7 第二意见机制（占位，ADR-008）
+
+玩家可消耗体力，请求另一位 Persona 对同一本已评判的魔典重新给出评级与评语。
+
+- **目的**：让 `evalBias` 造成的评级差异从"AI 判断不一致"的疑虑，转化为"不同角色有不同判断"的角色内容——呼应 §1.2 第四条设计哲学（AI 作为关系）与 §4.4 偏好可见性原则。
+- **展示**：两位 Persona 的评级与评语并列展示，不合并、不取平均、不互相覆盖。
+- **状态**：方向已定案，具体交互流程与体力成本待排期实现，现阶段占位。
 
 ---
 [Back to Top](#📑-table-of-contents)
@@ -472,7 +488,7 @@ IDLE ─────────────────────────
 
 Summoner 本身不持有 Persona 配置。生成时读取当前全局激活的 Persona，将其与新生成的 Grimoire 绑定。
 
-Persona 的切换入口在独立的全局 UI 中（详见 §13 UI/UX 规格）。
+Persona 的切换入口在独立的全局 UI 中（详见 §11 UI/UX 规格）。
 
 ---
 [Back to Top](#📑-table-of-contents)
@@ -819,14 +835,31 @@ Archive 魔典
 
 ## 8.5 Echo 系统
 
-Echo 是 Library 的核心交互功能，允许玩家从魔典的隐藏标准答案中随机抽取词语。
+Echo 是 Library 的核心交互功能，包含两种模式，共享每日 3 次的总配额，玩家自行选择用于探索新词还是巩固旧词。
+
+### 8.5.1 Echo · 发现（原有机制）
+
+允许玩家从魔典的隐藏标准答案中随机抽取词语。
 
 | 属性 | 规格 |
 |------|------|
-| 每日次数 | 3 次 |
 | 使用范围 | Library 中任意已领取奖励的魔典 |
 | 随机来源 | 从其 `validationTags`（10 个隐藏答案）中随机抽取 1 个 |
 | 产出 | 在 Canvas 上生成对应的 Sense 卡 |
+
+### 8.5.2 Echo · 回放（新增，ADR-007）
+
+允许玩家重新打开一本旧魔典，凭记忆回忆自己当年填入的词——是"复习"在本系统里的仪式化呈现：检索的是玩家自己的创作，而非题库，情感黏性与教学价值都高于通用复习模式。
+
+| 属性 | 规格 |
+|------|------|
+| 使用范围 | Library 中任意已归档魔典（不要求已领取奖励） |
+| 呈现方式 | 展开态与原魔典一致，但各槽当年填入的 Sense 被雾遮蔽，仅题面（主题/指令）可见 |
+| 判定 | 玩家重新指认词语：命中原答案 → 精确匹配，零 AI 调用；给出不同但合理的词 → 可选择再次调用 `evaluate-grimoire` 评判 |
+| 奖励 | 命中的词记忆稳定度显著提升（检索质量记满分，见记忆模型设计），伴随"唤醒"视觉反馈 |
+| 与 Echo · 发现 的关系 | 共享每日 3 次配额，互不额外计费 |
+
+> 设计依据：[ADR-007](../decisions/ADR-007-memory-model-and-review.md)《记忆模型取代耐久度》。记忆模型（stability/lastRetrievalAt 字段、检索事件权重、卡片风化态）属于 Sense/Card 系统范畴，不在本 Grimoire GDD 内详述，完整设计见该 ADR 及后续 Sense 系统文档修订。
 
 ---
 [Back to Top](#📑-table-of-contents)
@@ -930,7 +963,7 @@ Grimoire 系统依赖两个独立的 Supabase Edge Function：
 3. **YOUR VOICE（双语）** — learning 和 system 两套 voiceDescription，分别指导 commentary 两个字段的写作
 4. **TASK CONTEXT** — personaQuest、explicitInstruction、validationTags（作为隐藏参考答案，不出现在玩家界面）
 5. **SCORING SCALE** — F / D / C / B / A / S / S+ / S++ 完整定义
-6. **COMMENTARY** — 以 Persona 身份从场景内部给出反馈；不是语义分析；最多 5 句；commentary.system 为 TRANSCREATE
+6. **COMMENTARY** — 以 Persona 身份从场景内部给出反馈；不是语义分析；commentary.system 为 TRANSCREATE。**评语长度与评级负相关（ADR-007）**：S++/S+ 一两句由衷赞叹即可；F/C 应展开到 3~5 句，具体说明差在哪、差多远、以及该词在什么语境下反而会成立——学习价值集中在低分反馈，高分不需要说教
 7. **STORY TRIGGERS（条件注入）** — 若 persona.triggers 非空，AI 逐词检查是否语义命中，命中时用 trigger 的 `comm` 替代 COMMENTARY 指令；grade 逻辑不变
 
 ### Scoring Scale（完整定义）
@@ -956,7 +989,7 @@ Grimoire 系统依赖两个独立的 Supabase Edge Function：
       "grade": "S++ | S+ | S | A | B | C | D | F",
       "triggeredCondition": "<命中的 trigger id，或 null>",
       "commentary": {
-        "learning": "1–5 句，learningLanguage，Persona 第一人称",
+        "learning": "长度与评级负相关(S++/S+ 1~2句;F/C 3~5句,展开说明差距与适用语境),learningLanguage，Persona 第一人称",
         "system": "TRANSCREATE：同一 Persona，同一判断，systemLanguage 本地语感"
       }
     }
@@ -1114,4 +1147,4 @@ Grimoire 系统设计目标为 **”装饰点位（Mount Points）”** 系统�
 
 ---
 
-*Lexicoin Grimoire System | Comprehensive Master GDD | 2026-04-14*
+*Lexicoin Grimoire System | Comprehensive Master GDD | 2026-04-14（2026-07-05 修订，见 ADR-007/ADR-008）*
