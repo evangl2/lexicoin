@@ -43,7 +43,9 @@ class MessageBus {
     }
 
     /**
-     * Subscribe to a message type
+     * Subscribe to a message type.
+     * messageType 必须精确匹配,不支持 '*' 通配符——曾有代码 subscribe('*', ...) 以为能收全部消息,
+     * 实际上从未触发过一次(2026-07-06 在 DevConsole 发现并改为轮询 getMessageLog())。
      */
     subscribe<T extends BaseMessage = BaseMessage>(
         messageType: string,

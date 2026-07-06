@@ -1,6 +1,7 @@
 # Lexicoin Grimoire: Complete Game Design Document (GDD)
 
 > 修订记录:2026-07-05 —— 依据 [ADR-007](../decisions/ADR-007-memory-model-and-review.md)(记忆模型与复习)、[ADR-008](../decisions/ADR-008-persona-direction.md)(Persona 方向)更新 §2.6、§4.4、§4.5、§4.7(新增)、§8.5、§9.3。作者与 Claude Fable 5 讨论定案,修订内容以本记录覆盖处为准。
+> 修订记录:2026-07-06 —— 依据 [ADR-011](../decisions/ADR-011-interaction-constitution.md)(交互宪法,词卡不设仓库)更新 §2.3、§5.2、§6.5 的填词/种子来源表述:仓库改为 Canvas 唯一来源。
 
 ---
 
@@ -179,7 +180,7 @@
 |------|------|
 | Canvas 闭合态 | 显示 Persona 图标、已填/总槽位（x/y）、时间条 |
 | 展开态 | 完整 UI：主题、任务描述、所有槽位、时间条 |
-| 填词方式 | 从 Canvas 或仓库直接拖拽 Sense 卡到槽位 |
+| 填词方式 | 从 Canvas 直接拖拽 Sense 卡到槽位（词卡不设仓库，[ADR-011](../decisions/ADR-011-interaction-constitution.md)；找卡用搜索透镜） |
 | 部分填写 | 允许。关闭 Modal 后已填词语保留，时间条继续运行 |
 | 提交条件 | 所有槽位均已填入（全满）后方可提交 |
 | 时间条 | 实时运行，打开 Modal 期间不暂停 |
@@ -443,7 +444,7 @@ Summoner 拥有 1 个槽位，接受一张 Sense 卡作为魔典的生成种子�
 
 | 操作 | 说明 |
 |------|------|
-| 放入种子 | 将 Sense 卡从 Canvas 或仓库拖入槽位 |
+| 放入种子 | 将 Sense 卡从 Canvas 拖入槽位（词卡不设仓库，ADR-011） |
 | 随机种子 | 触发装置上的随机按钮，系统从当前 Canvas 上随机选取一张 Sense 卡 |
 | 种子命运 | 生成完成后，种子卡弹回 Canvas；种子词可被填入由其生成的魔典槽位 |
 
@@ -615,7 +616,7 @@ Grimoire 在 Canvas 上的紧凑形态，持续可见直至归档或过期。
 
 | 规则 | 说明 |
 |------|------|
-| 填词来源 | Canvas 上的 Sense 卡 或 仓库中的 Sense 卡，直接拖拽 |
+| 填词来源 | Canvas 上的 Sense 卡，直接拖拽（词卡不设仓库，[ADR-011](../decisions/ADR-011-interaction-constitution.md)） |
 | 种子词 | 可被填入该魔典自身的任意槽位 |
 | 替换 | 未评判/F 槽可以替换；非 F 锁定后不可替换 |
 | F 槽弹出 | 评判后 F 槽的 Sense 卡自动弹回 Canvas，槽位清空 |

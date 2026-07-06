@@ -41,6 +41,9 @@
 - `react-dnd` / `react-dnd-html5-backend` **仍在 package.json dependencies**,且仍被 7 个孤儿文件 import。roadmap 声称"彻底移除"——未兑现(roadmap 已于 2026-07-05 修正表述)。
 - `src/tests/` 有 4 个 `node:test` 测试文件,但 package.json **没有 test script**,无人运行,等同于死代码。
 - docs 根目录约 28 份 React UI 时代的存量文档,大部分失实。
+- 2026-07-06 前后端盘点追加:
+  - **APIClient 幽灵**(`src/core/infra/APIClient.ts` + `src/types/api.ts` 全套请求类型 + `api_security.test.ts`)——为一个**从未建成的传统后端**(localhost:3000,排行榜/用户同步/分析上报)写的完整客户端,除自身与死测试外零引用。Stage O 清除;
+  - `RealtimeService` 是**空壳存根**(Realtime 已禁用,visual 走轮询),文件头注释已如实声明,但外围文档曾误信其存在——引用它前先看实现;
 - 2026-07-05 存在性审计追加:
   - `docs/prompts/*.txt` — INDEX 原称"运行时依赖",实际 **src 零引用**(运行时 prompt 在 Edge Functions 内),历史底稿,归档候选;
   - `src/types/index.ts` 的 `ModelId` 类型 — 僵尸类型:枚举的三个模型(gemini-2.0/1.5 系)**全部已退役**,且 config slice 实际用 `string` + `DEFAULT_MODEL_ID`,该类型仅剩 2 处自引用;
@@ -116,9 +119,11 @@ roadmap 说 react-dnd"彻底移除、误引用立刻 throw",实际依赖还在�
 - 新发现的双份真相:`generate-visual` 单独用了 `synthesize-sense/utils/callAI.ts`(与 `_shared/callAI.ts` 几乎相同但独立维护的副本),其余四个 Edge Function 都用 `_shared` 版本。两份目前功能等价,但没有机制保证不会走岔——建议让 `generate-visual` 改 import `_shared/callAI.ts`,删除本地副本;
 - **preview 模型风险依然存在**且与 provider 无关:即使继续用 Gemini,`gemini-3.1-flash-lite-preview` 仍是 preview;golden sample(ADR-008)在切换任何模型/provider 前都应该建好。
 
-### 3.8 GenUI 与 Pixi 重构的未决冲突(2026-07-05 盘点发现)
+### 3.8 Totem 管线(原"GenUI")与 Pixi 的冲突 —— ✅ 已决断,待实施
 
-卡片视觉不是静态资产:AI 为每个新 Sense 生成 **TSX 组件**,前端用 sucrase 运行时编译执行(`DynamicVisual.tsx` / `VisualRegistry` / `generate-visual`)。这套 GenUI 管线是 React 时代的核心资产,但 **Pixi 画布上没有 React 渲染树,无法消费 TSX 组件**。roadmap Stage K 只写了"SVG → Texture",没有回答存量 TSX 视觉怎么办。**进入 Stage K 前必须做一次 ADR 级决断**:改生成目标(AI 直接产 SVG/贴图,呼应铁律二第 0 层)、离线渲染成纹理、还是 DOM 覆盖层混合。同时注意:运行 AI 生成的代码本身是安全面(prompt 注入 → 恶意组件),改造时应一并评估。
+卡片视觉不是静态资产:AI 为每个新 Sense 生成 **TSX 组件**,前端用 sucrase 运行时编译执行(`DynamicVisual.tsx` / `VisualRegistry` / `generate-visual`)——与 Pixi 画布不兼容,且"运行 AI 生成的代码"是未设防的安全面。
+
+**2026-07-05 作者定案([ADR-009](decisions/ADR-009-totem-asset-contract.md))**:系统更名 **Totem 管线**;合同改为"分层 SVG + 动画清单 JSON",Pixi/GSAP 解释执行;动画词汇表 v1 覆盖现行产物 100%(唯一损失是路径变形,个案走序列帧);存量 TSX 批量重新生成迁移;sucrase/dynamicComponentLoader 随迁移退役。实施主体在 Stage K,Stage F 的卡片数据结构按"视觉 = 纹理组 + 清单"设计。剩余风险仅在执行,不再在方向。
 
 ### 3.9 服务端没有任何成本护栏(真实资金风险)
 
@@ -129,7 +134,7 @@ roadmap 说 react-dnd"彻底移除、误引用立刻 throw",实际依赖还在�
 不是 bug,而是**既成事实的引力**——每一项的存在都让某个更好的可能性难以出生:
 
 - **调试面板的成熟度引力**:Centerpiece 面板是全项目最好的工具,于是背景成了被打磨最多的部分——工具在哪,精力就流向哪(工具律)。对策:Stage K/M 复用同一套面板基建,把引力导向关键路径,而不是等关键路径自己长出工具;
-- **GenUI 的 TSX 范式**压制贴图范式:"卡片视觉=React 组件"这个既成事实,是铁律二第 0 层(烘焙贴图)从未成为卡片视觉方案的原因(§3.8);
+- **Totem 旧合同的 TSX 范式**曾压制贴图范式:"卡片视觉=React 组件"这个既成事实,是铁律二第 0 层(烘焙贴图)从未成为卡片视觉方案的原因——已由 ADR-009 决断破除(§3.8),留此条作为"既成事实压制正统方案"的标本;
 - **旧 React UI 的"参考存在"**压制重新设计:Stage N 最大的风险不是忘记这 90 个文件,而是照抄它们——旧交互范式会借"参考"之名渗回新架构;
 - **纯客户端体力**制造"成本已被控制"的幻觉,压制真正的服务端配额(§3.9)不被感到紧迫;
 - **MessageBus 与 Zustand 双通道并存**:每个新功能都要选一次通道,summonerStatus 曾选错(local state)。双机制存在一天,"哪条是正道"就模糊一天。建议立一条约定:**状态归 store,跨模块通知归 MessageBus,任何业务事实不允许只活在消息里**;

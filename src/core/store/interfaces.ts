@@ -3,7 +3,6 @@ import type { CardState } from './slices/createCardStateSlice';
 import type { ProgressionState } from './slices/createProgressionSlice';
 import type { GrimoireState, GrimoireActions } from './slices/createGrimoireSlice';
 import type { PersonaStoryState } from './slices/createPersonaStorySlice';
-import type { FeatureFlagsState } from './slices/featureFlags';
 import type {
     PlayerState,
     ViewMode,
@@ -24,7 +23,7 @@ export interface LibraryFilter {
     discovered?: boolean;
 }
 
-export interface GameStore extends ConfigState, CardState, ProgressionState, GrimoireState, GrimoireActions, PersonaStoryState, FeatureFlagsState {
+export interface GameStore extends ConfigState, CardState, ProgressionState, GrimoireState, GrimoireActions, PersonaStoryState {
     // Player State
     player: PlayerState;
     updatePlayer: (updates: Partial<PlayerState>) => void;

@@ -1,6 +1,6 @@
 # 文字分层规范(多语言 · 大文本量)
 
-> 状态: 现行 · 类型: 指南 · 更新: 2026-07-03
+> 状态: 现行 · 类型: 指南 · 更新: 2026-07-06(HTMLText 升格为全面禁用,渲染边界三律见 [ADR-010](../decisions/ADR-010-render-boundary-and-tooling.md))
 > 📖 人话: 游戏里哪种文字用哪种技术画、各自的注意事项。决策理由见 [ADR-003](../decisions/ADR-003-text-layering.md)。
 
 本游戏文字含量高、语种极多(含 CJK、将来可能含 RTL 文种)。文字渲染按**文字的角色**分层,不按"是不是文字"一刀切。本规范是项目铁律(见根目录 CLAUDE.md 铁律四),Stage G(文字层)和 Stage H(InspectOverlay)的实现必须遵循。
@@ -18,7 +18,8 @@
 ## 禁令
 
 - **`BitmapText` 全面禁用。** 它依赖预烘焙字形图集:中文常用字数千个会撑爆图集,阿拉伯文连写(shaping)在原理上无法实现。纯数字/拉丁字母计数器也不要用——为省这点性能引入双轨字体管线不值得。
-- **DOM 不做逐元素跟随相机。** 几百个 DOM 元素每帧同步位置必卡(这正是当初 React 卡顿的根源)。如确需世界锚定的 DOM 内容,见下文"单容器矩阵同步"。
+- **`HTMLText` 全面禁用(2026-07-06 作者定案,ADR-010)。** 每实例经 SVG foreignObject 光栅化,每段唯一文本一张纹理——乘以多语言大文本量即纹理内存炸弹,且开销高于普通 `Text`。富文本/内联样式需求一律走 DOM 覆盖层。
+- **DOM 不做逐元素跟随相机。** 几百个 DOM 元素每帧同步位置必卡(这正是当初 React 卡顿的根源)。如确需世界锚定的 DOM 内容,见下文"单容器矩阵同步";按 [ADR-010](../decisions/ADR-010-render-boundary-and-tooling.md) 律二,豁免上限为检视态的一张卡。
 
 ## Pixi `Text` 使用纪律
 
@@ -39,6 +40,6 @@
 
 ## 与 roadmap 的对应
 
-- Stage G(Hover + 文字层):卡片标题用 Pixi `Text`(roadmap 原写 HTMLText,按本规范评估:HTMLText 每实例走 SVG foreignObject 光栅化,开销高于 Text,仅在确需富文本内联样式时使用)
+- Stage G(Hover + 文字层):卡片标题用 Pixi `Text`。roadmap 原写的 HTMLText 已**全面禁用**(见上方禁令,ADR-010)
 - Stage H(InspectOverlay):React DOM 检视态,本规范第二层的参考实现
 - Stage N(Dock/Library 等):界面型 UI 优先评估 DOM 实现,不默认搬进 Pixi

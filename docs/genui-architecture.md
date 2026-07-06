@@ -1,5 +1,7 @@
 # Lexicoin Generative UI (GenUI) 架构流程说明
 
+> ⚠️ 状态: 描述旧合同(2026-07-05 标注)。"GenUI"名称已废弃,系统更名 **Totem 管线**,视觉资产合同已改为"分层 SVG + 动画清单"(见 [decisions/ADR-009](decisions/ADR-009-totem-asset-contract.md))。本文描述的 TSX 可执行代码方案仍是迁移前的现行实现;**注意:本文"校验层/安全扫描"章节描述的是设计愿景,实际代码从未实现这些防线**(2026-07-05 实勘)。迁移完成后本文归档。
+
 本文档基于业界成熟的 GenUI (Generative User Interface) 实践方案，结合 Lexicoin 项目的具体情况（React + TypeScript + Framer Motion），梳理了 AI 生成 UI 的标准处理流程。
 
 该流程旨在解决由 AI 直接生成不可控代码导致的常见问题（如语法错误、构建失败、运行时崩溃等），确保系统的健壮性。

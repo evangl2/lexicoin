@@ -38,6 +38,7 @@
 | [NOW.md](NOW.md) | 驾驶舱:上次/进行中/下一步/待决策。每次会话收尾更新,一屏上限 |
 | [PROJECT-ATLAS.md](PROJECT-ATLAS.md) | 项目全貌:愿景与玩家体验蓝图 + 系统总账(预期 vs 现状)+ 技术地图 + 黑话词汇表 |
 | [strategic-command.md](strategic-command.md) | 战略指挥简报:工作次序、坑雷图、接班协议(2026-07-05 代码实勘产出) |
+| [design-blueprints-2026-07.md](design-blueprints-2026-07.md) | 设计蓝图包:Stage F 三件套/记忆模型实施/Persona 包/四无名者裁决/部署护栏/檐口/新手引导(2026-07-06 全权委托设计,未实施) |
 
 ### decisions/ — 决策记录(ADR)
 
@@ -51,6 +52,10 @@
 | [ADR-006](decisions/ADR-006-material-model-family.md) | Centerpiece v4:共享骨架 + 可插拔材质模型家族(线性工作流/tonemap/matcap) |
 | [ADR-007](decisions/ADR-007-memory-model-and-review.md) | 记忆模型取代耐久度(遗忘曲线/新颖度经济/复习三层/画布"位置归玩家"设计律) |
 | [ADR-008](decisions/ADR-008-persona-direction.md) | Persona 方向(evalBias 黑箱+存在感提示/Resonance 关系质感/三系统主从/阵容冻结) |
+| [ADR-009](decisions/ADR-009-totem-asset-contract.md) | Totem 管线(原"GenUI"废名):视觉资产合同从可执行 TSX 改为分层 SVG + 动画清单,Pixi/GSAP 解释执行 |
+| [ADR-010](decisions/ADR-010-render-boundary-and-tooling.md) | 渲染边界三律(世界归 Pixi/DOM 不逐帧跟随/关口互通)+ HTMLText 禁用 + 渲染工具选型冻结 |
+| [ADR-011](decisions/ADR-011-interaction-constitution.md) | 交互宪法:拖拽=动词/点击=阅读、四层结构(世界/檐口/仪式/透镜)、五原则、**词卡不设仓库** |
+| [ADR-012](decisions/ADR-012-comms-contract.md) | 前后端通信契约:request_id 幂等全覆盖、超时 120s 对账、契约单一真相源 + CI 哈希比对、错误信封统一 |
 
 ### workflow/ — 开发流程
 
@@ -105,9 +110,9 @@
 | `persona-system.md` | 🟢 较可信 | 数据层;与 ADR-008 方向对照读 |
 | `gameconfig.md` | 🟢 较可信 | 数据层 |
 | `MessageBus-maintenance.md` | 🟡 未核 | 2026-07-05 才登记;呼应 [CLAUDE.md](../CLAUDE.md) 铁律六(状态归 store,通知归 MessageBus) |
-| `genui-architecture.md` | 🟡 未核,方向待定 | 描述的"校验层/安全扫描"**与实际实现不符**(见 [strategic-command.md](strategic-command.md) §3.8),GenUI 去留待 ADR 决断 |
-| `visual-pipeline.md` | 🟡 未核 | 同上,GenUI 管线一部分 |
-| `performance-optimizations.md` | 🟡 未核 | 同上,含 sucrase 编译细节 |
+| `genui-architecture.md` | 🟠 描述旧合同 | 视觉资产合同已由 [ADR-009](decisions/ADR-009-totem-asset-contract.md) 改为"分层 SVG + 动画清单"(系统更名 **Totem 管线**);本文描述的 TSX 旧合同仍是现行实现,**迁移完成后归档** |
+| `visual-pipeline.md` | 🟠 描述旧合同 | 同上 |
+| `performance-optimizations.md` | 🟠 部分过时 | sucrase 编译相关章节随 ADR-009 迁移后失效,其余待核 |
 | `tts-analysis.md` | 🟡 未核 | 被 ATLAS §3 引用;C7 定案后(发音进 v1)应据此推进 |
 | `DurabilityLifecycle.md` | ⚠️ 已重写 | 整体改为**待实施规格**(记忆模型取代耐久度,见 [ADR-007](decisions/ADR-007-memory-model-and-review.md)),不再是现状描述 |
 | `technical/callAI.md` | — | 自动生成 |

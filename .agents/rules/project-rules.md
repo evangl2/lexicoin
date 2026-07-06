@@ -5,7 +5,7 @@
 1. 视觉参数不许盲改数字"调效果"——AI 只写管线/调试面板/preset 导出,滑块归用户
 2. 新增自研 shader 必须经用户明确批准;视觉效果优先烘焙贴图 → pixi-filters
 3. 高度/法线只能有一个真相源:只推理其中一张,另一张用 `npm run assets -- normal` 推导;混用推理产物前必须 `npm run assets -- check` 校验(ADR-005)
-4. `BitmapText` 全面禁用;文字分层规范见 `docs/refactor-pixi/text-guidelines.md`
+4. `BitmapText` 与 `HTMLText` 全面禁用;文字分层与渲染边界三律见 `docs/refactor-pixi/text-guidelines.md` 和 ADR-010;渲染相关不引新库
 5. 改代码必须同一个 commit 更新对应文档;新文档登记进 `docs/INDEX.md`
 6. 不得推翻 `docs/decisions/` 中的现行 ADR;有异议向用户提出
 7. 业务事实(游戏状态、判定结果)归 Zustand store;`MessageBus` 只做一次性通知,不许该持久化的事实只活在消息里

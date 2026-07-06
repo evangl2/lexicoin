@@ -1,6 +1,6 @@
 import {
   Container, Assets, Mesh, Geometry, Shader, UniformGroup,
-  Texture, Sprite, BlurFilter, Buffer
+  Texture, BlurFilter, Buffer
 } from 'pixi.js';
 import type { Viewport } from 'pixi-viewport';
 import gsap from 'gsap';
@@ -8,6 +8,7 @@ import { aabbSystem } from '../systems/AABBSystem';
 import { CenterpieceDebugPanel } from './CenterpieceDebugPanel';
 import { CENTERPIECE_PRESETS, presetToParams, loadPresetsForPersona } from './centerpiece-presets';
 import { personaBridge } from '../bridges/PersonaBridge';
+import { debugPanelBridge } from '../bridges/DebugPanelBridge';
 import { getPixiApp } from '../core/globalApp';
 
 const SIZE = 550; // world units
@@ -791,7 +792,7 @@ export class CenterpieceDecal {
   private _fillDirX = 0;
   private _fillDirY = 0;
   private _fillDirZ = 1.0;
-  private _debugPanel:      unknown      | null = null;
+  private _debugPanel: CenterpieceDebugPanel | null = null;
   private _personaUnsubscribe: (() => void) | null = null;
   private _time = 0;
   private _lastWorldW = 0;
@@ -1086,6 +1087,7 @@ export class CenterpieceDecal {
 
       aabbSystem.reserveCells(-1, -1, 2, 2);
       this._debugPanel = new CenterpieceDebugPanel(this);
+      debugPanelBridge.register(this._debugPanel);
 
       // Subscribe to persona modifications dynamically
       this._personaUnsubscribe = personaBridge.onChange((data) => {
@@ -1439,16 +1441,12 @@ export class CenterpieceDecal {
         ...preset,
         onUpdate: () => {
           // 同步更新 Debug 面板上的滑块与数值输入框
-          if (this._debugPanel && typeof (this._debugPanel as any).syncUI === 'function') {
-            (this._debugPanel as any).syncUI();
-          }
+          this._debugPanel?.syncUI();
         }
       });
     } else {
       Object.assign(this._params, preset);
-      if (this._debugPanel && typeof (this._debugPanel as any).syncUI === 'function') {
-        (this._debugPanel as any).syncUI();
-      }
+      this._debugPanel?.syncUI();
     }
   }
 
@@ -1479,9 +1477,7 @@ export class CenterpieceDecal {
     }
 
     // 4. 通知 Debug 面板渲染新主题与子阶段的数据结构
-    if (this._debugPanel && typeof (this._debugPanel as any).onPersonaChanged === 'function') {
-      (this._debugPanel as any).onPersonaChanged(theme);
-    }
+    this._debugPanel?.onPersonaChanged(theme);
   }
 
   destroy(): void {
@@ -1489,9 +1485,8 @@ export class CenterpieceDecal {
       this._personaUnsubscribe();
       this._personaUnsubscribe = null;
     }
-    if (this._debugPanel && typeof (this._debugPanel as any).destroy === 'function') {
-      (this._debugPanel as any).destroy();
-    }
+    debugPanelBridge.register(null);
+    this._debugPanel?.destroy();
     this._debugPanel = null;
     aabbSystem.clearOccupancy();
     this.container.destroy({ children: true });

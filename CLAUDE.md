@@ -46,7 +46,8 @@ Persona 的视觉多样性来自"换贴图 + 换 preset JSON",**不来自新 sha
 
 - 世界内短文字(卡片标题等)→ Pixi `Text`
 - 阅读型长文本(释义、词条、面板)→ React DOM 覆盖层
-- **`BitmapText` 全面禁用**(中文字形图集爆炸、阿拉伯文连写无法实现)
+- **`BitmapText`、`HTMLText` 全面禁用**(前者:中文字形图集爆炸、阿拉伯文连写无法实现;后者:每段唯一文本一张纹理,多语言下是纹理内存炸弹)
+- 渲染边界三律(世界归 Pixi 屏幕归 DOM / DOM 永不逐帧跟随世界物体 / 两界只在指定关口互通)见 [ADR-010](docs/decisions/ADR-010-render-boundary-and-tooling.md),渲染相关不引新库
 
 ## 铁律五:文档与代码同会话同步
 

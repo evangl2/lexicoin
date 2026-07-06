@@ -436,6 +436,12 @@ export class CenterpieceDebugPanel {
   private _abSnapshot: Record<string, any> | null = null;
   /** 撤销环形栈(50 步),每次滑块/下拉/开关/预设提交前推入 */
   private _undoStack: Record<string, any>[] = [];
+  /** 草稿写盘防抖定时器(滑块拖动时避免每帧 JSON.stringify + localStorage 写入) */
+  private _draftTimer: number | null = null;
+  /** preset 过渡结束后的 syncUI 定时器,destroy 时需取消 */
+  private _presetTimer: number | null = null;
+  /** 各 Mask 通道上次的 effectType,用于只在类型变化时自动展开/收起(不打断用户手动展开) */
+  private _lastMaskTypes: Record<string, number> = {};
 
   constructor(decal: CenterpieceDecal) {
     if (!import.meta.env.DEV) return;
@@ -449,6 +455,9 @@ export class CenterpieceDebugPanel {
     this._build();
     document.body.appendChild(this._el);
     this._onKey = (e: KeyboardEvent) => {
+      // 焦点在输入控件里时不抢按键:搜索框里要能打反引号,数值框里 Ctrl+Z 应做文本撤销
+      const t = e.target as HTMLElement | null;
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
       if (e.key === '`') { this.toggle(); return; }
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
         e.preventDefault();
@@ -479,7 +488,11 @@ export class CenterpieceDebugPanel {
 
   private _pushUndo(): void {
     if (!this._decal) return;
-    this._undoStack.push(this._decal.getCurrentParams());
+    const snap = this._decal.getCurrentParams();
+    // 与栈顶相同则不推:避免"点了滑块没拖"占掉撤销步,Ctrl+Z 时表现为按一下没反应
+    const top = this._undoStack[this._undoStack.length - 1];
+    if (top && JSON.stringify(top) === JSON.stringify(snap)) return;
+    this._undoStack.push(snap);
     if (this._undoStack.length > 50) this._undoStack.shift();
   }
 
@@ -834,6 +847,8 @@ export class CenterpieceDebugPanel {
     this._decal.applyPreset({ ...this._abSnapshot } as any, 0);
     this._abSnapshot = null;
     btn.classList.remove('holding');
+    // 按住期间被拦掉的草稿写盘在这里补一次,保证最后一次改动不丢
+    this._saveDraft();
   }
 
   // ── 搜索过滤 ─────────────────────────────────────────────────────────────
@@ -846,7 +861,8 @@ export class CenterpieceDebugPanel {
       const hit = !query || (row.dataset['search'] || '').includes(query);
       row.classList.toggle('search-miss', !hit);
     });
-    this._sections.forEach(sec => {
+    // 遍历所有分区(含 ⭐常用区与 Mask 通道子块,它们不在 _sections 里),没有命中的整块隐藏
+    this._el.querySelectorAll<HTMLElement>('.collapsible-section').forEach(sec => {
       if (!query) { sec.classList.remove('search-miss'); return; }
       const anyHit = !!sec.querySelector('[data-search]:not(.search-miss)');
       sec.classList.toggle('search-miss', !anyHit);
@@ -929,6 +945,7 @@ export class CenterpieceDebugPanel {
   private _buildMaskChannelBlock(ch: 'R' | 'G' | 'B', params: any): HTMLElement {
     const typeKey = `mask${ch}_effectType`;
     const isActive = (params[typeKey] ?? 0) > 0;
+    this._lastMaskTypes[ch] = params[typeKey] ?? 0;
 
     const block = document.createElement('div');
     block.className = `collapsible-section${isActive ? '' : ' collapsed'}`;
@@ -1245,6 +1262,22 @@ export class CenterpieceDebugPanel {
     };
     this._sliderRefs.forEach((refs, key) => refs.forEach(({ row }) => mark(row, key)));
     this._toggleRefs.forEach((refs, key) => refs.forEach(({ row }) => mark(row, key)));
+    // 下拉框同样参与改动高亮;HRBA 一行里有两个下拉,按行做"或"合并,避免后算的键覆盖前一个的结果
+    const selectRowDirty = new Map<HTMLElement, boolean>();
+    this._selectRefs.forEach((refs, key) => refs.forEach(sel => {
+      const row = sel.closest('.row') as HTMLElement | null;
+      if (!row) return;
+      selectRowDirty.set(row, (selectRowDirty.get(row) ?? false) || this._isDirty(key, params));
+    }));
+    selectRowDirty.forEach((dirty, row) => {
+      row.classList.toggle('dirty', dirty);
+      if (dirty) {
+        const sec = row.closest('.collapsible-section:not([data-mask-channel])') as HTMLElement | null;
+        if (sec && this._sectionBadges.has(sec)) {
+          dirtyPerSection.set(sec, (dirtyPerSection.get(sec) || 0) + 1);
+        }
+      }
+    });
     this._sectionBadges.forEach((badge, sec) => {
       const n = dirtyPerSection.get(sec) || 0;
       badge.textContent = n > 0 ? String(n) : '';
@@ -1311,10 +1344,16 @@ export class CenterpieceDebugPanel {
     this._el?.querySelectorAll('.preset-card').forEach(c => {
       c.classList.toggle('active', (c as HTMLElement).dataset['key'] === key);
     });
-    setTimeout(() => this.syncUI(), PRESET_TRANSITION * 1000 + 80);
+    if (this._presetTimer !== null) window.clearTimeout(this._presetTimer);
+    this._presetTimer = window.setTimeout(() => {
+      this._presetTimer = null;
+      this.syncUI();
+    }, PRESET_TRANSITION * 1000 + 80);
   }
 
   syncUI(): void {
+    // 生产构建下构造器早退,_decal 未赋值;decal 侧仍会调用本方法,必须防护
+    if (!this._el) return;
     const params = this._decal.getCurrentParams() as any;
     this._sliderRefs.forEach((refs, key) => {
       const v = params[key] ?? 0;
@@ -1337,16 +1376,16 @@ export class CenterpieceDebugPanel {
     this._applyVisibilityRules();
     this._syncMatcapGrid(params);
 
-    if (this._el) {
-      ['R', 'G', 'B'].forEach(ch => {
-        const block = this._el!.querySelector(`[data-mask-channel="${ch}"]`) as HTMLElement;
-        if (block) {
-          const typeKey = `mask${ch}_effectType`;
-          const isActive = (params[typeKey] ?? 0) > 0;
-          block.classList.toggle('collapsed', !isActive);
-        }
-      });
-    }
+    // 只在 effectType 发生变化时自动展开/收起 Mask 通道块;
+    // 否则用户手动展开"无"类型通道调颜色时,拖任意滑块触发的 syncUI 会把块又收起来
+    ['R', 'G', 'B'].forEach(ch => {
+      const typeKey = `mask${ch}_effectType`;
+      const cur = params[typeKey] ?? 0;
+      if (this._lastMaskTypes[ch] === cur) return;
+      this._lastMaskTypes[ch] = cur;
+      const block = this._el!.querySelector(`[data-mask-channel="${ch}"]`) as HTMLElement;
+      if (block) block.classList.toggle('collapsed', !(cur > 0));
+    });
   }
 
   private _getActivePersonaName(): string {
@@ -1379,6 +1418,15 @@ export class CenterpieceDebugPanel {
 
   private _saveDraft(): void {
     if (this._abSnapshot) return; // A/B 对比按住期间不落草稿
+    if (this._draftTimer !== null) window.clearTimeout(this._draftTimer);
+    this._draftTimer = window.setTimeout(() => {
+      this._draftTimer = null;
+      this._flushDraft();
+    }, 150);
+  }
+
+  private _flushDraft(): void {
+    if (!this._decal || this._abSnapshot) return;
     const personaName = this._getActivePersonaName();
     const key = this._activePreset;
     localStorage.setItem(`centerpiece-preset-${personaName}-${key}`, JSON.stringify(this._decal.getCurrentParams()));
@@ -1426,6 +1474,7 @@ export class CenterpieceDebugPanel {
   }
 
   public onPersonaChanged(personaName: string): void {
+    if (!this._el) return; // 生产构建下面板未初始化
     this._activePreset = localStorage.getItem(`centerpiece-active-subphase-${personaName}`) || 'rubedo';
     this._refreshBaseline();
     this._build();
@@ -1465,7 +1514,7 @@ export class CenterpieceDebugPanel {
     setTimeout(() => {
       toast.style.opacity = '0';
       toast.style.transform = 'translateY(12px) scale(0.95)';
-      setTimeout(() => document.body.removeChild(toast), 300);
+      setTimeout(() => toast.remove(), 300);
     }, 3000);
   }
 
@@ -1479,6 +1528,16 @@ export class CenterpieceDebugPanel {
     if (this._onKey) {
       window.removeEventListener('keydown', this._onKey);
     }
+    if (this._presetTimer !== null) {
+      window.clearTimeout(this._presetTimer);
+      this._presetTimer = null;
+    }
+    if (this._draftTimer !== null) {
+      // 还有没写盘的草稿:立即落盘,别丢最后一次改动
+      window.clearTimeout(this._draftTimer);
+      this._draftTimer = null;
+      this._flushDraft();
+    }
     this._el?.remove();
     this._styleEl?.remove();
     this._el = null;
@@ -1486,5 +1545,11 @@ export class CenterpieceDebugPanel {
     this._sliderRefs.clear();
     this._toggleRefs.clear();
     this._selectRefs.clear();
+    this._colorSwatches.clear();
+    this._sectionBadges.clear();
+    this._sections = [];
+    this._conditionalRows = [];
+    this._undoStack = [];
+    this._abSnapshot = null;
   }
 }

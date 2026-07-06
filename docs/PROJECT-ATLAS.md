@@ -97,17 +97,19 @@ Persona 给玩家带来**真实的人物感**和**视觉体验**。展开【推�
 |---|---|---|---|---|---|
 | Sense 数据模型 | 以"义项"而非"单词"为原子,多语言词壳挂在意义上 | ✅ | 项目地基,稳定 | 代码本身;`docs/SenseEntity.md`(存量,较可信) | `src/types/index.ts`、`src/core/pipelines/senseToCard.ts` |
 | 合成 Synthesis | 词义相合成新词,好奇心第一引擎 | ✅ 数据层 | 渲染未接(Stage F+);新颖度经济待接入(ADR-007 §1) | ADR-007;`docs/SynthesisSystem.md`(存量) | `src/core/services/`、`supabase/functions/synthesize-sense/` |
-| 卡片视觉生成(GenUI) | AI 为新 Sense 生成专属视觉——**产物是 TSX 组件,运行时 sucrase 编译执行**;异步生成 + Realtime/轮询回填 | ✅ 数据层(React 时代) | ⚠️ **与 Pixi 重构正面冲突**:产物是 React 组件,Pixi 画布无法消费;Stage K 前必须 ADR 决断(见 strategic-command §3.9) | `docs/genui-architecture.md`、`docs/visual-pipeline.md`(2026-07-05 盘点发现,未登记 INDEX,状态未核) | `supabase/functions/generate-visual`、`VisualRegistry`、`useVisualPoll`、`DynamicVisual.tsx` |
-| Grimoire 魔典 | AI 生成收集任务,任务驱动辅助线 | ✅ 数据层 | 渲染未接;⚠️ 2026-04 残余偏差(评分算法/归档拆分/过期路径)**可能已进一步失实**——`useGrimoireExpiry`/`useEchoSystem`/`useGrimoireReward` 均已实现,moduleInit 已含每日 Echo 重置与启动期过期清理(2026-07-05 盘点);重新盘点时先读这几个 hook 再假设缺失 | [GDD](grimoire/GDD_Grimoire.md)(2026-07-05 修订) | `src/app/hooks/useGrimoireSummoning.ts`、`useGrimoireExpiry.ts`、`useEchoSystem.ts`、`useGrimoireReward.ts`、`createGrimoireSlice.ts` |
+| **Totem 管线**(卡片视觉资产;原名"GenUI"已废) | AI 为新 Sense 生成动画视觉资产;异步生成 + **轮询回填**(合成后 ~25s 自动 poll 一次 + 手动 poll 60s 冷却×3;Supabase Realtime 已禁用,`RealtimeService` 是空壳存根——2026-07-06 核实) | ✅ 旧合同运行中,📋 新合同已定案 | 合同改造已定案([ADR-009](decisions/ADR-009-totem-asset-contract.md)):TSX 可执行代码 → 分层 SVG + 动画清单,Pixi/GSAP 解释执行;实施主体在 Stage K;现行 TSX 机制(sucrase 运行时编译)在迁移前继续服役 | [ADR-009](decisions/ADR-009-totem-asset-contract.md);`genui-architecture.md` 等旧文档描述旧合同 | `supabase/functions/generate-visual`、`VisualRegistry`、`useVisualPoll`、`DynamicVisual.tsx`(旧) |
+| Grimoire 魔典 | AI 生成收集任务,任务驱动辅助线 | ✅ 数据层 | 渲染未接。**2026-07-06 残余偏差盘点完毕**:评分算法/fCount/过期路径/归档领奖拆分全部达标;**唯一存活偏差 = Resonance 双轨**(store 轨无里程碑,魔典奖励绕过 PersonaModule 里程碑),修复并入 ADR-008 实施包。倒计时 UI 归 Stage F/M,归档领奖 UI 分流归 Stage N | [GDD](grimoire/GDD_Grimoire.md)(2026-07 修订);记忆 `project_gdd_recheck.md` | `useGrimoireSummoning/Interaction/Expiry/Reward.ts`、`createGrimoireSlice.ts` |
 | Persona | 真实人物感:生成之声、评判之偏、关系之忆 | ✅ 骨架 | 方向已定未实施:关系记忆/里程碑兑现/preset 绑定/第二意见 | [ADR-008](decisions/ADR-008-persona-direction.md);GDD §4 | `supabase/functions/_shared/personas/`、`src/modules/persona/` |
 | 体力 | 节奏阀 + AI 成本阀 | ✅ | 时间戳恢复完整(登录补算 + 5min interval) | GDD §3 | `src/core/store/index.ts` `recoverStamina` |
-| 评分/奖励/Mastery | 正反馈优先的评级与向下延递计数 | ✅ 数据层 | 前端算法与 GDD §7 的一致性**未核实**(残余盘点项) | GDD §7 | `useGrimoireInteraction.ts` |
+| 评分/奖励/Mastery | 正反馈优先的评级与向下延递计数 | ✅ | **2026-07-06 核实:与 GDD §7 完全一致**(数值化/F 惩罚/阈值/向下延递全对齐) | GDD §7;`grimoireConfig.ts` | `useGrimoireInteraction.ts:129`、`createProgressionSlice.ts:81` |
 | 记忆模型(遗忘曲线) | stability/R 取代耐久度,遗忘可见化 | 📋 | 全部待实施;现行代码仍是旧耐久度(合成扣减/归零删卡) | [ADR-007](decisions/ADR-007-memory-model-and-review.md);[DurabilityLifecycle.md](DurabilityLifecycle.md)(已重写为目标规格) | 现行:`src/core/services/DurabilitySystem.ts` |
 | 复习(三层) | 无形层/引力层/Echo 回放,不做独立复习模式 | 📋 | 全部待实施;依赖记忆模型先行 | ADR-007 §3;GDD §8.5.2 | `src/modules/review/`(现存实现单薄) |
 | Library / Echo | 收藏满足感 + 旧魔典再利用 | ✅ 数据层部分 | Echo·回放(新)未实施;归档/领奖流程与 GDD 一致性待盘点 | GDD §8 | `createGrimoireSlice.ts`、`src/modules/library/` |
 | 沉淀 Sedimentation | 社区验证 AI 内容(赞踩/stability/首发现者) | 💤 | 骨架休眠;是未来内容经济的命脉,schema 决策别堵死它 | strategic-command §4(4.6 关联) | `src/modules/sedimentation/` |
-| Construction 构式 | LEXEME→NARRATIVE 四层语法习得 | ❓ | 模块存在,未勘察 | `src/types/index.ts` 类型定义 | `src/modules/construction/` |
-| Item / Level / Inflection | 道具/等级/屈折变化 | ❓ | 模块存在,未勘察 | — | `src/modules/` |
+| Construction 构式 | LEXEME→NARRATIVE 四层语法习得 | 💤 冻结 | 2026-07-06 作者确认冻结:零投入、不删;解冻条件 = 词层循环被留存数据验证后以"句法炼金"重启 | [design-blueprints](design-blueprints-2026-07.md) §4.2 | `src/modules/construction/` |
+| Inflection 屈折 | 词形变化双轨:不规则 AI 生成 key_forms + 规则前端引擎实时算 | ✅ 方案完整,部分实施 | **[InflectionSystem.md](InflectionSystem.md) 是完整现行方案**(英语引擎已实现);剩余=其"待集成"三项;⚠️ 其 UserSenseProgress(含 SRS)与记忆模型有双真相风险,已定 stability 为准 | [InflectionSystem.md](InflectionSystem.md);蓝图 §4.1 | `src/schemas/inflection/` |
+| Progression 等级/XP | 按语言分轨等级,**难度爬升唯一指标**(驱动 targetLevel/CEFR),**向玩家展示**(星等徽记+升级仪式) | ✅ 数据层 | 2026-07-06 作者定案转正;等级将解锁 Persona(GDD §4.6)及更多(待定);XP 曲线待入经济总账 | 蓝图 §4.4;`docs/LevelingSystem.md`(存量较可信) | `src/core/services/`、`src/modules/level/` |
+| Item 道具 | **奖励载体 + 玩家修改底层数据的接口 + 可生成新卡**(作者 2026-07-06 定义) | ✅ 骨架,📋 框架已设计 | 三品类(资源/词术/仪式);词性转化走 wordFamily+derive-sense;第二意见券=GDD §4.7 落地形态;交互=从道具袋拖到目标;品类数值表待经济总账专项 | 蓝图 §4.3 | `src/modules/item/` |
 
 ### 技术系统
 
@@ -125,6 +127,8 @@ Persona 给玩家带来**真实的人物感**和**视觉体验**。展开【推�
 
 - **初始词库**:`INITIAL_SENSES`(`schemas/data/initialSenses`)由 `moduleInit` 播种进 IndexedDB——新玩家第一批卡片的来源
 - **成就系统半成品**:`ACHIEVEMENT_UNLOCKED` 消息 + 通知挂钩已通(`moduleInit.ts`),但无触发源、无 UI 展示面板
+- **通信可靠性件**(2026-07-06 核实,无名但设计良好):`synthesis_requests` 幂等表(client 生成 request_id 防重复投递,10min 过期,RLS 仅 service_role)+ `MAX_CONCURRENT_SYNTHESES=3` 并发控制 + `useResumeProcessing` 中断恢复。⚠️ 幂等只覆盖 synthesize-sense,**grimoire 两个调用没有 request_id**
+- **Story Triggers 地基**:evaluate-grimoire 返回 `triggeredCondition`,personaStory 结局 tag 机制的后端已埋,前端 counter 未实现(GDD §9.3 已标注)
 - **移动端适配基建已埋**:`PlatformAdapter.ts` 提供触摸/鼠标/reduced-motion/dark-mode 检测,当前无消费方——ADR-004 说移动适配是独立后续阶段,但地基已经在
 - **featureFlags 是空壳**:目前只有一个 `antialiasEnabled` 开关,规模远小于其 slice 抽象暗示的用途
 - **DB migrations 只有 1 份**(`20260407000000_synthesis_requests.sql`):schema 演化基本没走版本管理,多数改动可能是手改或经 Supabase CLI 直接同步
@@ -139,8 +143,14 @@ Persona 给玩家带来**真实的人物感**和**视觉体验**。展开【推�
 | 声音层(TTS/音效) | 语言学习产品听不到发音是反常;`AudioContext` 存在、`docs/tts-analysis.md` 有调研,但产品无声音设计 | 🟡 应进正式蓝图 | ATLAS §2.6 未覆盖,建议列为 Stage N 前后独立设计项 |
 | 新手引导 | 蓝图 §2.6 第一小时旅程无任何承载系统;作者定案"很多玩家已丧失探索能力"——这些玩家最需要第一次合成/召唤被"递到手上" | 🟡 影响留存 | 无代码,无设计文档 |
 | 学习效果测量 | "隐形学习"目前无法验证,无遥测、无本地统计;记忆模型(ADR-007)落地后 stability/R 数据可顺手做基础 | 🟢 可搭车实施 | 依赖 ADR-007 |
-| 内容安全层 | AI 生成文本直接展示给玩家,无内容过滤;GenUI 更进一步是**运行 AI 生成的代码**(prompt 注入 → 恶意组件) | 🟡 随 GenUI 改造一并处理 | strategic-command §3.8 |
-| CI / 提交门槛 | 无 `.github`,无任何自动化,`tsc --noEmit` 都不挡提交;测试已死 + 无 CI = 裸奔 | 🟢 低成本高回报 | 最低方案:一个跑 type-check 的 Action |
+| 内容安全层 | AI 生成文本直接展示给玩家,无内容过滤;旧 Totem 合同还**运行 AI 生成的代码**(prompt 注入 → 恶意组件) | 🟡 代码执行部分随 [ADR-009](decisions/ADR-009-totem-asset-contract.md) 迁移自动消灭;文本过滤仍待议 | strategic-command §3.8 |
+| ~~CI / 提交门槛~~ | ~~无自动化~~ **已解决(2026-07-05)**:`.github/workflows/ci.yml` 跑 type-check + lint | ✅ | — |
+| 部署漂移核查 | Edge Functions 手动 CLI 部署、无流水线——**云端实际运行的代码可能不是仓库里的**;DB 实际 schema vs 仅 1 份 migration 同理。这是未知风险最大的栖息地 | 🟡 下次动后端前先 `supabase functions list` / `db diff` 核对 | 2026-07-06 盘点 |
+| 数据迁移系统 | Dexie/store schema 升级路径无人拥有——记忆模型加字段那天,老玩家的 IndexedDB 怎么升级?每次 schema 变更都会撞上 | 🟡 记忆模型实施(schema 首改)前必须回答 | ADR-007 实施依赖 |
+| 时间语义 | 每日 Echo 重置用 `toISOString`(UTC)vs 玩家本地时区;体力时间戳;无人拥有"游戏里的一天从几点开始" | 🟢 小,但要有主 | `moduleInit.ts:50` |
+| 经济总账 | XP 表/体力/奖励倍率/记忆参数散落各 config,无人守恒全局经济;数值调平没有单一视图 | 🟢 数值成熟期再做 | — |
+| 前端错误遥测 | 玩家端崩溃/异常无上报,真实用户期是盲飞 | 🟡 公开部署 checklist 项 | — |
+| 法务件 | LICENSE、隐私说明、AI 生成内容标注义务 | 🟢 公开部署 checklist 项 | — |
 
 ## §4 技术地图
 
@@ -200,6 +210,11 @@ supabase/functions/  generate-grimoire / evaluate-grimoire / …
 | **新颖度经济** | 重复合成组合返回缓存且零奖励,首次组合全额——防刷不误伤探索 |
 | **记忆透镜** | 按键切换的全局记忆热力视图(滤镜,不动卡片位置) |
 | **TRANSCREATE** | 双语文本原则:system 版是母语者视角再创作,不是翻译 |
+| **Totem / Totem 管线** | AI 为每个 Sense 生成的动画视觉资产及其生成管线(原名"GenUI"已废,该名误导);新合同=分层 SVG + 动画清单(ADR-009) |
+| **边界三律** | 渲染分工法(ADR-010):世界归 Pixi 屏幕归 DOM / DOM 永不逐帧跟随世界物体 / 两界只在指定关口互通 |
+| **交互宪法** | ADR-011:拖拽=动词、点击=阅读;四层结构(世界/檐口/仪式/透镜);五原则;**词卡不设仓库** |
+| **搜索透镜** | 无仓库方案的找卡配套(ADR-011):键入片段 → 匹配卡片发光、相机飞行定位。搜索≠存储,卡不离开位置 |
+| **动画清单** | Totem 新合同的 JSON 数据:每个 SVG 层的补间描述(props 关键帧/duration/repeat/ease/stagger),由 Pixi/GSAP 解释执行 |
 
 ### 技术与流程黑话
 

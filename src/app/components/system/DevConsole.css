@@ -1,4 +1,15 @@
-/* Enhanced DevConsole Styles */
+/**
+ * DevConsole Styles — 2026-07-06 滚动架构重设计
+ *
+ * 布局铁则(改动前先读):
+ * 1. 外框是 grid 三行:header / tabs / body,第三行 minmax(0, 1fr) —— minmax 的 0 是关键,
+ *    否则 1fr 轨道受 min-content 约束,内容一多就把整个面板撑破而不是滚动。
+ * 2. `.dev-console-body` 是整个控制台唯一的滚动容器。页签内容一律普通块级流,
+ *    禁止内层再出现 flex:1 + overflow-y:auto 的嵌套滚动(state-section pre 之类
+ *    有固定 max-height 的局部小滚动框除外)。上一版三层嵌套滚动叠加消息流每秒
+ *    scrollIntoView 自动回卷,结果是"看起来完全不能滚"。
+ * 3. 消息/日志渲染最新在最上,不存在任何 JS 自动滚动逻辑,也不许加回来。
+ */
 
 .dev-console-toggle {
     position: fixed;
@@ -20,37 +31,71 @@
     transform: scale(1.1);
 }
 
+/* ---- 外框:grid 三行,尺寸随视口收缩 ---- */
+
 .dev-console {
     position: fixed;
     bottom: 0;
     right: 0;
-    width: 800px;
-    height: 600px;
+    width: min(880px, 96vw);
+    height: min(640px, 92vh);
+    min-width: 420px;
     background: rgba(20, 20, 30, 0.98);
     border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 12px 0 0 0;
     box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.5);
     z-index: 9999;
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-rows: auto auto minmax(0, 1fr);
     font-family: 'Consolas', 'Monaco', monospace;
     color: #e0e0e0;
 }
+
+/* ---- Header ---- */
 
 .dev-console-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 12px 16px;
+    gap: 12px;
+    padding: 10px 16px;
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     border-radius: 12px 0 0 0;
+    flex-wrap: wrap;
 }
 
 .dev-console-header h3 {
     margin: 0;
-    font-size: 16px;
+    font-size: 15px;
     font-weight: 600;
     color: white;
+    white-space: nowrap;
+}
+
+.dev-console-header-controls {
+    display: flex;
+    gap: 12px;
+    flex: 1;
+    min-width: 0;
+}
+
+.header-select-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.85);
+    min-width: 0;
+}
+
+.header-select-label select {
+    background: rgba(0, 0, 0, 0.25);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: 4px;
+    padding: 3px 6px;
+    font-size: 11px;
+    max-width: 130px;
 }
 
 .dev-console-controls {
@@ -74,17 +119,22 @@
 }
 
 .dev-console-controls button.paused {
-    background: rgba(255, 100, 100, 0.3);
+    background: rgba(255, 100, 100, 0.4);
 }
+
+/* ---- Tabs ---- */
 
 .dev-console-tabs {
     display: flex;
     background: rgba(30, 30, 40, 0.95);
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    overflow-x: auto;
 }
 
 .dev-console-tabs button {
     flex: 1;
+    min-width: 84px;
+    white-space: nowrap;
     padding: 10px 16px;
     background: transparent;
     border: none;
@@ -106,30 +156,67 @@
     background: rgba(102, 126, 234, 0.1);
 }
 
-.dev-console-content {
-    flex: 1;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
+/* ---- 唯一滚动容器 ---- */
+
+.dev-console-body {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(102, 126, 234, 0.6) rgba(255, 255, 255, 0.05);
 }
 
-.tab-content {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
+.dev-console-body::-webkit-scrollbar {
+    width: 10px;
 }
+
+.dev-console-body::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.dev-console-body::-webkit-scrollbar-thumb {
+    background: rgba(102, 126, 234, 0.55);
+    border-radius: 5px;
+    border: 2px solid rgba(20, 20, 30, 0.9);
+}
+
+.dev-console-body::-webkit-scrollbar-thumb:hover {
+    background: rgba(102, 126, 234, 0.85);
+}
+
+/* 普通内容页签的统一容器:纯 padding,不参与任何滚动 */
+.pane {
+    padding: 16px;
+}
+
+.pane-title {
+    margin: 0 0 12px 0;
+    font-size: 15px;
+    color: #667eea;
+}
+
+.pane-title.danger {
+    color: #ff6b6b;
+    border-bottom: 1px solid #ff6b6b40;
+    padding-bottom: 8px;
+}
+
+/* ---- 工具条(吸顶,滚动时始终可用) ---- */
 
 .tab-toolbar {
+    position: sticky;
+    top: 0;
+    z-index: 2;
     display: flex;
+    align-items: center;
     gap: 8px;
-    padding: 12px;
-    background: rgba(30, 30, 40, 0.5);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    padding: 10px 12px;
+    background: #191924; /* 必须不透明,内容从底下滚过 */
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .filter-input {
     flex: 1;
+    min-width: 0;
     padding: 6px 12px;
     background: rgba(255, 255, 255, 0.05);
     border: 1px solid rgba(255, 255, 255, 0.1);
@@ -142,13 +229,10 @@
     color: #666;
 }
 
-.checkbox-label {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 12px;
-    color: #999;
-    cursor: pointer;
+.toolbar-hint {
+    font-size: 11px;
+    color: #777;
+    white-space: nowrap;
 }
 
 .clear-btn {
@@ -160,22 +244,30 @@
     cursor: pointer;
     font-size: 12px;
     transition: all 0.2s;
+    white-space: nowrap;
 }
 
 .clear-btn:hover {
     background: rgba(255, 100, 100, 0.3);
 }
 
-/* Message Stream */
+.empty-hint {
+    padding: 28px 16px;
+    text-align: center;
+    color: #777;
+    font-size: 12px;
+    line-height: 1.7;
+}
+
+/* ---- 消息流(最新在最上) ---- */
+
 .message-stream {
-    flex: 1;
-    overflow-y: auto;
     padding: 12px;
 }
 
 .message-item {
     display: grid;
-    grid-template-columns: 80px 200px 120px 1fr;
+    grid-template-columns: 80px minmax(120px, 200px) 100px 1fr;
     gap: 12px;
     padding: 8px 12px;
     margin-bottom: 4px;
@@ -183,7 +275,6 @@
     border-left: 3px solid #667eea;
     border-radius: 4px;
     font-size: 12px;
-    transition: background 0.2s;
 }
 
 .message-item:hover {
@@ -198,6 +289,7 @@
 .message-type {
     color: #667eea;
     font-weight: 600;
+    word-break: break-all;
 }
 
 .message-source {
@@ -217,14 +309,143 @@
     border-radius: 4px;
     font-size: 11px;
     overflow-x: auto;
+    max-height: 240px;
+    overflow-y: auto;
 }
 
-/* State Inspector */
-.state-inspector {
-    flex: 1;
-    overflow-y: auto;
+/* ---- 总线页签的分组条 ---- */
+
+.bus-section-divider {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px;
+    background: rgba(102, 126, 234, 0.08);
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.bus-section-divider h4 {
+    margin: 0;
+    font-size: 13px;
+    color: #667eea;
+}
+
+/* ---- Telemetry ---- */
+
+.telemetry-dashboard {
     padding: 16px;
 }
+
+.telemetry-section {
+    margin-bottom: 24px;
+}
+
+.telemetry-section h4 {
+    margin: 0 0 12px 0;
+    font-size: 14px;
+    color: #667eea;
+}
+
+.telemetry-table,
+.subscriptions-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+}
+
+.telemetry-table th,
+.subscriptions-table th {
+    text-align: left;
+    padding: 8px 12px;
+    background: rgba(102, 126, 234, 0.1);
+    border-bottom: 2px solid #667eea;
+    color: #667eea;
+    font-weight: 600;
+}
+
+.telemetry-table td,
+.subscriptions-table td {
+    padding: 8px 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    word-break: break-all;
+}
+
+.telemetry-table tr:hover,
+.subscriptions-table tr:hover {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.telemetry-table td.error {
+    color: #ff6b6b;
+    font-weight: 600;
+}
+
+/* ---- 注入 ---- */
+
+.inject-panel {
+    padding: 16px;
+}
+
+.inject-presets {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.inject-presets button {
+    padding: 10px;
+    background: rgba(102, 126, 234, 0.1);
+    border: 1px solid rgba(102, 126, 234, 0.3);
+    border-radius: 6px;
+    color: #667eea;
+    cursor: pointer;
+    font-size: 12px;
+    transition: background 0.2s;
+}
+
+.inject-presets button:hover {
+    background: rgba(102, 126, 234, 0.2);
+}
+
+.inject-custom {
+    padding: 16px;
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.inject-input,
+.inject-textarea {
+    width: 100%;
+    padding: 8px 12px;
+    margin-bottom: 12px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    color: #e0e0e0;
+    font-size: 12px;
+    font-family: 'Consolas', 'Monaco', monospace;
+}
+
+.inject-textarea {
+    resize: vertical;
+}
+
+.inject-btn {
+    width: 100%;
+    padding: 10px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: none;
+    border-radius: 6px;
+    color: white;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+/* ---- 状态页签 ---- */
 
 .state-section {
     margin-bottom: 20px;
@@ -240,6 +461,37 @@
     color: #667eea;
 }
 
+.state-section-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.copy-btn {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    padding: 2px 8px;
+    font-size: 12px;
+    cursor: pointer;
+    color: #ccc;
+    height: fit-content;
+}
+
+.copy-btn:hover {
+    background: rgba(102, 126, 234, 0.2);
+    border-color: #667eea;
+}
+
+.section-caption {
+    margin: 4px 0 12px;
+    font-size: 11px;
+    color: #888;
+    line-height: 1.5;
+}
+
+/* 局部有界小滚动框:固定 max-height,是允许的例外 */
 .state-section pre {
     margin: 0;
     padding: 12px;
@@ -279,149 +531,118 @@
     font-style: italic;
 }
 
-/* Telemetry Dashboard */
-.telemetry-dashboard {
-    flex: 1;
-    overflow-y: auto;
-    padding: 16px;
+/* ---- 数据页签 ---- */
+
+.section-head-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 4px;
 }
 
-.telemetry-section {
-    margin-bottom: 24px;
+.section-head-row h4 {
+    margin: 0;
 }
 
-.telemetry-section h4 {
-    margin: 0 0 12px 0;
-    font-size: 14px;
-    color: #667eea;
+.table-counts-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+    gap: 10px;
+    margin: 12px 0;
 }
 
-.telemetry-table,
-.subscriptions-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 12px;
+.table-count-card {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    padding: 10px 12px;
 }
 
-.telemetry-table th,
-.subscriptions-table th {
-    text-align: left;
-    padding: 8px 12px;
-    background: rgba(102, 126, 234, 0.1);
-    border-bottom: 2px solid #667eea;
-    color: #667eea;
+.table-count-name {
+    font-size: 11px;
+    color: #999;
+    margin-bottom: 4px;
+}
+
+.table-count-value {
+    font-size: 18px;
     font-weight: 600;
+    color: #e0e0e0;
 }
 
-.telemetry-table td,
-.subscriptions-table td {
-    padding: 8px 12px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-.telemetry-table tr:hover,
-.subscriptions-table tr:hover {
-    background: rgba(255, 255, 255, 0.02);
-}
-
-.telemetry-table td.error {
-    color: #ff6b6b;
-    font-weight: 600;
-}
-
-/* Inject Panel */
-.inject-panel {
-    flex: 1;
-    overflow-y: auto;
-    padding: 16px;
-}
-
-.inject-panel h4 {
-    margin: 0 0 8px 0;
-    font-size: 16px;
-    color: #667eea;
-}
-
-.inject-description {
-    margin: 0 0 20px 0;
+.warning-text {
     color: #999;
     font-size: 12px;
+    margin-bottom: 16px;
+    background: rgba(255, 107, 107, 0.1);
+    padding: 10px 12px;
+    border-radius: 4px;
+    border: 1px solid rgba(255, 107, 107, 0.2);
 }
 
-.inject-presets {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 12px;
-    margin-bottom: 24px;
+.action-result {
+    margin-top: 10px;
+    font-size: 11px;
+    color: #4cd964;
+    font-weight: 600;
+    padding: 6px 12px;
+    background: rgba(76, 217, 100, 0.1);
+    border-radius: 4px;
+    border: 1px solid rgba(76, 217, 100, 0.2);
+    display: inline-block;
 }
 
-.inject-presets button {
-    padding: 12px;
-    background: rgba(102, 126, 234, 0.1);
-    border: 1px solid rgba(102, 126, 234, 0.3);
+/* ---- 按钮 ---- */
+
+.action-btn {
+    padding: 8px 16px;
+    background: rgba(74, 158, 255, 0.15);
+    border: 1px solid rgba(74, 158, 255, 0.4);
     border-radius: 6px;
-    color: #667eea;
+    color: #4a9eff;
     cursor: pointer;
     font-size: 12px;
-    transition: all 0.2s;
+    font-weight: 600;
+    transition: background 0.2s;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
 }
 
-.inject-presets button:hover {
-    background: rgba(102, 126, 234, 0.2);
-    transform: translateY(-2px);
+.action-btn:hover:not(:disabled) {
+    background: rgba(74, 158, 255, 0.3);
 }
 
-.inject-custom {
-    padding: 16px;
-    background: rgba(255, 255, 255, 0.02);
-    border-radius: 8px;
-    border: 1px solid rgba(255, 255, 255, 0.05);
+.action-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
 }
 
-.inject-custom h5 {
-    margin: 0 0 12px 0;
-    font-size: 14px;
-    color: #999;
+.action-btn.small {
+    padding: 4px 10px;
+    font-size: 11px;
 }
 
-.inject-input,
-.inject-textarea {
-    width: 100%;
-    padding: 8px 12px;
-    margin-bottom: 12px;
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 4px;
-    color: #e0e0e0;
-    font-size: 12px;
-    font-family: 'Consolas', 'Monaco', monospace;
-}
-
-.inject-textarea {
-    resize: vertical;
-}
-
-.inject-btn {
-    width: 100%;
-    padding: 10px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+.danger-btn {
+    padding: 10px 20px;
+    background: linear-gradient(135deg, #ff6b6b 0%, #c0392b 100%);
     border: none;
     border-radius: 6px;
     color: white;
     cursor: pointer;
     font-size: 13px;
     font-weight: 600;
-    transition: transform 0.2s;
 }
 
-.inject-btn:hover {
-    transform: translateY(-2px);
+.danger-btn:hover {
+    filter: brightness(1.1);
 }
 
-/* Log Stream */
+/* ---- 日志页签(最新在最上) ---- */
+
 .log-stream {
-    flex: 1;
-    overflow-y: auto;
     padding: 12px;
 }
 
@@ -437,21 +658,10 @@
     font-size: 12px;
 }
 
-.log-item.log-info {
-    border-left-color: #4a9eff;
-}
-
-.log-item.log-warn {
-    border-left-color: #ffa94a;
-}
-
-.log-item.log-error {
-    border-left-color: #ff6b6b;
-}
-
-.log-item.log-debug {
-    border-left-color: #888;
-}
+.log-item.log-info { border-left-color: #4a9eff; }
+.log-item.log-warn { border-left-color: #ffa94a; }
+.log-item.log-error { border-left-color: #ff6b6b; }
+.log-item.log-debug { border-left-color: #888; }
 
 .log-time {
     color: #888;
@@ -463,25 +673,19 @@
     font-size: 11px;
 }
 
-.log-item.log-info .log-level {
-    color: #4a9eff;
-}
-
-.log-item.log-warn .log-level {
-    color: #ffa94a;
-}
-
-.log-item.log-error .log-level {
-    color: #ff6b6b;
-}
+.log-item.log-info .log-level { color: #4a9eff; }
+.log-item.log-warn .log-level { color: #ffa94a; }
+.log-item.log-error .log-level { color: #ff6b6b; }
 
 .log-source {
     color: #999;
     font-size: 11px;
+    word-break: break-all;
 }
 
 .log-message {
     color: #e0e0e0;
+    word-break: break-word;
 }
 
 .log-data summary {
@@ -498,169 +702,47 @@
     border-radius: 4px;
     font-size: 11px;
     overflow-x: auto;
-}
-
-/* Scrollbar Styling */
-.dev-console ::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
-}
-
-.dev-console ::-webkit-scrollbar-track {
-    background: rgba(255, 255, 255, 0.02);
-}
-
-.dev-console ::-webkit-scrollbar-thumb {
-    background: rgba(102, 126, 234, 0.3);
-    border-radius: 4px;
-}
-
-
-/* System Tab */
-.system-panel {
-    flex: 1;
+    max-height: 240px;
     overflow-y: auto;
-    padding: 16px;
 }
 
-.system-panel h4 {
-    margin: 0 0 12px 0;
-    font-size: 16px;
-    color: #ff6b6b;
-    border-bottom: 1px solid #ff6b6b40;
-    padding-bottom: 8px;
-}
-
-.warning-text {
-    color: #999;
-    font-size: 13px;
-    margin-bottom: 24px;
-    background: rgba(255, 107, 107, 0.1);
-    padding: 12px;
-    border-radius: 4px;
-    border: 1px solid rgba(255, 107, 107, 0.2);
-}
-
-.system-actions {
-    display: flex;
-    gap: 16px;
-}
-
-.danger-btn {
-    padding: 12px 24px;
-    background: linear-gradient(135deg, #ff6b6b 0%, #c0392b 100%);
-    border: none;
-    border-radius: 6px;
-    color: white;
-    cursor: pointer;
-    font-size: 14px;
-    font-weight: 600;
-    transition: transform 0.2s, box-shadow 0.2s;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
-}
-
-.danger-btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 12px rgba(255, 107, 107, 0.3);
-}
-
-.danger-btn:active {
-    transform: translateY(0);
-}
-.action-btn {
-    padding: 10px 20px;
-    background: linear-gradient(135deg, #4a9eff 0%, #357abd 100%);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    border-radius: 6px;
-    color: white;
-    cursor: pointer;
-    font-size: 13px;
-    font-weight: 600;
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    width: fit-content;
-}
-
-.action-btn:hover:not(:disabled) {
-    transform: translateY(-2px);
-    background: linear-gradient(135deg, #5fb2ff 0%, #4a9eff 100%);
-    box-shadow: 0 6px 16px rgba(74, 158, 255, 0.3);
-    border-color: rgba(255, 255, 255, 0.4);
-}
-
-.action-btn:active:not(:disabled) {
-    transform: translateY(0);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-}
-
-.action-btn:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-    filter: grayscale(0.5);
-}
-
-.action-result {
-    margin-top: 10px;
-    font-size: 11px;
-    color: #4cd964;
-    font-weight: 600;
-    padding: 6px 12px;
-    background: rgba(76, 217, 100, 0.1);
-    border-radius: 4px;
-    border: 1px solid rgba(76, 217, 100, 0.2);
-    display: inline-block;
-}
-
-/* Cheat Panel */
-.cheat-panel {
-    flex: 1;
-    overflow-y: auto;
-    padding: 24px;
-    background: linear-gradient(180deg, rgba(30, 30, 45, 0.5) 0%, rgba(20, 20, 30, 0.8) 100%);
-}
+/* ---- 作弊页签 ---- */
 
 .cheat-section {
-    margin-bottom: 32px;
+    margin-bottom: 20px;
     background: rgba(255, 255, 255, 0.03);
-    padding: 20px;
+    padding: 16px;
     border-radius: 12px;
     border: 1px solid rgba(255, 255, 255, 0.05);
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
 }
 
 .cheat-section h4 {
-    margin: 0 0 20px 0;
+    margin: 0 0 16px 0;
     color: #ffcc00;
     font-size: 13px;
     font-weight: 600;
     letter-spacing: 1.5px;
     text-transform: uppercase;
-    display: flex;
-    align-items: center;
-    gap: 8px;
 }
 
 .cheat-row {
     display: flex;
     gap: 12px;
     align-items: center;
-    margin-bottom: 20px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
 }
 
 .cheat-input {
     width: 90px;
-    padding: 10px 12px;
+    padding: 8px 12px;
     background: rgba(0, 0, 0, 0.4);
     border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 6px;
     color: white;
     font-family: inherit;
-    font-size: 14px;
+    font-size: 13px;
     outline: none;
-    transition: border-color 0.2s;
 }
 
 .cheat-input:focus {
@@ -682,19 +764,13 @@
     font-size: 12px;
     font-weight: 500;
     cursor: pointer;
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: all 0.2s;
 }
 
 .cheat-presets button:hover, .cheat-row button:hover {
     background: rgba(255, 204, 0, 0.1);
     color: #ffcc00;
     border-color: #ffcc00;
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(255, 204, 0, 0.1);
-}
-
-.cheat-presets button:active, .cheat-row button:active {
-    transform: translateY(0);
 }
 
 .lang-target {
@@ -707,4 +783,96 @@
     background: rgba(74, 158, 255, 0.1);
     padding: 2px 6px;
     border-radius: 4px;
+}
+
+/* ---- 引擎页签 ---- */
+
+.debug-section {
+    margin-bottom: 20px;
+}
+
+.debug-section.boxed {
+    padding: 12px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 6px;
+    border: 1px solid #333;
+}
+
+.debug-section h5 {
+    margin: 0 0 10px 0;
+    font-size: 12px;
+    color: #999;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.engine-row {
+    font-size: 13px;
+    margin-bottom: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.backend-badge {
+    color: #00ff00;
+}
+
+.engine-caption {
+    font-size: 11px;
+    color: #888;
+    margin-bottom: 12px;
+}
+
+.engine-inputs {
+    display: flex;
+    gap: 8px;
+    align-items: flex-end;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+}
+
+.input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.input-label {
+    font-size: 11px;
+    color: #888;
+}
+
+.engine-num-input {
+    width: 90px;
+    background: #111;
+    border: 1px solid #333;
+    color: #fff;
+    padding: 6px;
+    border-radius: 4px;
+    font-family: inherit;
+    font-size: 12px;
+}
+
+.apply-btn {
+    padding: 6px 14px;
+    background: #334466;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+}
+
+.apply-btn:hover {
+    background: #405580;
+}
+
+.debug-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 0;
+    font-size: 12px;
+    cursor: pointer;
 }

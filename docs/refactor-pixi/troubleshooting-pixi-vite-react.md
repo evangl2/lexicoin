@@ -300,6 +300,32 @@ gl_Position = vec4(pos.x, -pos.y, 0.0, 1.0); // 关键：取负值
 
 ---
 
+## P1-18 · DEV-only 早退构造器 + 对外方法无防护 = 生产构建定时炸弹
+
+**症状**  
+调试面板类构造器里 `if (!import.meta.env.DEV) return;` 早退,字段(如 `_decal!`)未赋值;但调用方(CenterpieceDecal)在生产构建仍会 `new` 出实例并调用其 `syncUI()` / `onPersonaChanged()`,首次应用 preset 即 `TypeError: Cannot read properties of undefined`。dev server 永远复现不了。
+
+**根因**  
+"DEV 才初始化"的守卫只写在构造器,没有覆盖全部 public 方法;`definite assignment`(`!`)骗过了 TS 的未赋值检查。
+
+**解法**  
+所有对外方法入口统一防护(本项目用 `if (!this._el) return;`,`_el` 只在 DEV 路径创建);调用方持有真实类型(`CenterpieceDebugPanel | null`)而非 `unknown` + 鸭子类型,让 TS 能看住调用面。2026-07-06 已在 CenterpieceDebugPanel/CenterpieceDecal 修复。
+
+---
+
+## P1-19 · 轮询数据 + scrollIntoView 自动滚动 = "面板无法滚动"的假象
+
+**症状**  
+DevConsole 内容区"完全不能滚动"。反复检查 flex/overflow/min-height 都没用——因为布局根本没坏。
+
+**根因**  
+消息流每秒轮询产生新数组引用 → `useEffect([messages])` 每秒触发 → `scrollIntoView({behavior:'smooth'})` 每秒把滚动位置平滑拽回锚点。用户手动滚动后一秒内必被拖回,体感即"无法滚动"。嵌套三层 `flex:1 + overflow-y:auto` 又让排查方向全部歪到布局上。
+
+**解法**  
+流式数据(消息/日志)渲染**最新在最上**,自动滚动机制整个删除——停在顶部天然看到最新,不存在"跟随最新"的需求;整个面板只保留一个滚动容器(grid 外框 `minmax(0,1fr)` + 单一 `overflow-y:auto`),内层一律普通块级流。若未来真需要"跟随最新",必须先判断用户是否已在底部,且绝不用 smooth 行为。2026-07-06 已在 DevConsole 重设计中落地。
+
+---
+
 ## 最终有效的 vite.config.ts 片段
 
 ```typescript
