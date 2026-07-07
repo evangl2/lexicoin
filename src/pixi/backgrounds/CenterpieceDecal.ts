@@ -42,6 +42,45 @@ fn main(@location(0) aPosition: vec2<f32>, @location(1) aUV: vec2<f32>) -> Verte
 }
 `;
 
+/**
+ * Mask 发光层专用顶点着色器:走 Pixi 标准变换链(投影 × 世界 × 本体)。
+ * 与主体网格的自制相机投影(VERT_WGSL)不同,原因:发光层挂 BlurFilter 且要做
+ * bloomScale/呼吸缩放——滤镜按 Pixi 包围盒渲染离屏纹理、缩放依赖 mesh.scale,
+ * 都要求顶点位置服从 Pixi 变换体系。自制投影下包围盒落在世界原点而绘制在世界中心,
+ * 滤镜直接把整层裁没、scale.set() 空转(表现为光晕模糊/光晕缩放/呼吸脉冲全部无效)。
+ * 使用本着色器的网格必须把 position 设到法阵世界中心(几何体以原点为中心)。
+ */
+const VERT_MASK_WGSL = `
+struct GlobalUniforms {
+  uProjectionMatrix: mat3x3<f32>,
+  uWorldTransformMatrix: mat3x3<f32>,
+  uWorldColorAlpha: vec4<f32>,
+  uResolution: vec2<f32>,
+}
+struct LocalUniforms {
+  uTransformMatrix: mat3x3<f32>,
+  uColor: vec4<f32>,
+  uRound: f32,
+}
+@group(0) @binding(0) var<uniform> globalUniforms: GlobalUniforms;
+@group(1) @binding(0) var<uniform> localUniforms: LocalUniforms;
+
+struct VertexOutput {
+  @builtin(position) position: vec4<f32>,
+  @location(0) uv: vec2<f32>,
+}
+
+@vertex
+fn main(@location(0) aPosition: vec2<f32>, @location(1) aUV: vec2<f32>) -> VertexOutput {
+  var out: VertexOutput;
+  let mvp = globalUniforms.uProjectionMatrix * globalUniforms.uWorldTransformMatrix * localUniforms.uTransformMatrix;
+  let pos = mvp * vec3<f32>(aPosition, 1.0);
+  out.position = vec4<f32>(pos.xy, 0.0, 1.0);
+  out.uv = aUV;
+  return out;
+}
+`;
+
 const FRAG_WGSL = `
 struct LightUniforms {
   uLightDir:     vec4<f32>,  // xyz=方向, w=备用
@@ -73,9 +112,9 @@ struct MaskUniforms {
   maskB_strengthAndNoise:   vec4<f32>,
   uNoiseCfg:  vec4<f32>,  // x=scale, y=contrast, z=speedX, w=speedY
   uNoiseCfg2: vec4<f32>,  // x=scale2, y=blendMode, zw=unused
-  uMaskAdj:   vec4<f32>,  // x=brightness, y=contrast, z=softness, w=unused
+  uMaskAdj:   vec4<f32>,  // x=brightness, y=contrast, z=edgeSoftness(发光锐度幂), w=emissiveEdgeWidth(边缘羽化宽度)
   uTime:      f32,
-  _pad1:      f32,
+  _pad1:      f32,        // emissiveNoiseGain(发光噪声增益;槽位是历史命名,实为业务参数,见 _flushMaskUniforms)
   _pad2:      f32,
   _pad3:      f32,
 }
@@ -338,7 +377,7 @@ struct V4Uniforms {
   uV4A: vec4<f32>,  // x=materialModel(0=PBR,1=Stylized), y=tonemapMode(0=None,1=Reinhard,2=ACES), z=envStrength, w=unpremultiply
   uV4B: vec4<f32>,  // x=normalFlipX, y=normalBiasX, z=normalBiasY, w=heightInvert
   uV4C: vec4<f32>,  // x=curvatureScale, y=curvatureBoost, z=rampSoftness, w=rampSteps
-  uV4D: vec4<f32>,  // x=envRoughFade, yzw=reserved
+  uV4D: vec4<f32>,  // x=envRoughFade, y=debugView(诊断视图:1=高度 2=视差驱动 3=浮雕投影因子 4=视差偏移), zw=reserved
   // ── 光照系统重做新增(计划: plan-centerpiece-workbench.md §1) ──
   uV4E: vec4<f32>,  // x=lightType(0=平行光,1=点光), y=pointFalloffRadius, z=pointFalloffCurve, w=envUniformity
   uV4F: vec4<f32>,  // xy=lightPosUV(点光位置/方向驱动向量+0.5), z=parallaxFollow(0=跟随光,1=跟随鼠标), w=ditherStrength
@@ -496,6 +535,23 @@ fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
     let d3 = clamp((h_s3 - height - 0.100) * 4.0, 0.0, 1.0) * (1.0 - soft * 0.6);
     let occlusion = max(d1, max(d2, d3)) * v4.uV4H.x;
     reliefShadowFactor = 1.0 - occlusion;
+  }
+
+  // 诊断视图(uV4D.y,调试面板测试页专用):把 shader 中间量直接画出来,
+  // 用于区分"参数没进 shader"和"计算结果本身为零"。0=关闭。
+  let dbgView = v4.uV4D.y;
+  if (dbgView > 0.5) {
+    var dbgColor: vec3<f32>;
+    if (dbgView < 1.5) {
+      dbgColor = vec3<f32>(height);                               // 1=高度图(黑白浮雕)
+    } else if (dbgView < 2.5) {
+      dbgColor = vec3<f32>(parallaxDriver * 0.5 + 0.5, 0.0);      // 2=视差驱动向量(随鼠标/光变色)
+    } else if (dbgView < 3.5) {
+      dbgColor = vec3<f32>(reliefShadowFactor);                   // 3=浮雕投影因子(边缘应有黑纹)
+    } else {
+      dbgColor = vec3<f32>(abs(pOffset) * 20.0, 0.0);             // 4=视差UV偏移×20(应随鼠标波动)
+    }
+    return vec4<f32>(dbgColor * edgeAlpha, edgeAlpha);
   }
 
   var metalness = hrbaConfig.uMetalness.x;
@@ -657,10 +713,10 @@ struct MaskUniforms {
   _pad2:      f32,
   _pad3:      f32,
 }
-@group(1) @binding(0) var<uniform> maskConfig: MaskUniforms;
-@group(1) @binding(1) var uMaskMap:            texture_2d<f32>;
-@group(1) @binding(2) var uSampler:            sampler;
-@group(1) @binding(3) var uNoiseMap:           texture_2d<f32>;
+@group(2) @binding(0) var<uniform> maskConfig: MaskUniforms;
+@group(2) @binding(1) var uMaskMap:            texture_2d<f32>;
+@group(2) @binding(2) var uSampler:            sampler;
+@group(2) @binding(3) var uNoiseMap:           texture_2d<f32>;
 
 @fragment
 fn main(@location(0) uv: vec2<f32>) -> @location(0) vec4<f32> {
@@ -915,8 +971,9 @@ export class CenterpieceDecal {
     maskB_noiseCoupling: 0.5,
 
     // --- Mask Emissive & Adjustments ---
-    maskAnimMode: 1, 
+    maskAnimMode: 1,
     maskAnimSpeed: 1.0,
+    debugView: 0, // 诊断视图(V4 shader 中间量可视化;调试面板测试页专用,不入 preset)
     maskIntensity: 1.0,
     maskBrightness: 0.0,
     maskContrast: 1.0,
@@ -947,11 +1004,20 @@ export class CenterpieceDecal {
 
     try {
       this._currentNoiseTexKey = this._params.maskNoiseTex;
+      // 数据贴图(法线/HRBA/Mask)的 RGBA 通道存的是任意数值,不是真实透明合成色;
+      // Pixi 默认按 'premultiply-alpha-on-upload' 上传纹理(RGB×=A),会用 alpha 通道污染其它通道的数值——
+      // 这套贴图的 HRBA.a(厚度)恰好被打包成常数 0,导致 R/G/B(高度/粗糙度/金属度)全部被乘成 0,
+      // 是"高度/视差/浮雕投影读数恒为常数、粗糙度只剩单一档位"这批 bug 的根因。见 CLAUDE.md 铁律三资材通道规范。
+      // 注意:'no-premultiply-alpha' 只堵住 GPU 上传这一步的二次相乘,真正的腐蚀发生在更早的
+      // createImageBitmap() 浏览器端解码——loadTextures.mjs 的判断只认字面量 'premultiplied-alpha'
+      // (语义是"告诉浏览器这图已经是预乘过的,解码时别再乘一遍"),必须传这个值才能在源头拦住,
+      // 顺带也会让 GPU 上传那步一并跳过(alphaMode 不再等于 'premultiply-alpha-on-upload')。
+      const noPremultiply = { alphaMode: 'premultiplied-alpha' as const };
       const [diffuse, normal, hrba, mask, noise] = await Promise.all([
         Assets.load<Texture>('/assets/canvas/decals/alchemist-centerpiece-1.png'),
-        Assets.load<Texture>('/assets/canvas/decals/alchemist-centerpiece-1-normal.png'),
-        Assets.load<Texture>('/assets/canvas/decals/alchemist-centerpiece-1-hrba.png'),
-        Assets.load<Texture>('/assets/canvas/decals/alchemist-centerpiece-1-mask.png'),
+        Assets.load<Texture>({ src: '/assets/canvas/decals/alchemist-centerpiece-1-normal.png', data: noPremultiply }),
+        Assets.load<Texture>({ src: '/assets/canvas/decals/alchemist-centerpiece-1-hrba.png', data: noPremultiply }),
+        Assets.load<Texture>({ src: '/assets/canvas/decals/alchemist-centerpiece-1-mask.png', data: noPremultiply }),
         Assets.load<Texture>(this._currentNoiseTexKey),
       ]);
 
@@ -1061,9 +1127,8 @@ export class CenterpieceDecal {
       this._mesh = new Mesh({ geometry, shader: initialShader, label: 'centerpiece-metal-mesh' });
 
       const maskShader = Shader.from({
-        gpu: { vertex: { source: VERT_WGSL, entryPoint: 'main' }, fragment: { source: MASK_EMISSIVE_WGSL, entryPoint: 'main' } },
+        gpu: { vertex: { source: VERT_MASK_WGSL, entryPoint: 'main' }, fragment: { source: MASK_EMISSIVE_WGSL, entryPoint: 'main' } },
         resources: {
-          cam:        this._cameraUniforms,
           maskConfig: this._maskUniforms,
           uMaskMap:   mask.source,
           uSampler:   mask.source.style,
@@ -1071,13 +1136,21 @@ export class CenterpieceDecal {
         }
       });
 
+      // 发光双层走 Pixi 标准变换(见 VERT_MASK_WGSL 头注释),必须落位到世界中心
+      const worldCenterX = viewport.worldWidth * 0.5;
+      const worldCenterY = viewport.worldHeight * 0.5;
+
       this._runeGlowMesh = new Mesh({ geometry, shader: maskShader, label: 'mask-glow-mesh' });
       this._runeGlowMesh.blendMode = 'add';
+      this._runeGlowMesh.position.set(worldCenterX, worldCenterY);
       this._blurFilter = new BlurFilter({ strength: this._params.baseBlur, quality: 4 });
+      // 滤镜输出的合成方式默认是 normal,会吞掉发光层的叠加感,必须显式设为 add
+      this._blurFilter.blendMode = 'add';
       this._runeGlowMesh.filters = [this._blurFilter];
 
       this._runeMesh = new Mesh({ geometry, shader: maskShader, label: 'mask-core-mesh' });
       this._runeMesh.blendMode = 'add';
+      this._runeMesh.position.set(worldCenterX, worldCenterY);
 
       this.container.addChild(this._mesh);
       this.container.addChild(this._runeGlowMesh);
@@ -1220,6 +1293,9 @@ export class CenterpieceDecal {
         this._lastWorldW = this._viewport.worldWidth;
         this._lastWorldH = this._viewport.worldHeight;
         this.container.position.set(0, 0);
+        // 发光双层用 Pixi 标准变换定位,世界尺寸变化时须跟随世界中心
+        this._runeGlowMesh?.position.set(this._viewport.worldWidth * 0.5, this._viewport.worldHeight * 0.5);
+        this._runeMesh?.position.set(this._viewport.worldWidth * 0.5, this._viewport.worldHeight * 0.5);
       }
 
       const peekX = (this.container.parent as any)?.x || 0;
@@ -1277,9 +1353,11 @@ export class CenterpieceDecal {
 
       this._lightUniforms.uniforms.uLightDir = [this._smoothDriveX, this._smoothDriveY, this._params.lightHeight, 0.0];
 
-      // 点光位置(与方向驱动共用同一套 fixed/orbit/mouse/mixed 计算,+0.5 换算到 UV 中心原点)
+      // 点光位置(与方向驱动共用同一套 fixed/orbit/mouse/mixed 计算,+0.5 换算到 UV 中心原点)。
+      // smoothDriveY 是 Y 轴朝上的"光/L 空间"约定(鼠标上移→正值,与 uLightDir.y / parallaxDriver 的 -L.y 转换一致),
+      // 而 UV.v 是朝下的(v=0 顶部、v=1 底部)——两者符号相反,这里必须做一次翻转,否则点光位置会跑到鼠标的正对面。
       this._lightPosUVX = 0.5 + this._smoothDriveX;
-      this._lightPosUVY = 0.5 + this._smoothDriveY;
+      this._lightPosUVY = 0.5 - this._smoothDriveY;
 
       // 视差跟随鼠标专用的原始鼠标偏移(不受 lightDrive/lightSmoothing 影响,鼠标不在画布上时回落为 0)
       this._mouseOffsetX = haveMouse ? targetLX : 0;
@@ -1333,7 +1411,7 @@ export class CenterpieceDecal {
       v4.uV4A = [this._params.materialModel, this._params.tonemapMode, this._params.envStrength, this._params.unpremultiply];
       v4.uV4B = [this._params.normalFlipX, this._params.normalBiasX, this._params.normalBiasY, this._params.heightInvert];
       v4.uV4C = [this._params.curvatureScale, this._params.curvatureBoost, this._params.rampSoftness, this._params.rampSteps];
-      v4.uV4D = [this._params.envRoughFade, 0, 0, 0];
+      v4.uV4D = [this._params.envRoughFade, this._params.debugView, 0, 0];
       v4.uV4E = [this._params.lightType, this._params.pointFalloffRadius, this._params.pointFalloffCurve, this._params.envUniformity];
       v4.uV4F = [this._lightPosUVX, this._lightPosUVY, this._params.parallaxFollow, this._params.ditherStrength];
       v4.uV4G = [this._mouseOffsetX, this._mouseOffsetY, 0, 0];

@@ -97,6 +97,17 @@
 ### C. 资源加载竞态
 *   **对策**：使用 `Promise.all([Assets.load(...)])` 确保所有贴图（Diffuse, Normal, HRBA, Mask, Noise）全部加载完毕再初始化 Mesh。任何一个贴图丢失都会导致整个 `CenterpieceDecal` 初始化静默失败或在控制台报 `texture.source` 为空的错误。
 
+### D. 数据贴图被隐式预乘 alpha 污染（2026-07-06 实战踩坑）
+*   **现象**：HRBA 的高度/粗糙度/金属度参数"拖了没反应"，或读数在诊断视图下呈现整图纯色/纯白/纯黑；表现上很像 shader 逻辑错误或资材本身数据缺失，实际两者都不是。
+*   **根因**：`Assets.load()` 默认给每张贴图设置 `alphaMode: 'premultiply-alpha-on-upload'`，会做 `RGB × A`。这个默认值是为"真实带透明度的彩色图片"设计的，但 HRBA / 法线 / Mask 这类**数据贴图**的 RGBA 四通道存的是任意数值（高度、粗糙度、金属度、厚度……），根本不是视觉合成色，被 alpha 加权是纯粹的数据污染。只要 A 通道不是纯白 255，R/G/B 就会被按比例污染；A 通道若恰好整图是 0（如本例的厚度通道未打包），R/G/B 会被直接乘成 0，表现为"整图常数"。
+*   **诊断手段**：怀疑某个 shader 参数读到的贴图数据不对但代码走查看不出问题时，在 fragment shader 里加一个临时的调试早退分支（`if (dbgFlag > 0.5) { return vec4(目标中间量, 1.0); }`），把 shader 内部的中间计算结果直接画出来，比对预期形态（应有渐变 vs 实际是纯色）。这比反复读代码找 bug 快得多——本例这套排查工具留在了 `CenterpieceDebugPanel.ts` 的"🧪测试"页 → 🔬诊断视图。
+*   **修复**：加载数据贴图时显式关闭预乘：
+    ```ts
+    Assets.load<Texture>({ src: path, data: { alphaMode: 'premultiplied-alpha' } })
+    ```
+*   **⚠️ 参数名是个坑，别凭直觉猜**：Pixi 的 `ALPHA_MODES` 有三个值——`'no-premultiply-alpha'` / `'premultiply-alpha-on-upload'` / `'premultiplied-alpha'`。预乘其实分两处发生：① 浏览器 `createImageBitmap()` 解码时（真正的污染源头，默认就会做）；② Pixi 的 GPU 上传步骤。看起来最直觉的 `'no-premultiply-alpha'` 只堵住了②，①完全不受影响——数据在到达 GPU 前就已经被污染了。真正能在源头拦截的是名字反直觉的 `'premultiplied-alpha'`（字面意思是"这张图已经预乘过了"，实际效果是"所以解码时你不用再乘一次"，顺带也让第②步一起跳过）。**不要凭字面名字猜 Pixi 的 alphaMode 语义，拿不准就去翻 `node_modules/pixi.js` 里 `loadTextures.mjs` / `loadImageBitmap.worker.mjs` 的实际判断条件**（判断字面量是 `=== "premultiplied-alpha"`）。
+*   **适用范围**：以后任何新增的"数据贴图"（法线图、HRBA、Mask，或未来任何通道存数值而非色彩的贴图）加载时，默认都要带上 `data: { alphaMode: 'premultiplied-alpha' }`。Diffuse 贴图例外——它的 alpha 是真实透明裁切语义，`FRAG_WGSL_V4` 里的"边缘修正"参数本来就是为了抵消它的默认预乘而存在的配套设计，不要改。
+
 ---
 
 ## 6. PBR v3.3 (PNG-HRBA & Universal Mask 路由) 规范说明

@@ -12,6 +12,7 @@
 
 ## 进行中 / 挂起
 
+- **2026-07-06 CenterpieceDebugPanel 新增"🧪测试"页(参数隔离测试)+ HRBA 预乘 alpha bug 修复(作者已验证有效)**:测试页一键把无关参数收敛到最适合观察目标参数的环境,20 项覆盖光照/PBR/发光/风格化,内附"🔬诊断视图"下拉(shader 中间量可视化,排查"参数拖了没反应"用);借这套工具排查出真 bug——HRBA/法线/Mask 这类数据贴图被 `Assets.load()` 默认预乘 alpha 污染(RGB×=A),Pixi 的 `alphaMode` 修复参数名反直觉,踩坑记录见 [Assets-guide.md §5D](refactor-pixi/Assets-guide.md);顺带修了辉光层(mask 双网格自制投影导致包围盒错位,BlurFilter/scale 全部空转,已改走 Pixi 标准变换)和发光强度钳制(总强度滑块被通道强度默认值顶到天花板)。取色器化调色 + 区间滑块互斥 + A/B 快照(📌)+ 曝光等 5 项感知曲线滑块同批完成。全部改动只在这套调参管线内,未涉及正式材质数值。
 - ✅ 2026-07-05 全部改动(含 Totem 改名批次、CI、ADR-009)已由作者确认 commit 完毕,工作区干净
 - **2026-07-06 debug 面板冻结前整顿完毕(待作者验收)**:CenterpieceDebugPanel 修 7 处(生产构建崩溃防护/快捷键不再劫持输入框/草稿写盘防抖/撤销栈去重/Mask 通道折叠不再抢占/下拉框补改动高亮/destroy 补全);坑已记入 troubleshooting P1-18
 - **2026-07-06 DevConsole 全面重构(待作者验收)**:8 页签砍并为 6 个(总线/状态/数据/日志/作弊/引擎),消息流从"从未收到过消息的假通配符订阅"改为真轮询、World Size 默认值不再硬编码错误值、轮询按活跃页签隔离(不再每秒重渲染整个控制台)、Persona 下拉改动态读取 registry、删除死代码 featureFlags slice;危险区(清空 Grimoire/出厂重置)与作弊页签改为仅 DEV 构建可见(AI 决策:两者是不可逆或可被滥用的操作,其余功能因项目尚无真实终端用户而保持常开);新增 `DebugPanelBridge` 让 DevConsole「引擎」页签可发现并开合 CenterpieceDebugPanel(两者仍分属不同生命周期,不合并组件)。lint 145→137(消掉的都是本次顺手清的死引用)

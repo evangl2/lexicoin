@@ -279,7 +279,7 @@ function GameShell() {
 - **基础物理层**：集成 `pixi-viewport` 处理原始坐标变换、滚轮缩放、以及基础的 `clamp` 和 `bounce`。
 - **意图感知层 (`CameraSystem.ts`)**：
     - **Lead the View**：基于当前速度向量实时 nudging 相机坐标，使视野带有微妙的“前瞻性”。
-    - **Mouse Peeking (重心偏移)**：对内部 `contentLayer` 施加基于光标位置的二次幂偏移（40% 死区），实现视角随心动的纵深感。
+    - **Mouse Peeking (重心偏移)**：对内部 `contentLayer` 施加基于光标位置的二次幂偏移（95% 死区,仅边缘 5% 区域触发），实现视角随心动的纵深感。
     - **Progressive Resistance (指数泥沼)**：在越界区域，不再是死板的 hard-stop，而是构建了一个 `Math.pow(ratio, 1.5)` 的阻力模型。拉得越远，阻力呈指数级增长，模拟真实的物理极限。
     - **Edge Scrolling (边缘滚动)**：RTS 风格的自动平移。特别处理了与阻力逻辑的解耦：自动滚动在撞墙时会进行强制位移截断，绝不触发回弹干扰。
 - **Dynamic World Adaptation (动态边界适配)**：系统原生支持可变画布大小。`CameraSystem` 暴露了 `updateWorldBounds()` 方法，用于在世界维度改变时重新校准物理插件（`clamp` / `clampZoom`）的约束范围，确保摄像机在任何地图尺度下都表现一致。

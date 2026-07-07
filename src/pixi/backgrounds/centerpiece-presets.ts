@@ -105,6 +105,7 @@ export interface CenterpiecePreset {
   f0Dielectric:  number;
   fresnelPower:  number;
   specAoMask:    number;
+  globalMetalness?: number;
 
   // ── 边缘光 (Rim) ─────────────────────────────────────────────────────────────
   rimStrength: number;
@@ -299,6 +300,7 @@ export function paramsToPreset(params: Record<string, any>, base: CenterpiecePre
     f0Dielectric:      params.f0Dielectric,
     fresnelPower:      params.fresnelPower,
     specAoMask:        params.specAoMask,
+    globalMetalness:   params.globalMetalness,
 
     rimStrength:       params.rimStrength,
     rimPower:          params.rimPower,
@@ -439,6 +441,7 @@ export function presetToParams(p: CenterpiecePreset): Record<string, number | st
     f0Dielectric: p.f0Dielectric,
     fresnelPower: p.fresnelPower,
     specAoMask:   p.specAoMask,
+    globalMetalness: p.globalMetalness ?? 1.0, // Decal _params 默认值,缺省时保持现状
 
     rimStrength: p.rimStrength,
     rimPower:    p.rimPower,
