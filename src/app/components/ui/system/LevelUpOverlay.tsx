@@ -44,7 +44,11 @@ export const LevelUpOverlay: React.FC = () => {
                     className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md"
                 >
                     {/* 装饰性背景光效 */}
-                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.1)_0%,transparent_70%)] animate-pulse" />
+                    <motion.div
+                        animate={{ opacity: [0.1, 0.4, 0.1] }}
+                        transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+                        className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.1)_0%,transparent_70%)]"
+                    />
                     
                     <motion.div 
                         initial={{ scale: 0.5, y: 50, opacity: 0 }}
