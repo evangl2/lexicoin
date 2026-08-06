@@ -54,7 +54,7 @@ export const RewardCinematicOverlay: React.FC<RewardCinematicOverlayProps> = ({ 
                             exit={{ opacity: 0, scale: 1.2, filter: 'blur(20px)' }}
                             className="flex flex-col items-center"
                         >
-                            <Sparkles className="text-amber-400 w-16 h-16 mb-4 animate-pulse" />
+                            <motion.div animate={{ scale: [1, 1.1, 1], opacity: [0.6, 1, 0.6] }} transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}><Sparkles className="text-amber-400 w-16 h-16 mb-4" /></motion.div>
                             <h2 className="text-3xl font-serif italic text-amber-100">Ritual Essence Extracted</h2>
                             <p className="text-amber-100/40 text-sm mt-2 font-mono uppercase tracking-[0.3em]">Processing Sacred Data...</p>
                         </motion.div>
@@ -108,7 +108,7 @@ export const RewardCinematicOverlay: React.FC<RewardCinematicOverlayProps> = ({ 
                             
                             {/* Card Container */}
                             <div className="relative">
-                                <div className="absolute inset-0 bg-amber-500/20 blur-3xl rounded-full scale-150 animate-pulse" />
+                                <motion.div animate={{ opacity: [0.2, 0.5, 0.2], scale: [1.4, 1.6, 1.4] }} transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }} className="absolute inset-0 bg-amber-500/20 blur-3xl rounded-full" />
                                 <div className="relative bg-black rounded-lg shadow-[0_0_50px_rgba(251,191,36,0.2)] border-2 border-amber-500/30 overflow-hidden transform hover:scale-105 transition-transform duration-500">
                                     <CompactCardVisual 
                                         mode="repository"
