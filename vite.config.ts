@@ -82,6 +82,11 @@ export default defineConfig({
                         if (id.includes('react-dnd') || id.includes('dnd-core')) {
                             return 'vendor-dnd';
                         }
+
+                        // Canvas / Pixi Engine
+                        if (id.includes('pixi.js') || id.includes('@pixi/')) {
+                            return 'vendor-pixi';
+                        }
                         
                         // Let Rollup handle other small dependencies naturally to avoid circular chunks
                     }
