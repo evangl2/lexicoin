@@ -10,7 +10,9 @@ import {
     CEFR_XP_COEFFICIENT,
     XP_SENSE_BASE,
     LEVEL_XP_THRESHOLDS,
-    MAX_LANGUAGE_LEVEL
+    MAX_LANGUAGE_LEVEL,
+    XP_FACTORS,
+    XP_CONSTRUCTION_FIXED
 } from '@/config/balance';
 import { GRIMOIRE_REWARDS } from '@/config/grimoireConfig';
 import type { Language, CEFRLevel, LanguageProgress, Grade } from '@/types/index';
@@ -85,11 +87,11 @@ class XPRegistry {
             case 'SENSE_COLLECTED':
                 return Math.floor(XP_SENSE_BASE * coef);
             case 'SENSE_DUPLICATED':
-                return Math.floor(XP_SENSE_BASE * 0.1);
+                return Math.floor(XP_SENSE_BASE * XP_FACTORS.DUPLICATE_FRACTION);
             case 'EVOLUTION_SUCCESS':
-                return Math.floor(XP_SENSE_BASE * coef * 2);
+                return Math.floor(XP_SENSE_BASE * coef * XP_FACTORS.EVOLUTION_MULTIPLIER);
             case 'CONSTRUCTION_CREATED':
-                return 50;
+                return XP_CONSTRUCTION_FIXED;
             case 'GRIMOIRE_COMPLETED':
                 return GRIMOIRE_REWARDS[grade as Grade]?.xp ?? 0;
             case 'DEBUG':

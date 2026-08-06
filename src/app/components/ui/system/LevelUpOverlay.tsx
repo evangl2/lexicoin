@@ -8,6 +8,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { messageBus } from '@core/protocol/MessageBus';
 import { useGameStore } from '@store/index';
+import { LEVEL_UP_DURATION_MS } from '@/config/timing';
 
 interface LevelUpData {
     language: string;
@@ -27,7 +28,7 @@ export const LevelUpOverlay: React.FC = () => {
             // 3 秒后自动消失
             setTimeout(() => {
                 setLevelData(null);
-            }, 3500);
+            }, LEVEL_UP_DURATION_MS);
         });
 
         return () => messageBus.unsubscribe('LEVEL_UP', sub);
