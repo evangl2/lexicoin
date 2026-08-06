@@ -10,7 +10,7 @@ Issues waiting for approval before fixing. See `daily/` for full context on each
 |---|----------|--------|----------|-------|
 | B-007 | 🟡 P1 | Forced Layout Thrashing in useTextFit hook | 2026-04-22 | Proposing removing visual safety check and getComputedStyle |
 | B-009 | 🟡 P1 | Forced Layout Thrashing in useTextFit hook | 2026-04-23 | Proposing removing visual safety check and getComputedStyle (repeated) |
-| B-010 | 🟡 P1 | Missing Timeout on Edge Function Invocations | 2026-04-24 | Proposing Promise.race timeout for useGrimoireSummoning / Interaction |
+| B-010 | 🟡 P1 | Missing Timeout on Edge Function Invocations | 2026-04-24 | Audited and proposed fix on 2026-05-01 (see daily report) |
 
 ---
 
