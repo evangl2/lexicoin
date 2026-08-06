@@ -18,6 +18,7 @@ import { useCardDrag } from '@/app/hooks/useCardDrag';
 import { getCardWCSlots } from '@/app/components/ui/card/CardWCSlots';
 import { usePersona } from '@/app/context/PersonaContext';
 import { useCanvasContext } from '@/app/context/CanvasContext';
+import { CARD_ANIMATION_LOCKOUT_MS } from '@/config/canvas';
 
 interface CardProps {
   cardData: CardEntity;
@@ -127,7 +128,7 @@ export const Card = React.memo<CardProps>(({
 
   const startAnimation = useCallback(() => {
     setIsAnimating(true);
-    setTimeout(() => setIsAnimating(false), 600);
+    setTimeout(() => setIsAnimating(false), CARD_ANIMATION_LOCKOUT_MS);
   }, []);
 
   const { isDraggingRef: _isDraggingRef } = useCardDrag({
