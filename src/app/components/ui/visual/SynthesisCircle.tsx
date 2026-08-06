@@ -203,7 +203,14 @@ export const SynthesisCircle: React.FC<SynthesisCircleProps> = React.memo(({
                 }}
             >
                 {/* Decorative Rings */}
-                <div className="absolute inset-4 rounded-full border border-dashed border-white/5 animate-[spin_60s_linear_infinite]" />
+                <motion.div
+                    className="absolute inset-4 rounded-full border border-dashed border-white/5"
+                    animate={{ rotate: 360, scale: [0.98, 1.02, 0.98] }}
+                    transition={{
+                        rotate: { duration: 60, repeat: Infinity, ease: "linear" },
+                        scale: { duration: 8, repeat: Infinity, ease: "easeInOut" }
+                    }}
+                />
                 <div className="absolute inset-12 rounded-full border border-white/5" />
 
                 {/* Slots Container */}
