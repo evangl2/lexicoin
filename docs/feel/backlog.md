@@ -22,3 +22,20 @@
 ## Accepted
 
 ## Rejected
+
+## Open
+
+### [🟡] Card Flip Spring is too loose
+- **Location**: `src/app/components/persona/default/Card.persona.default.tsx:287`
+- **Proposed change**: `flip: { stiffness: 220, damping: 24 }` → `flip: { stiffness: 280, damping: 28 }`
+- **Date Added**: 2026-04-27
+
+### [🟡] Drag Hover Lift missing anticipation
+- **Location**: `src/app/components/ui/card/Card.tsx:410` and `src/app/hooks/useCardDrag.ts:75`
+- **Proposed change**: Consider adding a very brief delay or a tighter curve (e.g. `scale: { stiffness: 400, damping: 30 }` just for hover state) to give the lift an explosive start.
+- **Date Added**: 2026-04-27
+
+### [🟢] Drag Drop lacks Follow-through audio
+- **Location**: `src/app/hooks/useCardDrag.ts:130`
+- **Proposed change**: Call `tts.speak('thud')` or a dedicated `playSFX('cardDrop')` in the `if (last)` block of `useDrag`.
+- **Date Added**: 2026-04-27
