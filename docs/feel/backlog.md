@@ -9,6 +9,10 @@
 - [🟢] FlavorCarousel text change transition (structural change — needs separate work)
 
 ## Tried
+- [🟡] SynthesisCircle Error Shake missing (2026-05-06)
+- [🟡] SynthesisCircle Success Burst lacks climax (2026-05-06)
+- [🟡] RewardCinematicOverlay Tally Card Entry is sluggish (2026-05-06)
+- [🟢] LevelUpOverlay Transition Arrow is static (2026-05-06)
 - [🟡] ConfigMenu slide-up is harsh and abrupt (2026-04-22)
 - [🟡] LevelUpOverlay backdrop appears instantly (2026-04-22)
 - [🟡] GrimoireOverlay enter animation feels rigid (2026-04-22)
