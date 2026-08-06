@@ -1,4 +1,9 @@
 ## Open
+
+- [🔴] SceneManager lacks transition
+- [🟡] LevelUpOverlay pop lacks overshoot
+- [🟡] ConfigMenu dropdown uses slow linear ease
+- [🟢] Grimoire progress ring lacks anticipation
 - [🟡] LevelUpOverlay radial background pulse feels default
 - [🟢] RewardCinematicOverlay Sparkles icon uses default pulse
 - [🟡] RewardCinematicOverlay Echo Reveal background uses default pulse
