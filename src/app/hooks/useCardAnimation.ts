@@ -261,16 +261,6 @@ export function useCardAnimation({
       promoted = false;
       applyDemoted();
 
-      // REDRAW PULSE: Briefly toggle a style property to force a high-res re-rasterization.
-      // This is especially effective for stubborn layers like scroll containers.
-      requestAnimationFrame(() => {
-        if (!wrapper.isConnected) return;
-        wrapper.style.opacity = '0.9999';
-        requestAnimationFrame(() => {
-          if (!wrapper.isConnected) return;
-          wrapper.style.opacity = '1';
-        });
-      });
     };
 
     let scaleSettleRaf: number | null = null;
