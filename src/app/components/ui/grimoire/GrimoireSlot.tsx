@@ -32,11 +32,11 @@ export const GrimoireSlot: React.FC<GrimoireSlotProps> = ({
     const senses = useGameStore(s => s.senses);
     const filledSense = senses.find(s => s.id === slot.senseId);
     const unfillSlot = useGameStore(s => s.unfillGrimoireSlot);
-    const player = useGameStore(s => s.player);
+    const settings = useGameStore(s => s.player?.settings);
 
     // Resolve actual language keys
-    const learningLangCode = player.settings.learningLang || 'en';
-    const systemLangCode = player.settings.interfaceLang || 'zh';
+    const learningLangCode = settings?.learningLang || 'en';
+    const systemLangCode = settings?.interfaceLang || 'zh';
     const activeLangCode = displayLang === 'learning' ? learningLangCode : systemLangCode;
     const secondaryLangCode = displayLang === 'learning' ? systemLangCode : learningLangCode;
 
