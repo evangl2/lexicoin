@@ -1,4 +1,7 @@
 ## Open
+- [🟡] ProgressionHUD level number lacks pop
+- [🟢] LevelUpOverlay transition arrow and new level appear statically
+- [🟡] SynthesisCircle status text changes abruptly
 - [🟡] LevelUpOverlay radial background pulse feels default
 - [🟢] RewardCinematicOverlay Sparkles icon uses default pulse
 - [🟡] RewardCinematicOverlay Echo Reveal background uses default pulse
