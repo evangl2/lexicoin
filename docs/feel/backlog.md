@@ -1,4 +1,9 @@
 ## Open
+- [🔴] Drag preview has no audio anchor (2026-05-11)
+- [🟢] Card hover scale feels lifeless (2026-05-11)
+- [🟡] Card snap-to-grid is overdamped (2026-05-11)
+- [🟡] Card flip is sluggish (2026-05-11)
+- [🟡] Card expand/zoom lacks punch (2026-05-11)
 - [🟡] LevelUpOverlay radial background pulse feels default
 - [🟢] RewardCinematicOverlay Sparkles icon uses default pulse
 - [🟡] RewardCinematicOverlay Echo Reveal background uses default pulse
