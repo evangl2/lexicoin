@@ -11,6 +11,7 @@ Issues waiting for approval before fixing. See `daily/` for full context on each
 | B-007 | 🟡 P1 | Forced Layout Thrashing in useTextFit hook | 2026-04-22 | Proposing removing visual safety check and getComputedStyle |
 | B-009 | 🟡 P1 | Forced Layout Thrashing in useTextFit hook | 2026-04-23 | Proposing removing visual safety check and getComputedStyle (repeated) |
 | B-010 | 🟡 P1 | Missing Timeout on Edge Function Invocations | 2026-04-24 | Proposing Promise.race timeout for useGrimoireSummoning / Interaction |
+| B-012 | 🟡 P1 | Over-eager Persistence of Canvas View | 2026-05-07 | Proposing removing `canvasView` from `partialize` whitelist |
 
 ---
 
@@ -18,6 +19,7 @@ Issues waiting for approval before fixing. See `daily/` for full context on each
 
 | # | Priority | Title | Resolved | Notes |
 |---|----------|--------|----------|-------|
+| B-013 | 🟢 P2 | O(N) Array Iteration on Existing Reference | 2026-05-07 | Auto-fixed by removing `useShallow` from `SceneManager.tsx` |
 | B-011 | 🟢 P2 | O(N) Sequential Database I/O during Export/Import | 2026-04-24 | Auto-fixed using Promise.all |
 | P-001 | ⚪ P3 | ProgressionHUD primitive extraction verbose | 2026-04-20 | Auto-fixed missing `useShallow` for object state selector |
 | B-001 | 🟡 P1 | No bundle chunking — all deps in one JS file | 2026-04-19 | `manualChunks` added to `vite.config.ts` (6 vendor chunks) |
