@@ -1,4 +1,7 @@
 ## Open
+- [🟡] Camera Centering lacks anticipation and settles too mechanically
+- [🟡] Camera FlyTo lacks weight
+- [🟢] Pan limits are strict walls
 - [🟡] LevelUpOverlay radial background pulse feels default
 - [🟢] RewardCinematicOverlay Sparkles icon uses default pulse
 - [🟡] RewardCinematicOverlay Echo Reveal background uses default pulse
